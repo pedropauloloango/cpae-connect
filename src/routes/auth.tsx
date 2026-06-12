@@ -31,7 +31,7 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error("Não foi possível entrar", { description: error.message });
     toast.success("Bem-vindo!");
-    navigate({ to: "/app/dashboard" });
+    navigate({ to: "/dashboard" });
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -39,7 +39,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/app/dashboard`, data: { full_name: fullName } },
+      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: fullName } },
     });
     setLoading(false);
     if (error) return toast.error("Não foi possível criar a conta", { description: error.message });
@@ -48,7 +48,7 @@ function AuthPage() {
 
   const google = async () => {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/app/dashboard" });
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/dashboard" });
     if (result.error) { setLoading(false); toast.error("Falha no Google", { description: String(result.error.message ?? result.error) }); }
   };
 
