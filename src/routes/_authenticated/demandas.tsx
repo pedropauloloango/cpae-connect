@@ -32,7 +32,7 @@ function Demandas() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
-      if (status !== "todos") qb = qb.eq("status", status as Req["status"]);
+      if (status !== "todos") qb = qb.eq("status", status as "recebida");
       const { data, error } = await qb;
       if (error) throw error;
       return (data ?? []) as unknown as Req[];

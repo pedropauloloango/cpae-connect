@@ -141,7 +141,7 @@ function DemandaDetail() {
         </TabsContent>
 
         <TabsContent value="encontros">
-          <EncontrosTab requestId={id} meetings={meetings} professionalId={req?.assigned_professional_id} />
+          <EncontrosTab requestId={id} meetings={meetings} professionalId={req?.assigned_professional_id ?? null} />
         </TabsContent>
 
         <TabsContent value="encerramento">
@@ -154,7 +154,7 @@ function DemandaDetail() {
             <CardContent>
               {logs.length === 0 && <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>}
               <ol className="space-y-4">
-                {logs.map((l: { id: string; action: string; actor_label: string | null; created_at: string; details: Record<string, unknown> | null }) => (
+                {(logs as unknown as Array<{ id: string; action: string; actor_label: string | null; created_at: string; details: Record<string, unknown> | null }>).map((l) => (
                   <li key={l.id} className="flex gap-3">
                     <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                       <Clock className="h-3.5 w-3.5" />
