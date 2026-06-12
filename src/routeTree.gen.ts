@@ -13,8 +13,12 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedProfissionaisRouteImport } from './routes/_authenticated/profissionais'
+import { Route as AuthenticatedEscolasRouteImport } from './routes/_authenticated/escolas'
 import { Route as AuthenticatedDemandasRouteImport } from './routes/_authenticated/demandas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authenticated/aprovacoes'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -36,6 +40,17 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProfissionaisRoute =
+  AuthenticatedProfissionaisRouteImport.update({
+    id: '/profissionais',
+    path: '/profissionais',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedEscolasRoute = AuthenticatedEscolasRouteImport.update({
+  id: '/escolas',
+  path: '/escolas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDemandasRoute = AuthenticatedDemandasRouteImport.update({
   id: '/demandas',
   path: '/demandas',
@@ -44,6 +59,16 @@ const AuthenticatedDemandasRoute = AuthenticatedDemandasRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAprovacoesRoute = AuthenticatedAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDemandasIdRoute = AuthenticatedDemandasIdRouteImport.update({
@@ -56,16 +81,24 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/demandas': typeof AuthenticatedDemandasRouteWithChildren
+  '/escolas': typeof AuthenticatedEscolasRoute
+  '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/demandas': typeof AuthenticatedDemandasRouteWithChildren
+  '/escolas': typeof AuthenticatedEscolasRoute
+  '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
 }
 export interface FileRoutesById {
@@ -74,8 +107,12 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/demandas': typeof AuthenticatedDemandasRouteWithChildren
+  '/_authenticated/escolas': typeof AuthenticatedEscolasRoute
+  '/_authenticated/profissionais': typeof AuthenticatedProfissionaisRoute
   '/_authenticated/demandas/$id': typeof AuthenticatedDemandasIdRoute
 }
 export interface FileRouteTypes {
@@ -84,16 +121,24 @@ export interface FileRouteTypes {
     | '/'
     | '/acolhimento'
     | '/auth'
+    | '/agenda'
+    | '/aprovacoes'
     | '/dashboard'
     | '/demandas'
+    | '/escolas'
+    | '/profissionais'
     | '/demandas/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/acolhimento'
     | '/auth'
+    | '/agenda'
+    | '/aprovacoes'
     | '/dashboard'
     | '/demandas'
+    | '/escolas'
+    | '/profissionais'
     | '/demandas/$id'
   id:
     | '__root__'
@@ -101,8 +146,12 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/acolhimento'
     | '/auth'
+    | '/_authenticated/agenda'
+    | '/_authenticated/aprovacoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/demandas'
+    | '/_authenticated/escolas'
+    | '/_authenticated/profissionais'
     | '/_authenticated/demandas/$id'
   fileRoutesById: FileRoutesById
 }
@@ -143,6 +192,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/profissionais': {
+      id: '/_authenticated/profissionais'
+      path: '/profissionais'
+      fullPath: '/profissionais'
+      preLoaderRoute: typeof AuthenticatedProfissionaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/escolas': {
+      id: '/_authenticated/escolas'
+      path: '/escolas'
+      fullPath: '/escolas'
+      preLoaderRoute: typeof AuthenticatedEscolasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/demandas': {
       id: '/_authenticated/demandas'
       path: '/demandas'
@@ -155,6 +218,20 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/aprovacoes': {
+      id: '/_authenticated/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/aprovacoes'
+      preLoaderRoute: typeof AuthenticatedAprovacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/demandas/$id': {
@@ -181,13 +258,21 @@ const AuthenticatedDemandasRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedAprovacoesRoute: typeof AuthenticatedAprovacoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDemandasRoute: typeof AuthenticatedDemandasRouteWithChildren
+  AuthenticatedEscolasRoute: typeof AuthenticatedEscolasRoute
+  AuthenticatedProfissionaisRoute: typeof AuthenticatedProfissionaisRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedAprovacoesRoute: AuthenticatedAprovacoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDemandasRoute: AuthenticatedDemandasRouteWithChildren,
+  AuthenticatedEscolasRoute: AuthenticatedEscolasRoute,
+  AuthenticatedProfissionaisRoute: AuthenticatedProfissionaisRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -202,3 +287,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
