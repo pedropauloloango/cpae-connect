@@ -1,6 +1,4 @@
-import { generator } from '@tanstack/router-generator';
-import { getConfig } from '@tanstack/router-plugin/dist/esm/core/config.js';
-const config = getConfig({}, process.cwd());
-console.log('routesDir:', config.routesDirectory, 'gen:', config.generatedRouteTree);
+import { generator, getConfig } from '@tanstack/router-generator';
+const config = getConfig({ routesDirectory: './src/routes', generatedRouteTree: './src/routeTree.gen.ts' }, process.cwd());
 await generator(config, process.cwd());
-console.log('Generated.');
+console.log('Generated:', config.generatedRouteTree);
