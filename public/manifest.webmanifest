@@ -1,0 +1,15 @@
+{
+  "name": "Gestão de Sistemas CPAE",
+  "short_name": "CPAE",
+  "description": "HUB de sistemas da CPAE — Acolhimento, Visitas, Projetos e mais.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#1e3a8a",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
