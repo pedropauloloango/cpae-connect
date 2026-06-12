@@ -22,7 +22,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (session && !authLoading) navigate({ to: "/app/dashboard" });
+    if (session && !authLoading) navigate({ to: "/dashboard" });
   }, [session, authLoading, navigate]);
 
   const signIn = async (email: string, password: string) => {
