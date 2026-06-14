@@ -11,19 +11,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
-import { complaintTypeLabels, requestStatusLabels, requestStatusTone, meetingNumberLabels, reportStatusLabels, closureResultLabels } from "@/lib/labels";
+import { complaintTypeLabels, meetingNumberLabels, closureResultLabels } from "@/lib/labels";
+import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
+import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
+import { MeetingPendingApprovalBadge } from "@/components/requests/MeetingCountIndicators";
+import {
+  activityLogTitle,
+  collectActivityLogLookupIds,
+  formatActivityLogDescription,
+  type ActivityLogRow,
+} from "@/lib/activity-log-descriptions";
+import { EncontrosTab } from "@/components/meetings/EncontrosTab";
+import { getNextEncontroAction, type RequestAppointment } from "@/lib/meeting-schedule";
 import { toast } from "sonner";
-import { ArrowLeft, UserPlus, Send, Check, X, Clock, FileText, MessageSquare, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, UserPlus, UserMinus, Check, X, Clock, FileText, Calendar, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/$id")({ component: DemandaDetail });
 
 function DemandaDetail() {
   const { id } = useParams({ from: "/_authenticated/demandas/$id" });
-  const qc = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState("info");
+  const [openMeetingForm, setOpenMeetingForm] = useState(false);
+  const [openScheduleForm, setOpenScheduleForm] = useState(false);
 
-  const { data: req } = useQuery({
+  const { data: req, isLoading, isError, error } = useQuery({
     queryKey: ["request", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -33,6 +57,8 @@ function DemandaDetail() {
       if (error) throw error; return data;
     },
   });
+
+  const formSections = req ? buildAcolhimentoFormSections(req) : [];
 
   const { data: meetings = [] } = useQuery({
     queryKey: ["meetings", id],
@@ -50,6 +76,19 @@ function DemandaDetail() {
     },
   });
 
+  const { data: appointments = [] } = useQuery({
+    queryKey: ["appointments", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("id, numero, tipo, inicio, fim, representante_cargo, representante_nome, observacoes")
+        .eq("request_id", id)
+        .order("inicio");
+      if (error) throw error;
+      return (data ?? []) as RequestAppointment[];
+    },
+  });
+
   const { data: closure } = useQuery({
     queryKey: ["closure", id],
     queryFn: async () => {
@@ -58,27 +97,10 @@ function DemandaDetail() {
     },
   });
 
-  const { data: professionals = [] } = useQuery({
-    queryKey: ["professionals-active"],
-    queryFn: async () => {
-      const { data } = await supabase.from("professionals").select("id, nome").eq("status", "ativo").is("deleted_at", null).order("nome");
-      return data ?? [];
-    },
-    enabled: isAdmin,
-  });
-
-  const assignMut = useMutation({
-    mutationFn: async (professional_id: string) => {
-      const { error } = await supabase.from("requests").update({
-        assigned_professional_id: professional_id, assigned_at: new Date().toISOString(),
-        assigned_by: user?.id, status: "distribuida",
-      }).eq("id", id);
-      if (error) throw error;
-      await supabase.from("activity_logs").insert({ request_id: id, actor_id: user?.id, action: "atribuicao", details: { professional_id } });
-    },
-    onSuccess: () => { toast.success("Profissional atribuído."); qc.invalidateQueries({ queryKey: ["request", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
-  });
+  const nextAction = getNextEncontroAction(appointments, meetings);
+  const scheduleNumero = nextAction?.type === "schedule" ? nextAction.numero : null;
+  const registerNumero = nextAction?.type === "register" ? nextAction.numero : null;
+  const registerAppointment = nextAction?.type === "register" ? nextAction.appointment : null;
 
   return (
     <div>
@@ -87,61 +109,128 @@ function DemandaDetail() {
       </Link>
       <PageHeader
         title={req?.aluno_nome ?? "Demanda"}
-        description={req ? `Protocolo ${req.numero} • ${complaintTypeLabels[req.tipo_queixa]}` : ""}
-        actions={req && <Badge variant="outline" className={`${requestStatusTone[req.status]} text-xs`}>{requestStatusLabels[req.status]}</Badge>}
+        description={req ? `Protocolo ${req.numero}${req.tipo_queixa ? ` • ${complaintTypeLabels[req.tipo_queixa]}` : ""}` : ""}
+        actions={req && <RequestStatusBadge status={req.status} />}
       />
 
-      <Tabs defaultValue="info" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 sm:w-auto sm:inline-grid">
-          <TabsTrigger value="info">Informações</TabsTrigger>
-          <TabsTrigger value="encontros">Encontros</TabsTrigger>
-          <TabsTrigger value="encerramento">Encerramento</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-        </TabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => {
+          setActiveTab(tab);
+          if (tab !== "encontros") {
+            setOpenMeetingForm(false);
+            setOpenScheduleForm(false);
+          }
+        }}
+        className="space-y-4"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className={`grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:inline-grid lg:w-auto ${isAdmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+            <TabsTrigger value="info">Informações</TabsTrigger>
+            {isAdmin && <TabsTrigger value="atribuicao">Atribuição</TabsTrigger>}
+            <TabsTrigger value="encontros" className="gap-1.5">
+              Encontros
+              <MeetingPendingApprovalBadge meetings={meetings} />
+            </TabsTrigger>
+            <TabsTrigger value="encerramento">Encerramento</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="info" className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">Detalhes</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 text-sm">
-              <Field label="Aluno" value={req?.aluno_nome} />
-              <Field label="Data de nascimento" value={req?.aluno_nascimento ? new Date(req.aluno_nascimento).toLocaleDateString("pt-BR") : "—"} />
-              <Field label="Série / Turma" value={`${req?.aluno_serie ?? "—"} / ${req?.aluno_turma ?? "—"}`} />
-              <Field label="Escola" value={req?.school_nome_snapshot} />
-              <Field label="Região" value={req?.school?.regiao ?? "—"} />
-              <Field label="Diretor" value={req?.diretor_responsavel ?? "—"} />
-              <Field label="Responsável" value={req?.responsavel_nome ?? "—"} />
-              <Field label="Telefone do responsável" value={req?.responsavel_telefone ?? "—"} />
-              <div className="sm:col-span-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Descrição</Label>
-                <p className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{req?.descricao}</p>
-              </div>
-            </CardContent>
-          </Card>
+          {activeTab === "encontros" && scheduleNumero && !openScheduleForm && !openMeetingForm && (
+            <Button onClick={() => setOpenScheduleForm(true)} className="shrink-0 self-end sm:self-auto">
+              <Calendar className="mr-2 h-4 w-4" />
+              Agendar visita — {meetingNumberLabels[scheduleNumero]}
+            </Button>
+          )}
+          {activeTab === "encontros" && registerNumero && !openMeetingForm && !openScheduleForm && (
+            <Button onClick={() => setOpenMeetingForm(true)} className="shrink-0 self-end sm:self-auto">
+              <FileText className="mr-2 h-4 w-4" />
+              Registrar {meetingNumberLabels[registerNumero]}
+            </Button>
+          )}
+        </div>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><UserPlus className="h-4 w-4" /> Atribuição</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Profissional atual</div>
-                <div className="mt-1 font-medium">{req?.professional?.nome ?? <span className="text-muted-foreground">Não atribuído</span>}</div>
-              </div>
-              {isAdmin && (
-                <div className="space-y-2 border-t pt-3">
-                  <Label>Atribuir / reatribuir</Label>
-                  <Select onValueChange={(v) => assignMut.mutate(v)} disabled={assignMut.isPending}>
-                    <SelectTrigger><SelectValue placeholder="Escolher profissional…" /></SelectTrigger>
-                    <SelectContent>
-                      {professionals.map((p) => (<SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="info" className="space-y-4">
+          {isLoading && (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">Carregando solicitação…</CardContent>
+            </Card>
+          )}
+
+          {isError && (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-destructive">
+                Não foi possível carregar a solicitação.{error instanceof Error ? ` ${error.message}` : ""}
+              </CardContent>
+            </Card>
+          )}
+
+          {req && (
+            <>
+              <Card>
+                <CardHeader><CardTitle className="text-base">Protocolo</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <FormAnswerField item={{ number: 0, question: "Número", answer: req.numero }} hideNumber />
+                    <FormAnswerField
+                      item={{ number: 0, question: "Recebida em", answer: new Date(req.created_at).toLocaleString("pt-BR") }}
+                      hideNumber
+                    />
+                    <div className="space-y-1.5">
+                      <Label className="font-normal leading-snug text-muted-foreground">Status</Label>
+                      <div className="flex min-h-9 items-center rounded-md border border-input bg-muted/40 px-3 py-2">
+                        <RequestStatusBadge status={req.status} />
+                      </div>
+                    </div>
+                    <FormAnswerField
+                      item={{
+                        number: 0,
+                        question: "Tipo de queixa (derivado)",
+                        answer: req.tipo_queixa ? complaintTypeLabels[req.tipo_queixa] : "—",
+                      }}
+                      hideNumber
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {formSections.map((section) => (
+                <FormSectionCard key={section.title} section={section} />
+              ))}
+            </>
+          )}
         </TabsContent>
 
+        {isAdmin && (
+          <TabsContent value="atribuicao">
+            <AtribuicaoTab
+              requestId={id}
+              assignedProfessionalId={req?.assigned_professional_id ?? null}
+              assignedAt={req?.assigned_at ?? null}
+              professionalName={req?.professional?.nome ?? null}
+              status={req?.status ?? null}
+              isAdmin={isAdmin}
+            />
+          </TabsContent>
+        )}
+
         <TabsContent value="encontros">
-          <EncontrosTab requestId={id} meetings={meetings} professionalId={req?.assigned_professional_id ?? null} />
+          <EncontrosTab
+            requestId={id}
+            protocolo={req?.numero ?? ""}
+            escolaNome={req?.school_nome_snapshot ?? req?.school?.nome ?? "Escola"}
+            schoolId={req?.school_id ?? null}
+            meetings={meetings}
+            appointments={appointments}
+            professionalId={req?.assigned_professional_id ?? null}
+            registerNumero={registerNumero}
+            scheduleNumero={scheduleNumero}
+            openRegisterForm={openMeetingForm}
+            openScheduleForm={openScheduleForm}
+            onOpenRegisterFormChange={setOpenMeetingForm}
+            onOpenScheduleFormChange={setOpenScheduleForm}
+            registerAppointment={registerAppointment}
+          />
         </TabsContent>
 
         <TabsContent value="encerramento">
@@ -149,45 +238,131 @@ function DemandaDetail() {
         </TabsContent>
 
         <TabsContent value="timeline">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Histórico</CardTitle></CardHeader>
-            <CardContent>
-              {logs.length === 0 && <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>}
-              <ol className="space-y-4">
-                {(logs as unknown as Array<{ id: string; action: string; actor_label: string | null; created_at: string; details: Record<string, unknown> | null }>).map((l) => (
-                  <li key={l.id} className="flex gap-3">
-                    <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                      <Clock className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1 border-l-2 border-border pl-4 pb-2">
-                      <div className="text-sm font-medium">{actionLabel(l.action)}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("pt-BR")} • {l.actor_label ?? "Sistema"}</div>
-                      {l.details && Object.keys(l.details).length > 0 && (
-                        <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2 text-[11px]">{JSON.stringify(l.details, null, 2)}</pre>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
+          <TimelineTab logs={logs as ActivityLogRow[]} request={req} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function actionLabel(a: string) {
-  return ({
-    solicitacao_criada: "Solicitação criada",
-    atribuicao: "Profissional atribuído",
-    encontro_registrado: "Encontro registrado",
-    encontro_enviado_aprovacao: "Encontro enviado para aprovação",
-    aprovacao_aprovado: "Relato aprovado",
-    aprovacao_rejeitado: "Relato rejeitado",
-    aprovacao_correcao_solicitada: "Correção solicitada",
-    caso_encerrado: "Caso encerrado",
-  } as Record<string, string>)[a] ?? a;
+function TimelineTab({
+  logs,
+  request,
+}: {
+  logs: ActivityLogRow[];
+  request: Record<string, unknown> | null | undefined;
+}) {
+  const { professionalIds, actorIds } = collectActivityLogLookupIds(logs);
+
+  const { data: professionalNames = {} } = useQuery({
+    queryKey: ["timeline-professionals", professionalIds],
+    queryFn: async () => {
+      if (professionalIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("professionals")
+        .select("id, nome")
+        .in("id", professionalIds);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((p) => [p.id, p.nome]));
+    },
+    enabled: professionalIds.length > 0,
+  });
+
+  const { data: actorNames = {} } = useQuery({
+    queryKey: ["timeline-actors", actorIds],
+    queryFn: async () => {
+      if (actorIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", actorIds);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((p) => [p.id, p.full_name]));
+    },
+    enabled: actorIds.length > 0,
+  });
+
+  const ctx = {
+    request: request
+      ? {
+          numero: String(request.numero ?? ""),
+          solicitante_nome: request.solicitante_nome as string | null | undefined,
+          solicitante_cargo: request.solicitante_cargo as string | null | undefined,
+          solicitante_nome_cargo: request.solicitante_nome_cargo as string | null | undefined,
+        }
+      : null,
+    professionalNames,
+    actorNames,
+  };
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">Histórico</CardTitle></CardHeader>
+      <CardContent>
+        {logs.length === 0 && <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>}
+        <ol className="space-y-4">
+          {logs.map((l) => (
+            <li key={l.id} className="flex gap-3">
+              <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                <Clock className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1 border-l-2 border-border pl-4 pb-2">
+                <div className="text-sm font-medium">{activityLogTitle(l.action)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(l.created_at).toLocaleString("pt-BR")} • {l.actor_label ?? "Sistema"}
+                </div>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {formatActivityLogDescription(l, ctx)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FormSectionCard({ section }: { section: AcolhimentoFormSection }) {
+  const rows = getSectionLayoutRows(section);
+  const itemByNumber = Object.fromEntries(section.items.map((i) => [i.number, i]));
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{section.title}</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {rows.map((row, idx) => (
+          <div key={idx} className={row.length > 1 ? "grid gap-4 sm:grid-cols-2" : undefined}>
+            {row.map((num) => {
+              const item = itemByNumber[num];
+              return item ? <FormAnswerField key={num} item={item} /> : null;
+            })}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FormAnswerField({
+  item,
+  hideNumber,
+  answerSlot,
+}: {
+  item: AcolhimentoFormAnswer;
+  hideNumber?: boolean;
+  answerSlot?: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="font-normal leading-snug text-muted-foreground">
+        {hideNumber ? item.question : `${item.number}. ${item.question}`}
+      </Label>
+      <div className={`min-h-9 whitespace-pre-wrap rounded-md border border-input bg-muted/40 px-3 py-2 text-sm${hideNumber && item.question === "Número" ? " font-mono" : ""}`}>
+        {answerSlot ?? item.answer}
+      </div>
+    </div>
+  );
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -199,111 +374,214 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function EncontrosTab({ requestId, meetings, professionalId }: { requestId: string; meetings: Array<Record<string, unknown>>; professionalId: string | null }) {
+function AtribuicaoTab({
+  requestId,
+  assignedProfessionalId,
+  assignedAt,
+  professionalName,
+  status,
+  isAdmin,
+}: {
+  requestId: string;
+  assignedProfessionalId: string | null;
+  assignedAt: string | null;
+  professionalName: string | null;
+  status: string | null;
+  isAdmin: boolean;
+}) {
   const qc = useQueryClient();
-  const { user, isAdmin } = useAuth();
-  const [openForm, setOpenForm] = useState(false);
-  const used = new Set(meetings.map((m) => m.numero as string));
-  const next = (["primeiro", "segundo", "terceiro"] as const).find((n) => !used.has(n));
+  const { user } = useAuth();
+  const [selectedProfessional, setSelectedProfessional] = useState("");
 
-  const createMut = useMutation({
-    mutationFn: async (vals: { numero: string; tipo: string; data_atendimento: string; relato_texto: string; observacoes: string }) => {
-      const { error } = await supabase.from("meetings").insert({
-        request_id: requestId, professional_id: professionalId,
-        numero: vals.numero as "primeiro" | "segundo" | "terceiro",
-        tipo: vals.tipo as "acolhimento", data_atendimento: vals.data_atendimento,
-        relato_texto: vals.relato_texto, observacoes: vals.observacoes, status: "rascunho",
+  const { data: professionals = [], isLoading: loadingProfessionals } = useQuery({
+    queryKey: ["professionals-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("professionals")
+        .select("id, nome")
+        .eq("status", "ativo")
+        .is("deleted_at", null)
+        .order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: isAdmin,
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["request", requestId] });
+    qc.invalidateQueries({ queryKey: ["logs", requestId] });
+    qc.invalidateQueries({ queryKey: ["demandas"] });
+  };
+
+  const assignMut = useMutation({
+    mutationFn: async (professionalId: string) => {
+      const { error } = await supabase
+        .from("requests")
+        .update({
+          assigned_professional_id: professionalId,
+          assigned_at: new Date().toISOString(),
+          assigned_by: user?.id,
+          status: "distribuida",
+        })
+        .eq("id", requestId);
+      if (error) throw error;
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: "atribuicao",
+        details: { professional_id: professionalId },
       });
-      if (error) throw error;
-      await supabase.from("activity_logs").insert({ request_id: requestId, actor_id: user?.id, action: "encontro_registrado", details: { numero: vals.numero } });
     },
-    onSuccess: () => { toast.success("Encontro registrado."); qc.invalidateQueries({ queryKey: ["meetings", requestId] }); qc.invalidateQueries({ queryKey: ["logs", requestId] }); setOpenForm(false); },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
+    onSuccess: () => {
+      toast.success("Profissional atribuído.");
+      setSelectedProfessional("");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error("Erro ao atribuir", { description: e.message }),
   });
 
-  const sendMut = useMutation({
-    mutationFn: async (meetingId: string) => {
-      const { error } = await supabase.from("meetings").update({ status: "aguardando_aprovacao", submitted_at: new Date().toISOString() }).eq("id", meetingId);
+  const unassignMut = useMutation({
+    mutationFn: async () => {
+      const previousProfessionalId = assignedProfessionalId;
+      const { error } = await supabase
+        .from("requests")
+        .update({
+          assigned_professional_id: null,
+          assigned_at: null,
+          assigned_by: null,
+          status: "recebida",
+        })
+        .eq("id", requestId);
       if (error) throw error;
-      await supabase.from("requests").update({ status: "aguardando_aprovacao" }).eq("id", requestId);
-      await supabase.from("activity_logs").insert({ request_id: requestId, actor_id: user?.id, action: "encontro_enviado_aprovacao", details: { meeting_id: meetingId } });
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: "atribuicao_desfeita",
+        details: { previous_professional_id: previousProfessionalId },
+      });
     },
-    onSuccess: () => { toast.success("Enviado para aprovação."); qc.invalidateQueries({ queryKey: ["meetings", requestId] }); qc.invalidateQueries({ queryKey: ["request", requestId] }); qc.invalidateQueries({ queryKey: ["logs", requestId] }); },
+    onSuccess: () => {
+      toast.success("Atribuição desfeita.");
+      setSelectedProfessional("");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error("Erro ao desfazer atribuição", { description: e.message }),
   });
+
+  const handleAssign = () => {
+    if (!selectedProfessional) return;
+    assignMut.mutate(selectedProfessional);
+  };
 
   return (
     <div className="space-y-4">
-      {meetings.length === 0 && <Card><CardContent className="p-8 text-center text-muted-foreground">Nenhum encontro registrado ainda.</CardContent></Card>}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <UserPlus className="h-4 w-4" /> Situação da atribuição
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormAnswerField
+              item={{
+                number: 0,
+                question: "Profissional responsável",
+                answer: professionalName ?? "Não atribuído",
+              }}
+              hideNumber
+            />
+            <FormAnswerField
+              item={{
+                number: 0,
+                question: "Status da demanda",
+                answer: "",
+              }}
+              hideNumber
+              answerSlot={status ? <RequestStatusBadge status={status} /> : <span className="text-sm">—</span>}
+            />
+          </div>
+          <FormAnswerField
+            item={{
+              number: 0,
+              question: "Atribuída em",
+              answer: assignedAt ? new Date(assignedAt).toLocaleString("pt-BR") : "—",
+            }}
+            hideNumber
+          />
+        </CardContent>
+      </Card>
 
-      {meetings.map((m) => {
-        const meeting = m as { id: string; numero: string; status: string; data_atendimento: string; relato_texto: string | null; observacoes: string | null };
-        return (
-          <Card key={meeting.id}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="h-4 w-4" /> {meetingNumberLabels[meeting.numero]}</CardTitle>
-              <Badge variant="outline">{reportStatusLabels[meeting.status]}</Badge>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="text-muted-foreground">{new Date(meeting.data_atendimento).toLocaleString("pt-BR")}</div>
-              {meeting.relato_texto && <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3">{meeting.relato_texto}</div>}
-              {meeting.observacoes && <div className="text-xs text-muted-foreground">Obs: {meeting.observacoes}</div>}
-              {meeting.status === "rascunho" && (
-                <Button size="sm" onClick={() => sendMut.mutate(meeting.id)} disabled={sendMut.isPending}>
-                  <Send className="mr-2 h-3.5 w-3.5" /> Enviar para Aprovação
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {next && !openForm && (
-        <Button onClick={() => setOpenForm(true)} variant="outline" className="w-full">
-          <FileText className="mr-2 h-4 w-4" /> Registrar {meetingNumberLabels[next]}
-        </Button>
+      {!isAdmin && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Somente administradores podem atribuir ou desfazer atribuições.
+          </CardContent>
+        </Card>
       )}
 
-      {next && openForm && (
+      {isAdmin && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Registrar {meetingNumberLabels[next]}</CardTitle></CardHeader>
-          <CardContent>
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                createMut.mutate({
-                  numero: next,
-                  tipo: String(f.get("tipo") ?? "acolhimento"),
-                  data_atendimento: String(f.get("data")),
-                  relato_texto: String(f.get("relato")),
-                  observacoes: String(f.get("obs") ?? ""),
-                });
-              }}
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label>Data do atendimento *</Label><Input name="data" type="datetime-local" required defaultValue={new Date().toISOString().slice(0, 16)} /></div>
-                <div className="space-y-1.5">
-                  <Label>Tipo</Label>
-                  <Select name="tipo" defaultValue="acolhimento">
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="acolhimento">Acolhimento</SelectItem>
-                      <SelectItem value="visita_tecnica">Visita Técnica</SelectItem>
-                      <SelectItem value="reuniao">Reunião</SelectItem>
-                      <SelectItem value="outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1.5"><Label>Relato *</Label><Textarea name="relato" rows={6} required /></div>
-              <div className="space-y-1.5"><Label>Observações</Label><Textarea name="obs" rows={2} /></div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={createMut.isPending}>Salvar como rascunho</Button>
-                <Button type="button" variant="ghost" onClick={() => setOpenForm(false)}>Cancelar</Button>
-              </div>
-              {!isAdmin && !professionalId && <p className="text-xs text-warning-foreground">Esta demanda ainda não está atribuída a um profissional.</p>}
-            </form>
+          <CardHeader>
+            <CardTitle className="text-base">Encaminhar ao profissional</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Profissional</Label>
+              <Select
+                value={selectedProfessional}
+                onValueChange={setSelectedProfessional}
+                disabled={loadingProfessionals || assignMut.isPending}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingProfessionals ? "Carregando…" : "Escolher profissional…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {professionals.length === 0 && (
+                    <SelectItem value="__empty" disabled>Nenhum profissional ativo cadastrado</SelectItem>
+                  )}
+                  {professionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleAssign}
+                disabled={!selectedProfessional || assignMut.isPending || professionals.length === 0}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                {assignedProfessionalId ? "Reatribuir" : "Atribuir"}
+              </Button>
+
+              {assignedProfessionalId && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" disabled={unassignMut.isPending}>
+                      <UserMinus className="mr-2 h-4 w-4" />
+                      Desfazer atribuição
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Desfazer atribuição?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        A demanda será removida de {professionalName ?? "o profissional atual"} e voltará ao status
+                        &quot;Solicitação Recebida&quot;. Esta ação ficará registrada na timeline.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => unassignMut.mutate()}>
+                        Confirmar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

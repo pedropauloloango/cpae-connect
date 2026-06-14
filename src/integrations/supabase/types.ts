@@ -59,8 +59,11 @@ export type Database = {
           fim: string
           id: string
           inicio: string
+          numero: Database["public"]["Enums"]["meeting_number"] | null
           observacoes: string | null
           professional_id: string | null
+          representante_cargo: Database["public"]["Enums"]["school_representative_role"] | null
+          representante_nome: string | null
           request_id: string | null
           school_id: string | null
           tipo: Database["public"]["Enums"]["meeting_type"]
@@ -73,8 +76,11 @@ export type Database = {
           fim: string
           id?: string
           inicio: string
+          numero?: Database["public"]["Enums"]["meeting_number"] | null
           observacoes?: string | null
           professional_id?: string | null
+          representante_cargo?: Database["public"]["Enums"]["school_representative_role"] | null
+          representante_nome?: string | null
           request_id?: string | null
           school_id?: string | null
           tipo?: Database["public"]["Enums"]["meeting_type"]
@@ -87,8 +93,11 @@ export type Database = {
           fim?: string
           id?: string
           inicio?: string
+          numero?: Database["public"]["Enums"]["meeting_number"] | null
           observacoes?: string | null
           professional_id?: string | null
+          representante_cargo?: Database["public"]["Enums"]["school_representative_role"] | null
+          representante_nome?: string | null
           request_id?: string | null
           school_id?: string | null
           tipo?: Database["public"]["Enums"]["meeting_type"]
@@ -248,6 +257,7 @@ export type Database = {
       }
       meetings: {
         Row: {
+          appointment_id: string | null
           created_at: string
           data_atendimento: string
           id: string
@@ -263,6 +273,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          appointment_id?: string | null
           created_at?: string
           data_atendimento: string
           id?: string
@@ -278,6 +289,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          appointment_id?: string | null
           created_at?: string
           data_atendimento?: string
           id?: string
@@ -362,6 +374,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: Database["public"]["Enums"]["account_status"]
           avatar_url: string | null
           created_at: string
           email: string | null
@@ -371,6 +384,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -380,6 +394,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -392,72 +407,120 @@ export type Database = {
       }
       requests: {
         Row: {
+          acolhido_anteriormente: boolean | null
           aluno_nascimento: string | null
           aluno_nome: string
+          aluno_sexo: string | null
           aluno_serie: string | null
           aluno_turma: string | null
+          aluno_turma_ano: string | null
           assigned_at: string | null
           assigned_by: string | null
           assigned_professional_id: string | null
+          autorizacao_ata: string | null
+          comunicou_abuso: string[]
           created_at: string
           deleted_at: string | null
-          descricao: string
+          descricao: string | null
           diretor_responsavel: string | null
           diretor_telefone: string | null
+          educacao_especial: boolean | null
           id: string
+          modalidade_acolhimento: string | null
           numero: string
+          periodo: string | null
+          regiao_escola: string | null
           responsavel_nome: string | null
           responsavel_telefone: string | null
           school_id: string | null
           school_nome_snapshot: string | null
+          situacao_observada: string[]
+          solicitante_email: string | null
+          solicitante_nome: string | null
+          solicitante_cargo: string | null
+          solicitante_nome_cargo: string | null
+          solicitante_telefone: string | null
           status: Database["public"]["Enums"]["request_status"]
-          tipo_queixa: Database["public"]["Enums"]["complaint_type"]
+          tipo_escola: Database["public"]["Enums"]["school_tipo"] | null
+          tipo_queixa: Database["public"]["Enums"]["complaint_type"] | null
           updated_at: string
         }
         Insert: {
+          acolhido_anteriormente?: boolean | null
           aluno_nascimento?: string | null
           aluno_nome: string
+          aluno_sexo?: string | null
           aluno_serie?: string | null
           aluno_turma?: string | null
+          aluno_turma_ano?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_professional_id?: string | null
+          autorizacao_ata?: string | null
+          comunicou_abuso?: string[]
           created_at?: string
           deleted_at?: string | null
-          descricao: string
+          descricao?: string | null
           diretor_responsavel?: string | null
           diretor_telefone?: string | null
+          educacao_especial?: boolean | null
           id?: string
+          modalidade_acolhimento?: string | null
           numero?: string
+          periodo?: string | null
+          regiao_escola?: string | null
           responsavel_nome?: string | null
           responsavel_telefone?: string | null
           school_id?: string | null
           school_nome_snapshot?: string | null
+          situacao_observada?: string[]
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_cargo?: string | null
+          solicitante_nome_cargo?: string | null
+          solicitante_telefone?: string | null
           status?: Database["public"]["Enums"]["request_status"]
-          tipo_queixa: Database["public"]["Enums"]["complaint_type"]
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"] | null
+          tipo_queixa?: Database["public"]["Enums"]["complaint_type"] | null
           updated_at?: string
         }
         Update: {
+          acolhido_anteriormente?: boolean | null
           aluno_nascimento?: string | null
           aluno_nome?: string
+          aluno_sexo?: string | null
           aluno_serie?: string | null
           aluno_turma?: string | null
+          aluno_turma_ano?: string | null
           assigned_at?: string | null
           assigned_by?: string | null
           assigned_professional_id?: string | null
+          autorizacao_ata?: string | null
+          comunicou_abuso?: string[]
           created_at?: string
           deleted_at?: string | null
-          descricao?: string
+          descricao?: string | null
           diretor_responsavel?: string | null
           diretor_telefone?: string | null
+          educacao_especial?: boolean | null
           id?: string
+          modalidade_acolhimento?: string | null
           numero?: string
+          periodo?: string | null
+          regiao_escola?: string | null
           responsavel_nome?: string | null
           responsavel_telefone?: string | null
           school_id?: string | null
           school_nome_snapshot?: string | null
+          situacao_observada?: string[]
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_cargo?: string | null
+          solicitante_nome_cargo?: string | null
+          solicitante_telefone?: string | null
           status?: Database["public"]["Enums"]["request_status"]
-          tipo_queixa?: Database["public"]["Enums"]["complaint_type"]
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"] | null
+          tipo_queixa?: Database["public"]["Enums"]["complaint_type"] | null
           updated_at?: string
         }
         Relationships: [
@@ -498,6 +561,7 @@ export type Database = {
           regiao: string | null
           status: Database["public"]["Enums"]["school_status"]
           tipologia: string | null
+          tipo_escola: Database["public"]["Enums"]["school_tipo"]
           updated_at: string
         }
         Insert: {
@@ -520,6 +584,7 @@ export type Database = {
           regiao?: string | null
           status?: Database["public"]["Enums"]["school_status"]
           tipologia?: string | null
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"]
           updated_at?: string
         }
         Update: {
@@ -542,6 +607,7 @@ export type Database = {
           regiao?: string | null
           status?: Database["public"]["Enums"]["school_status"]
           tipologia?: string | null
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"]
           updated_at?: string
         }
         Relationships: []
@@ -579,8 +645,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      submit_acolhimento_request: {
+        Args: { payload: Json }
+        Returns: { id: string; numero: string }[]
+      }
     }
     Enums: {
+      account_status: "pendente" | "aprovado" | "rejeitado"
       app_role: "admin" | "profissional"
       closure_result:
         | "resolvido"
@@ -595,7 +666,13 @@ export type Database = {
         | "conflito_familiar"
         | "outros"
       meeting_number: "primeiro" | "segundo" | "terceiro"
-      meeting_type: "acolhimento" | "visita_tecnica" | "reuniao" | "outros"
+      meeting_type:
+        | "acolhimento"
+        | "vivencia"
+        | "palestra"
+        | "visita_tecnica"
+        | "reuniao"
+        | "outros"
       professional_status: "ativo" | "ferias" | "licenca" | "inativo"
       report_status:
         | "rascunho"
@@ -610,7 +687,9 @@ export type Database = {
         | "aguardando_aprovacao"
         | "concluida"
         | "cancelada"
+      school_representative_role: "diretor" | "adjunto" | "secretario"
       school_status: "ativa" | "inativa"
+      school_tipo: "escola" | "emei"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -738,6 +817,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_status: ["pendente", "aprovado", "rejeitado"],
       app_role: ["admin", "profissional"],
       closure_result: [
         "resolvido",
@@ -754,7 +834,14 @@ export const Constants = {
         "outros",
       ],
       meeting_number: ["primeiro", "segundo", "terceiro"],
-      meeting_type: ["acolhimento", "visita_tecnica", "reuniao", "outros"],
+      meeting_type: [
+        "acolhimento",
+        "vivencia",
+        "palestra",
+        "visita_tecnica",
+        "reuniao",
+        "outros",
+      ],
       professional_status: ["ativo", "ferias", "licenca", "inativo"],
       report_status: [
         "rascunho",
@@ -771,7 +858,9 @@ export const Constants = {
         "concluida",
         "cancelada",
       ],
+      school_representative_role: ["diretor", "adjunto", "secretario"],
       school_status: ["ativa", "inativa"],
+      school_tipo: ["escola", "emei"],
     },
   },
 } as const

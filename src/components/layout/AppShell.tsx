@@ -2,13 +2,21 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   LayoutDashboard, Inbox, School, Users, Calendar, CheckSquare,
-  LogOut, Menu, X, Heart, ChevronDown,
+  LogOut, Menu, X, Heart, ChevronDown, Settings, UserCog,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; admin?: boolean; }
+
+interface NavGroup {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  admin?: boolean;
+  basePath: string;
+  children: NavItem[];
+}
 
 const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -19,6 +27,18 @@ const NAV: NavItem[] = [
   { to: "/profissionais", label: "Profissionais", icon: Users, admin: true },
 ];
 
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Configurações",
+    icon: Settings,
+    admin: true,
+    basePath: "/configuracoes",
+    children: [
+      { to: "/configuracoes/usuarios", label: "Usuários", icon: UserCog },
+    ],
+  },
+];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { isAdmin, user, signOut } = useAuth();
@@ -26,11 +46,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const items = NAV.filter((i) => !i.admin || isAdmin);
+  const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
+
+  const [settingsOpen, setSettingsOpen] = useState(() => pathname.startsWith("/configuracoes"));
 
   const handleSignOut = async () => {
     await signOut();
     navigate({ to: "/auth" });
   };
+
+  const linkClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
+      active
+        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+    );
+
+  const subLinkClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition",
+      active
+        ? "bg-sidebar-primary/90 font-medium text-sidebar-primary-foreground"
+        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+    );
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -67,19 +106,53 @@ export function AppShell({ children }: { children: ReactNode }) {
           {items.map((it) => {
             const active = pathname === it.to || pathname.startsWith(it.to + "/");
             return (
-              <Link
-                key={it.to}
-                to={it.to}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                )}
-              >
+              <Link key={it.to} to={it.to} onClick={() => setOpen(false)} className={linkClass(active)}>
                 <it.icon className="h-4 w-4 shrink-0" /> <span className="truncate">{it.label}</span>
               </Link>
+            );
+          })}
+
+          {groups.map((group) => {
+            const groupActive = pathname.startsWith(group.basePath);
+            const expanded = settingsOpen || groupActive;
+
+            return (
+              <div key={group.basePath} className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((v) => !v)}
+                  className={cn(
+                    linkClass(groupActive),
+                    "w-full justify-between",
+                  )}
+                  aria-expanded={expanded}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <group.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{group.label}</span>
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")} />
+                </button>
+
+                {expanded && (
+                  <div className="mt-0.5 space-y-0.5">
+                    {group.children.map((child) => {
+                      const active = pathname === child.to || pathname.startsWith(child.to + "/");
+                      return (
+                        <Link
+                          key={child.to}
+                          to={child.to}
+                          onClick={() => setOpen(false)}
+                          className={subLinkClass(active)}
+                        >
+                          <child.icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

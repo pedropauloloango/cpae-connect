@@ -34,6 +34,11 @@ export const professionalStatusLabels: Record<string, string> = {
   inativo: "Inativo",
 };
 
+export const schoolTipoLabels: Record<string, string> = {
+  escola: "Escola",
+  emei: "EMEI",
+};
+
 export const meetingNumberLabels: Record<string, string> = {
   primeiro: "1º Encontro",
   segundo: "2º Encontro",
@@ -42,9 +47,25 @@ export const meetingNumberLabels: Record<string, string> = {
 
 export const meetingTypeLabels: Record<string, string> = {
   acolhimento: "Acolhimento",
+  vivencia: "Vivência",
+  palestra: "Palestra",
   visita_tecnica: "Visita Técnica",
   reuniao: "Reunião",
   outros: "Outros",
+};
+
+/** Tipos de visita disponíveis no agendamento escolar */
+export const visitTypeOptions = [
+  "acolhimento",
+  "vivencia",
+  "palestra",
+  "visita_tecnica",
+] as const;
+
+export const schoolRepresentativeLabels: Record<string, string> = {
+  diretor: "Diretor",
+  adjunto: "Adjunto",
+  secretario: "Secretário",
 };
 
 export const reportStatusLabels: Record<string, string> = {
@@ -55,9 +76,42 @@ export const reportStatusLabels: Record<string, string> = {
   correcao_solicitada: "Correção Solicitada",
 };
 
+export const reportStatusTone: Record<string, string> = {
+  rascunho: "bg-muted text-muted-foreground border-border",
+  aguardando_aprovacao: "bg-accent/10 text-accent border-accent/20",
+  aprovado: "bg-success/10 text-success border-success/20",
+  rejeitado: "bg-destructive/10 text-destructive border-destructive/20",
+  correcao_solicitada: "bg-warning/15 text-warning-foreground border-warning/30",
+};
+
+export const reportStatusCardTone: Record<string, string> = {
+  rascunho: "border-l-muted-foreground/40",
+  aguardando_aprovacao: "border-l-accent",
+  aprovado: "border-l-success",
+  rejeitado: "border-l-destructive",
+  correcao_solicitada: "border-l-warning",
+};
+
 export const closureResultLabels: Record<string, string> = {
   resolvido: "Resolvido",
   encaminhado: "Encaminhado",
   em_acompanhamento: "Em Acompanhamento",
   nao_localizado: "Não Localizado",
+};
+
+export const accountStatusLabels: Record<string, string> = {
+  pendente: "Aguardando aprovação",
+  aprovado: "Aprovado",
+  rejeitado: "Rejeitado",
+};
+
+export const accountStatusTone: Record<string, string> = {
+  pendente: "bg-warning/15 text-warning-foreground border-warning/30",
+  aprovado: "bg-success/10 text-success border-success/20",
+  rejeitado: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+export const appRoleLabels: Record<string, string> = {
+  admin: "Administrador",
+  profissional: "Profissional",
 };

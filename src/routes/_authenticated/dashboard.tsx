@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/AppShell";
 import {
@@ -14,21 +15,34 @@ export const Route = createFileRoute("/_authenticated/dashboard")({ component: D
 interface Counters { recebida: number; em_andamento: number; concluida: number; agendados_mes: number; total_escolas: number; total_profissionais: number; }
 
 function Dashboard() {
+  const { isAdmin, loading: authLoading } = useAuth();
+
   const { data: counters } = useQuery<Counters>({
-    queryKey: ["dashboard-counters"],
+    queryKey: ["dashboard-counters", isAdmin],
+    enabled: !authLoading,
     queryFn: async () => {
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-      const [r1, r2, r3, ap, sc, pr] = await Promise.all([
+      const [r1, r2, r3, ap] = await Promise.all([
         supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "recebida"),
         supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).in("status", ["distribuida", "em_andamento", "aguardando_aprovacao"]),
         supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "concluida"),
         supabase.from("appointments").select("id", { count: "exact", head: true }).gte("inicio", monthStart.toISOString()),
-        supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
-        supabase.from("professionals").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "ativo"),
       ]);
+
+      let total_escolas = 0;
+      let total_profissionais = 0;
+      if (isAdmin) {
+        const [sc, pr] = await Promise.all([
+          supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
+          supabase.from("professionals").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "ativo"),
+        ]);
+        total_escolas = sc.count ?? 0;
+        total_profissionais = pr.count ?? 0;
+      }
+
       return {
         recebida: r1.count ?? 0, em_andamento: r2.count ?? 0, concluida: r3.count ?? 0,
-        agendados_mes: ap.count ?? 0, total_escolas: sc.count ?? 0, total_profissionais: pr.count ?? 0,
+        agendados_mes: ap.count ?? 0, total_escolas, total_profissionais,
       };
     },
   });
@@ -45,6 +59,7 @@ function Dashboard() {
 
   const { data: byRegion = [] } = useQuery({
     queryKey: ["dash-by-region"],
+    enabled: !authLoading && isAdmin,
     queryFn: async () => {
       const { data } = await supabase.from("requests").select("school:schools(regiao)").is("deleted_at", null);
       const counts = new Map<string, number>();
@@ -55,6 +70,25 @@ function Dashboard() {
       return Array.from(counts.entries()).map(([name, value]) => ({ name, value })).slice(0, 8);
     },
   });
+
+  const { data: bySchool = [] } = useQuery({
+    queryKey: ["dash-by-school"],
+    enabled: !authLoading && !isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase.from("requests").select("school_nome_snapshot, school:schools(nome)").is("deleted_at", null);
+      const counts = new Map<string, number>();
+      (data ?? []).forEach((r: { school_nome_snapshot: string | null; school: { nome: string } | null }) => {
+        const key = r.school?.nome ?? r.school_nome_snapshot ?? "Sem escola";
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      });
+      return Array.from(counts.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+    },
+  });
+
+  const barChartData = isAdmin ? byRegion : bySchool;
 
   const { data: monthly = [] } = useQuery({
     queryKey: ["dash-monthly"],
@@ -76,15 +110,26 @@ function Dashboard() {
 
   return (
     <div>
-      <PageHeader title="Dashboard Executivo" description="Indicadores em tempo real do módulo de Acolhimento." />
+      <PageHeader
+        title={isAdmin ? "Dashboard Executivo" : "Meu painel"}
+        description={
+          isAdmin
+            ? "Indicadores em tempo real do módulo de Acolhimento."
+            : "Indicadores das suas demandas e atendimentos."
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className={`grid gap-4 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"}`}>
         <Kpi label="Solicitações Recebidas" value={counters?.recebida ?? 0} icon={Inbox} tone="text-info" />
         <Kpi label="Em Andamento" value={counters?.em_andamento ?? 0} icon={Clock} tone="text-warning" />
         <Kpi label="Concluídas" value={counters?.concluida ?? 0} icon={CheckCircle2} tone="text-success" />
         <Kpi label="Atendimentos no Mês" value={counters?.agendados_mes ?? 0} icon={Calendar} tone="text-primary" />
-        <Kpi label="Escolas Ativas" value={counters?.total_escolas ?? 0} icon={School} tone="text-accent" />
-        <Kpi label="Profissionais Ativos" value={counters?.total_profissionais ?? 0} icon={Users} tone="text-primary" />
+        {isAdmin && (
+          <>
+            <Kpi label="Escolas Ativas" value={counters?.total_escolas ?? 0} icon={School} tone="text-accent" />
+            <Kpi label="Profissionais Ativos" value={counters?.total_profissionais ?? 0} icon={Users} tone="text-primary" />
+          </>
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -118,12 +163,25 @@ function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Solicitações por Região</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              {!isAdmin && <School className="h-4 w-4" />}
+              {isAdmin ? "Solicitações por Região" : "Minhas solicitações por escolas"}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byRegion}>
+              <BarChart data={barChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 240)" />
-                <XAxis dataKey="name" stroke="oklch(0.5 0.02 250)" fontSize={12} />
+                <XAxis
+                  dataKey="name"
+                  stroke="oklch(0.5 0.02 250)"
+                  fontSize={12}
+                  interval={0}
+                  angle={isAdmin ? 0 : -25}
+                  textAnchor={isAdmin ? "middle" : "end"}
+                  height={isAdmin ? 30 : 70}
+                />
                 <YAxis allowDecimals={false} stroke="oklch(0.5 0.02 250)" fontSize={12} />
                 <Tooltip />
                 <Bar dataKey="value" fill="oklch(0.62 0.13 200)" radius={[6, 6, 0, 0]} />
@@ -149,4 +207,4 @@ function Kpi({ label, value, icon: Icon, tone }: { label: string; value: number;
     </Card>
   );
 }
-// touch
+
