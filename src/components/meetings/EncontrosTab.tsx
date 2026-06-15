@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { MeetingRelatoDownload } from "@/components/meetings/MeetingRelatoDownload";
 import {
   meetingNumberLabels,
@@ -23,6 +30,10 @@ import {
   validateMeetingRelatoFile,
 } from "@/lib/meeting-relato-upload";
 import { VisitScheduleForm } from "@/components/meetings/VisitScheduleForm";
+import {
+  MeetingReferralOptionsDisplay,
+  MeetingReferralOptionsField,
+} from "@/components/meetings/MeetingReferralOptionsField";
 import { appointmentToFormValues, updateVisitAppointment } from "@/lib/appointment-update";
 import { prepareAppointmentDatetimes } from "@/lib/appointment-utils";
 import {
@@ -31,8 +42,12 @@ import {
   type MeetingNumber,
   type RequestAppointment,
 } from "@/lib/meeting-schedule";
+import {
+  normalizeMeetingReferralOptions,
+  type MeetingReferralOption,
+} from "@/lib/meeting-referral-options";
 import { toast } from "sonner";
-import { Calendar, Check, Edit3, MessageSquare, Paperclip, Pencil, Send, X } from "lucide-react";
+import { Calendar, MessageSquare, Paperclip, Pencil } from "lucide-react";
 
 export type EncontrosTabProps = {
   requestId: string;
@@ -58,6 +73,7 @@ type EditableMeeting = {
   relato_texto: string | null;
   relato_anexo_url: string | null;
   observacoes: string | null;
+  opcoes_encaminhamento: string[] | null;
 };
 
 export function EncontrosTab({
@@ -80,31 +96,9 @@ export function EncontrosTab({
   const { user, isAdmin } = useAuth();
   const [relatoMode, setRelatoMode] = useState<"texto" | "arquivo">("texto");
   const [relatoFile, setRelatoFile] = useState<File | null>(null);
+  const [referralOptions, setReferralOptions] = useState<MeetingReferralOption[]>([]);
   const [editingAppointment, setEditingAppointment] = useState<RequestAppointment | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<EditableMeeting | null>(null);
-
-  const meetingIds = meetings.map((m) => m.id as string);
-
-  const { data: correctionApprovals = [] } = useQuery({
-    queryKey: ["meeting-corrections", requestId, meetingIds.join(",")],
-    queryFn: async () => {
-      if (meetingIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("approvals")
-        .select("meeting_id, comentario, created_at")
-        .in("meeting_id", meetingIds)
-        .eq("decision", "correcao_solicitada")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: meetingIds.length > 0,
-  });
-
-  const correctionCommentByMeeting = correctionApprovals.reduce<Record<string, string | null>>((acc, row) => {
-    if (!(row.meeting_id in acc)) acc[row.meeting_id] = row.comentario;
-    return acc;
-  }, {});
 
   useEffect(() => {
     if (openScheduleForm || openRegisterForm) {
@@ -121,25 +115,27 @@ export function EncontrosTab({
     qc.invalidateQueries({ queryKey: ["request", requestId] });
     qc.invalidateQueries({ queryKey: ["pending-approvals"] });
     qc.invalidateQueries({ queryKey: ["demandas"] });
-    qc.invalidateQueries({ queryKey: ["meeting-corrections", requestId] });
   };
 
   const resetRegisterForm = () => {
     onOpenRegisterFormChange(false);
     setRelatoMode("texto");
     setRelatoFile(null);
+    setReferralOptions([]);
   };
 
   const resetMeetingEdit = () => {
     setEditingMeeting(null);
     setRelatoMode("texto");
     setRelatoFile(null);
+    setReferralOptions([]);
   };
 
   const openMeetingEdit = (meeting: EditableMeeting) => {
     setEditingMeeting(meeting);
     setRelatoMode(meeting.relato_anexo_url && !meeting.relato_texto?.trim() ? "arquivo" : "texto");
     setRelatoFile(null);
+    setReferralOptions(normalizeMeetingReferralOptions(meeting.opcoes_encaminhamento));
     setEditingAppointment(null);
     onOpenRegisterFormChange(false);
     onOpenScheduleFormChange(false);
@@ -216,6 +212,7 @@ export function EncontrosTab({
       relato_texto: string;
       observacoes: string;
       relatoFile: File | null;
+      opcoes_encaminhamento: MeetingReferralOption[];
     }) => {
       const hasText = vals.relato_texto.trim().length > 0;
       const hasFile = !!vals.relatoFile;
@@ -238,7 +235,8 @@ export function EncontrosTab({
           data_atendimento: vals.data_atendimento,
           relato_texto: hasText ? vals.relato_texto.trim() : null,
           observacoes: vals.observacoes || null,
-          status: "rascunho",
+          opcoes_encaminhamento: vals.opcoes_encaminhamento,
+          status: "registrado",
         })
         .select("id")
         .single();
@@ -264,6 +262,7 @@ export function EncontrosTab({
         action: "encontro_registrado",
         details: { numero: vals.numero, com_anexo: hasFile },
       });
+      await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
     },
     onSuccess: () => {
       toast.success("Encontro registrado.");
@@ -281,6 +280,7 @@ export function EncontrosTab({
       relatoFile: File | null;
       relatoMode: "texto" | "arquivo";
       existingAnexo: string | null;
+      opcoes_encaminhamento: MeetingReferralOption[];
     }) => {
       const hasText = vals.relatoMode === "texto" && vals.relato_texto.trim().length > 0;
       const hasNewFile = !!vals.relatoFile;
@@ -316,91 +316,25 @@ export function EncontrosTab({
           relato_texto,
           relato_anexo_url,
           observacoes: vals.observacoes.trim() || null,
-          status: "rascunho",
+          opcoes_encaminhamento: vals.opcoes_encaminhamento,
+          status: "registrado",
         })
         .eq("id", vals.meetingId);
       if (error) throw error;
 
-      await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
       await supabase.from("activity_logs").insert({
         request_id: requestId,
         actor_id: user?.id,
-        action: "encontro_corrigido",
+        action: "encontro_atualizado",
         details: { meeting_id: vals.meetingId },
       });
     },
     onSuccess: () => {
-      toast.success("Relato atualizado. Revise e envie novamente para aprovação.");
+      toast.success("Encontro atualizado.");
       invalidateAll();
       resetMeetingEdit();
     },
     onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
-  });
-
-  const sendMut = useMutation({
-    mutationFn: async (meeting: { id: string; relato_texto: string | null; relato_anexo_url: string | null }) => {
-      if (!meeting.relato_texto?.trim() && !meeting.relato_anexo_url) {
-        throw new Error("Informe o relato em texto ou anexe o arquivo antes de enviar para aprovação.");
-      }
-      const { error } = await supabase
-        .from("meetings")
-        .update({ status: "aguardando_aprovacao", submitted_at: new Date().toISOString() })
-        .eq("id", meeting.id);
-      if (error) throw error;
-      await supabase.from("requests").update({ status: "aguardando_aprovacao" }).eq("id", requestId);
-      await supabase.from("activity_logs").insert({
-        request_id: requestId,
-        actor_id: user?.id,
-        action: "encontro_enviado_aprovacao",
-        details: { meeting_id: meeting.id },
-      });
-    },
-    onSuccess: () => {
-      toast.success("Enviado para aprovação.");
-      invalidateAll();
-      qc.invalidateQueries({ queryKey: ["request", requestId] });
-    },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
-  });
-
-  const decideMut = useMutation({
-    mutationFn: async ({
-      meetingId,
-      decision,
-      comentario,
-    }: {
-      meetingId: string;
-      decision: "aprovado" | "rejeitado" | "correcao_solicitada";
-      comentario?: string;
-    }) => {
-      const newStatus =
-        decision === "aprovado" ? "aprovado" : decision === "rejeitado" ? "rejeitado" : "correcao_solicitada";
-      const { error: updateError } = await supabase
-        .from("meetings")
-        .update({ status: newStatus as "aprovado" })
-        .eq("id", meetingId);
-      if (updateError) throw updateError;
-      await supabase.from("approvals").insert({
-        meeting_id: meetingId,
-        reviewer_id: user?.id,
-        decision,
-        comentario,
-      });
-      if (decision === "aprovado") {
-        await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
-      }
-      await supabase.from("activity_logs").insert({
-        request_id: requestId,
-        actor_id: user?.id,
-        action: `aprovacao_${decision}`,
-        details: { meeting_id: meetingId, comentario },
-      });
-    },
-    onSuccess: () => {
-      toast.success("Decisão registrada.");
-      invalidateAll();
-    },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
   });
 
   const appointmentByNumero = Object.fromEntries(
@@ -430,6 +364,7 @@ export function EncontrosTab({
               relato_texto: string | null;
               relato_anexo_url: string | null;
               observacoes: string | null;
+              opcoes_encaminhamento: string[] | null;
             }
           | undefined;
 
@@ -488,7 +423,7 @@ export function EncontrosTab({
             )}
 
             {meeting && (
-              <Card className={`border-l-4 ${reportStatusCardTone[meeting.status] ?? reportStatusCardTone.rascunho}`}>
+              <Card className={`border-l-4 ${reportStatusCardTone[meeting.status] ?? reportStatusCardTone.registrado}`}>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                   <CardTitle className="text-base flex items-center gap-2">
                     <MessageSquare className="h-4 w-4" /> {meetingNumberLabels[meeting.numero]}
@@ -499,19 +434,6 @@ export function EncontrosTab({
                   <div className="text-muted-foreground">
                     {new Date(meeting.data_atendimento).toLocaleString("pt-BR")}
                   </div>
-
-                  {meeting.status === "correcao_solicitada" && (
-                    <div className="rounded-md border border-warning/30 bg-warning/10 p-3">
-                      <p className="font-medium text-warning-foreground">Correção solicitada pelo administrador</p>
-                      {correctionCommentByMeeting[meeting.id] ? (
-                        <p className="mt-1 whitespace-pre-wrap">{correctionCommentByMeeting[meeting.id]}</p>
-                      ) : (
-                        <p className="mt-1 text-muted-foreground">
-                          Ajuste o relato conforme a orientação recebida e envie novamente para aprovação.
-                        </p>
-                      )}
-                    </div>
-                  )}
 
                   {editingMeeting?.id === meeting.id ? (
                     <form
@@ -526,6 +448,7 @@ export function EncontrosTab({
                           relatoFile: relatoMode === "arquivo" ? relatoFile : null,
                           relatoMode,
                           existingAnexo: meeting.relato_anexo_url,
+                          opcoes_encaminhamento: referralOptions,
                         });
                       }}
                     >
@@ -560,6 +483,10 @@ export function EncontrosTab({
                               defaultValue={meeting.relato_texto ?? ""}
                               placeholder="Descreva o atendimento realizado…"
                             />
+                            <MeetingReferralOptionsField
+                              value={referralOptions}
+                              onChange={setReferralOptions}
+                            />
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -587,6 +514,12 @@ export function EncontrosTab({
                             )}
                           </div>
                         )}
+                        {relatoMode === "arquivo" && (
+                          <MeetingReferralOptionsField
+                            value={referralOptions}
+                            onChange={setReferralOptions}
+                          />
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -595,7 +528,7 @@ export function EncontrosTab({
                       </div>
                       <div className="flex gap-2">
                         <Button type="submit" disabled={updateMeetingMut.isPending}>
-                          Salvar correções
+                          Salvar alterações
                         </Button>
                         <Button type="button" variant="ghost" onClick={resetMeetingEdit}>
                           Cancelar
@@ -608,67 +541,19 @@ export function EncontrosTab({
                         <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3">{meeting.relato_texto}</div>
                       )}
                       {meeting.relato_anexo_url && <MeetingRelatoDownload storagePath={meeting.relato_anexo_url} />}
+                      <MeetingReferralOptionsDisplay values={meeting.opcoes_encaminhamento} />
                       {!meeting.relato_texto && !meeting.relato_anexo_url && (
                         <p className="text-xs text-muted-foreground">Relato ainda não informado.</p>
                       )}
                       {meeting.observacoes && (
                         <div className="text-xs text-muted-foreground">Obs: {meeting.observacoes}</div>
                       )}
-                      {!isAdmin && meeting.status === "correcao_solicitada" && (
+                      {!isAdmin && meeting.status === "registrado" && (
                         <Button size="sm" variant="outline" onClick={() => openMeetingEdit(meeting)}>
                           <Pencil className="mr-2 h-3.5 w-3.5" /> Editar relato
                         </Button>
                       )}
                     </>
-                  )}
-
-                  {meeting.status === "rascunho" && editingMeeting?.id !== meeting.id && (
-                    <Button
-                      size="sm"
-                      onClick={() => sendMut.mutate(meeting)}
-                      disabled={
-                        sendMut.isPending ||
-                        !(meeting.relato_texto?.trim() || meeting.relato_anexo_url)
-                      }
-                    >
-                      <Send className="mr-2 h-3.5 w-3.5" /> Enviar para Aprovação
-                    </Button>
-                  )}
-                  {isAdmin && meeting.status === "aguardando_aprovacao" && (
-                    <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-                      <Button
-                        size="sm"
-                        onClick={() => decideMut.mutate({ meetingId: meeting.id, decision: "aprovado" })}
-                        disabled={decideMut.isPending}
-                      >
-                        <Check className="mr-1.5 h-4 w-4" /> Aprovar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const c = prompt("Comentário (opcional):");
-                          if (c === null) return;
-                          decideMut.mutate({ meetingId: meeting.id, decision: "correcao_solicitada", comentario: c });
-                        }}
-                        disabled={decideMut.isPending}
-                      >
-                        <Edit3 className="mr-1.5 h-4 w-4" /> Solicitar correção
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          const c = prompt("Motivo da rejeição:");
-                          if (c === null || !c.trim()) return;
-                          decideMut.mutate({ meetingId: meeting.id, decision: "rejeitado", comentario: c });
-                        }}
-                        disabled={decideMut.isPending}
-                      >
-                        <X className="mr-1.5 h-4 w-4" /> Rejeitar
-                      </Button>
-                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -733,95 +618,123 @@ export function EncontrosTab({
         </Card>
       )}
 
-      {registerNumero && registerAppointment && openRegisterForm && !editingAppointment && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Registrar {meetingNumberLabels[registerNumero]}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 rounded-md border border-border bg-muted/30 p-3 text-sm">
-              <p className="font-medium">Visita agendada</p>
-              <p className="mt-1 text-muted-foreground">
-                {meetingTypeLabels[registerAppointment.tipo]} •{" "}
-                {new Date(registerAppointment.inicio).toLocaleString("pt-BR")}
-              </p>
-            </div>
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                createMut.mutate({
-                  numero: registerNumero,
-                  appointmentId: registerAppointment.id,
-                  tipo: registerAppointment.tipo,
-                  data_atendimento: registerAppointment.inicio,
-                  relato_texto: relatoMode === "texto" ? String(f.get("relato") ?? "") : "",
-                  observacoes: String(f.get("obs") ?? ""),
-                  relatoFile: relatoMode === "arquivo" ? relatoFile : null,
-                });
-              }}
-            >
-              <div className="space-y-3 rounded-md border border-border p-4">
-                <Label>Relato do encontro *</Label>
-                <RadioGroup
-                  value={relatoMode}
-                  onValueChange={(v) => {
-                    setRelatoMode(v as "texto" | "arquivo");
-                    setRelatoFile(null);
-                  }}
-                  className="grid gap-2 sm:grid-cols-2"
-                >
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                    <RadioGroupItem value="texto" />
-                    Preencher relato aqui
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
-                    <RadioGroupItem value="arquivo" />
-                    Enviar arquivo do relato
-                  </label>
-                </RadioGroup>
+      <Dialog
+        open={!!(registerNumero && registerAppointment && openRegisterForm && !editingAppointment)}
+        onOpenChange={(open) => {
+          if (!open) resetRegisterForm();
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          {registerNumero && registerAppointment && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Registrar {meetingNumberLabels[registerNumero]}</DialogTitle>
+              </DialogHeader>
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">Visita agendada</p>
+                <p className="mt-1 text-muted-foreground">
+                  {meetingTypeLabels[registerAppointment.tipo]} •{" "}
+                  {new Date(registerAppointment.inicio).toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  createMut.mutate({
+                    numero: registerNumero,
+                    appointmentId: registerAppointment.id,
+                    tipo: registerAppointment.tipo,
+                    data_atendimento: registerAppointment.inicio,
+                    relato_texto: relatoMode === "texto" ? String(f.get("relato") ?? "") : "",
+                    observacoes: String(f.get("obs") ?? ""),
+                    relatoFile: relatoMode === "arquivo" ? relatoFile : null,
+                    opcoes_encaminhamento: referralOptions,
+                  });
+                }}
+              >
+                <div className="space-y-3 rounded-md border border-border p-4">
+                  <Label>Relato do encontro *</Label>
+                  <RadioGroup
+                    value={relatoMode}
+                    onValueChange={(v) => {
+                      setRelatoMode(v as "texto" | "arquivo");
+                      setRelatoFile(null);
+                    }}
+                    className="grid gap-2 sm:grid-cols-2"
+                  >
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                      <RadioGroupItem value="texto" />
+                      Preencher relato aqui
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                      <RadioGroupItem value="arquivo" />
+                      Enviar arquivo do relato
+                    </label>
+                  </RadioGroup>
 
-                {relatoMode === "texto" ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="relato-texto">Texto do relato</Label>
-                    <Textarea id="relato-texto" name="relato" rows={6} required placeholder="Descreva o atendimento realizado…" />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="relato-arquivo">Arquivo do relato</Label>
-                    <Input
-                      id="relato-arquivo"
-                      type="file"
-                      accept={MEETING_RELATO_ACCEPT}
-                      required={!relatoFile}
-                      onChange={(e) => setRelatoFile(e.target.files?.[0] ?? null)}
+                  {relatoMode === "texto" ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="relato-texto">Texto do relato</Label>
+                      <Textarea
+                        id="relato-texto"
+                        name="relato"
+                        rows={6}
+                        required
+                        key={openRegisterForm ? registerNumero : "closed"}
+                        placeholder="Descreva o atendimento realizado…"
+                      />
+                      <MeetingReferralOptionsField
+                        value={referralOptions}
+                        onChange={setReferralOptions}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="relato-arquivo">Arquivo do relato</Label>
+                      <Input
+                        id="relato-arquivo"
+                        type="file"
+                        accept={MEETING_RELATO_ACCEPT}
+                        required={!relatoFile}
+                        onChange={(e) => setRelatoFile(e.target.files?.[0] ?? null)}
+                      />
+                      <p className="text-xs text-muted-foreground">PDF, JPG, PNG ou DOCX — máximo 10 MB.</p>
+                      {relatoFile && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Paperclip className="h-3.5 w-3.5" />
+                          {relatoFile.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {relatoMode === "arquivo" && (
+                    <MeetingReferralOptionsField
+                      value={referralOptions}
+                      onChange={setReferralOptions}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      PDF, JPG, PNG ou DOCX — máximo 10 MB.
-                    </p>
-                    {relatoFile && (
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Paperclip className="h-3.5 w-3.5" />
-                        {relatoFile.name}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              <div className="space-y-1.5">
-                <Label>Observações</Label>
-                <Textarea name="obs" rows={2} />
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={createMut.isPending}>Salvar como rascunho</Button>
-                <Button type="button" variant="ghost" onClick={resetRegisterForm}>Cancelar</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+                <div className="space-y-1.5">
+                  <Label>Observações</Label>
+                  <Textarea name="obs" rows={2} />
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button type="button" variant="outline" onClick={resetRegisterForm}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Registrar encontro
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

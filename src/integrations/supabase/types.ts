@@ -130,30 +130,40 @@ export type Database = {
       }
       approvals: {
         Row: {
+          closure_id: string | null
           comentario: string | null
           created_at: string
           decision: string
           id: string
-          meeting_id: string
+          meeting_id: string | null
           reviewer_id: string | null
         }
         Insert: {
+          closure_id?: string | null
           comentario?: string | null
           created_at?: string
           decision: string
           id?: string
-          meeting_id: string
+          meeting_id?: string | null
           reviewer_id?: string | null
         }
         Update: {
+          closure_id?: string | null
           comentario?: string | null
           created_at?: string
           decision?: string
           id?: string
-          meeting_id?: string
+          meeting_id?: string | null
           reviewer_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "approvals_closure_id_fkey"
+            columns: ["closure_id"]
+            isOneToOne: false
+            referencedRelation: "case_closures"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "approvals_meeting_id_fkey"
             columns: ["meeting_id"]
@@ -221,9 +231,14 @@ export type Database = {
           created_at: string
           documento_final_url: string | null
           id: string
-          parecer_final: string
+          parecer_final: string | null
+          relato_anexo_url: string | null
+          relato_texto: string | null
           request_id: string
           resultado: Database["public"]["Enums"]["closure_result"]
+          status: Database["public"]["Enums"]["report_status"]
+          submitted_at: string | null
+          updated_at: string
         }
         Insert: {
           classificacao_final: Database["public"]["Enums"]["complaint_type"]
@@ -231,9 +246,14 @@ export type Database = {
           created_at?: string
           documento_final_url?: string | null
           id?: string
-          parecer_final: string
+          parecer_final?: string | null
+          relato_anexo_url?: string | null
+          relato_texto?: string | null
           request_id: string
           resultado: Database["public"]["Enums"]["closure_result"]
+          status?: Database["public"]["Enums"]["report_status"]
+          submitted_at?: string | null
+          updated_at?: string
         }
         Update: {
           classificacao_final?: Database["public"]["Enums"]["complaint_type"]
@@ -241,9 +261,14 @@ export type Database = {
           created_at?: string
           documento_final_url?: string | null
           id?: string
-          parecer_final?: string
+          parecer_final?: string | null
+          relato_anexo_url?: string | null
+          relato_texto?: string | null
           request_id?: string
           resultado?: Database["public"]["Enums"]["closure_result"]
+          status?: Database["public"]["Enums"]["report_status"]
+          submitted_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -263,6 +288,7 @@ export type Database = {
           id: string
           numero: Database["public"]["Enums"]["meeting_number"]
           observacoes: string | null
+          opcoes_encaminhamento: Database["public"]["Enums"]["meeting_referral_option"][]
           professional_id: string | null
           relato_anexo_url: string | null
           relato_texto: string | null
@@ -279,6 +305,7 @@ export type Database = {
           id?: string
           numero: Database["public"]["Enums"]["meeting_number"]
           observacoes?: string | null
+          opcoes_encaminhamento?: Database["public"]["Enums"]["meeting_referral_option"][]
           professional_id?: string | null
           relato_anexo_url?: string | null
           relato_texto?: string | null
@@ -295,6 +322,7 @@ export type Database = {
           id?: string
           numero?: Database["public"]["Enums"]["meeting_number"]
           observacoes?: string | null
+          opcoes_encaminhamento?: Database["public"]["Enums"]["meeting_referral_option"][]
           professional_id?: string | null
           relato_anexo_url?: string | null
           relato_texto?: string | null
@@ -666,6 +694,11 @@ export type Database = {
         | "conflito_familiar"
         | "outros"
       meeting_number: "primeiro" | "segundo" | "terceiro"
+      meeting_referral_option:
+        | "ubs_ubsf"
+        | "clinica_escola_psicologia"
+        | "caps_ij"
+        | "rede_privada"
       meeting_type:
         | "acolhimento"
         | "vivencia"
@@ -676,6 +709,7 @@ export type Database = {
       professional_status: "ativo" | "ferias" | "licenca" | "inativo"
       report_status:
         | "rascunho"
+        | "registrado"
         | "aguardando_aprovacao"
         | "aprovado"
         | "rejeitado"
@@ -834,6 +868,12 @@ export const Constants = {
         "outros",
       ],
       meeting_number: ["primeiro", "segundo", "terceiro"],
+      meeting_referral_option: [
+        "ubs_ubsf",
+        "clinica_escola_psicologia",
+        "caps_ij",
+        "rede_privada",
+      ],
       meeting_type: [
         "acolhimento",
         "vivencia",
@@ -845,6 +885,7 @@ export const Constants = {
       professional_status: ["ativo", "ferias", "licenca", "inativo"],
       report_status: [
         "rascunho",
+        "registrado",
         "aguardando_aprovacao",
         "aprovado",
         "rejeitado",

@@ -23,10 +23,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
-import { complaintTypeLabels, meetingNumberLabels, closureResultLabels } from "@/lib/labels";
+import { complaintTypeLabels, meetingNumberLabels } from "@/lib/labels";
 import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
 import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
-import { MeetingPendingApprovalBadge } from "@/components/requests/MeetingCountIndicators";
+import { MeetingCountIndicators } from "@/components/requests/MeetingCountIndicators";
+import { EncerramentoTab, type CaseClosureRow } from "@/components/closures/EncerramentoTab";
 import {
   activityLogTitle,
   collectActivityLogLookupIds,
@@ -36,7 +37,7 @@ import {
 import { EncontrosTab } from "@/components/meetings/EncontrosTab";
 import { getNextEncontroAction, type RequestAppointment } from "@/lib/meeting-schedule";
 import { toast } from "sonner";
-import { ArrowLeft, UserPlus, UserMinus, Check, X, Clock, FileText, Calendar, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar, Bell } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/$id")({ component: DemandaDetail });
 
@@ -130,9 +131,16 @@ function DemandaDetail() {
             {isAdmin && <TabsTrigger value="atribuicao">Atribuição</TabsTrigger>}
             <TabsTrigger value="encontros" className="gap-1.5">
               Encontros
-              <MeetingPendingApprovalBadge meetings={meetings} />
+              <MeetingCountIndicators meetings={meetings} />
             </TabsTrigger>
-            <TabsTrigger value="encerramento">Encerramento</TabsTrigger>
+            <TabsTrigger value="encerramento" className="gap-1.5">
+              Encerramento
+              {(closure as CaseClosureRow | null | undefined)?.status === "aguardando_aprovacao" && (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-orange-600 ring-1 ring-warning/30 dark:text-orange-400">
+                  <Bell className="h-3 w-3" />1
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
@@ -234,7 +242,11 @@ function DemandaDetail() {
         </TabsContent>
 
         <TabsContent value="encerramento">
-          <EncerramentoTab requestId={id} closure={closure} />
+          <EncerramentoTab
+            requestId={id}
+            closure={closure as CaseClosureRow | null | undefined}
+            meetings={meetings as import("@/components/closures/EncerramentoTab").EncerramentoMeeting[]}
+          />
         </TabsContent>
 
         <TabsContent value="timeline">
@@ -588,89 +600,3 @@ function AtribuicaoTab({
     </div>
   );
 }
-
-function EncerramentoTab({ requestId, closure }: { requestId: string; closure: Record<string, unknown> | null | undefined }) {
-  const qc = useQueryClient();
-  const { user, isAdmin } = useAuth();
-  const c = closure as null | { classificacao_final: string; parecer_final: string; resultado: string };
-
-  const closeMut = useMutation({
-    mutationFn: async (vals: { classificacao_final: string; parecer_final: string; resultado: string }) => {
-      const { error } = await supabase.from("case_closures").insert({
-        request_id: requestId,
-        classificacao_final: vals.classificacao_final as "ansiedade_depressao",
-        parecer_final: vals.parecer_final,
-        resultado: vals.resultado as "resolvido",
-        closed_by: user?.id,
-      });
-      if (error) throw error;
-      await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
-      await supabase.from("activity_logs").insert({ request_id: requestId, actor_id: user?.id, action: "caso_encerrado", details: vals });
-    },
-    onSuccess: () => { toast.success("Caso encerrado."); qc.invalidateQueries(); },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
-  });
-
-  if (c) {
-    return (
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success" /> Caso encerrado</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <Field label="Classificação final" value={complaintTypeLabels[c.classificacao_final]} />
-          <Field label="Resultado" value={closureResultLabels[c.resultado]} />
-          <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Parecer final</div>
-            <div className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{c.parecer_final}</div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!isAdmin) return <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">Somente administradores podem encerrar casos.</CardContent></Card>;
-
-  return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">Encerrar caso</CardTitle></CardHeader>
-      <CardContent>
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            closeMut.mutate({
-              classificacao_final: String(f.get("classificacao")),
-              parecer_final: String(f.get("parecer")),
-              resultado: String(f.get("resultado")),
-            });
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Classificação final *</Label>
-              <Select name="classificacao" required>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(complaintTypeLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Resultado *</Label>
-              <Select name="resultado" required>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(closureResultLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5"><Label>Parecer final *</Label><Textarea name="parecer" rows={6} required /></div>
-          <Button type="submit" disabled={closeMut.isPending}><Check className="mr-2 h-4 w-4" /> Encerrar caso</Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-export { X };

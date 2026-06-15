@@ -70,6 +70,7 @@ export const schoolRepresentativeLabels: Record<string, string> = {
 
 export const reportStatusLabels: Record<string, string> = {
   rascunho: "Rascunho",
+  registrado: "Encontro Registrado",
   aguardando_aprovacao: "Aguardando Aprovação",
   aprovado: "Aprovado",
   rejeitado: "Rejeitado",
@@ -78,6 +79,7 @@ export const reportStatusLabels: Record<string, string> = {
 
 export const reportStatusTone: Record<string, string> = {
   rascunho: "bg-muted text-muted-foreground border-border",
+  registrado: "bg-info/10 text-info border-info/20",
   aguardando_aprovacao: "bg-accent/10 text-accent border-accent/20",
   aprovado: "bg-success/10 text-success border-success/20",
   rejeitado: "bg-destructive/10 text-destructive border-destructive/20",
@@ -86,6 +88,7 @@ export const reportStatusTone: Record<string, string> = {
 
 export const reportStatusCardTone: Record<string, string> = {
   rascunho: "border-l-muted-foreground/40",
+  registrado: "border-l-info",
   aguardando_aprovacao: "border-l-accent",
   aprovado: "border-l-success",
   rejeitado: "border-l-destructive",

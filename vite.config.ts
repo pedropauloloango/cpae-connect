@@ -12,4 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    optimizeDeps: {
+      include: ["react-hook-form", "@hookform/resolvers/zod", "zod"],
+    },
+  },
 });

@@ -13,6 +13,7 @@ import {
 
 const reportStatusIcons: Record<string, LucideIcon> = {
   rascunho: FilePenLine,
+  registrado: CheckCircle2,
   aguardando_aprovacao: Clock,
   aprovado: CheckCircle2,
   rejeitado: XCircle,

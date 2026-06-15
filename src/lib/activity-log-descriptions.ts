@@ -77,6 +77,18 @@ export function formatActivityLogDescription(log: ActivityLogRow, ctx: ActivityL
       const label = (meetingNumberLabels[numero] ?? numero) || "encontro";
       return `${label} registrado.${actorSuffix}`;
     }
+    case "encontro_atualizado":
+      return `Relato do encontro atualizado.${actorSuffix}`;
+    case "relatorio_consolidado_salvo":
+      return `Relatório consolidado salvo.${details.com_anexo ? " Com anexo." : ""}${actorSuffix}`;
+    case "relatorio_enviado_aprovacao":
+      return `Relatório consolidado enviado para aprovação.${actorSuffix}`;
+    case "aprovacao_relatorio_aprovado":
+      return `Relatório consolidado aprovado.${details.comentario ? ` Comentário: ${String(details.comentario)}.` : ""}${actorSuffix}`;
+    case "aprovacao_relatorio_rejeitado":
+      return `Relatório consolidado rejeitado.${details.comentario ? ` Motivo: ${String(details.comentario)}.` : ""}${actorSuffix}`;
+    case "aprovacao_relatorio_correcao_solicitada":
+      return `Correção solicitada no relatório consolidado.${details.comentario ? ` Observação: ${String(details.comentario)}.` : ""}${actorSuffix}`;
     case "visita_agendada_editada": {
       const numero = String(details.numero ?? "");
       const label = (meetingNumberLabels[numero] ?? numero) || "encontro";
@@ -156,6 +168,12 @@ export function activityLogTitle(action: string): string {
       atribuicao: "Profissional atribuído",
       atribuicao_desfeita: "Atribuição desfeita",
       encontro_registrado: "Encontro registrado",
+      encontro_atualizado: "Encontro atualizado",
+      relatorio_consolidado_salvo: "Relatório consolidado salvo",
+      relatorio_enviado_aprovacao: "Relatório enviado para aprovação",
+      aprovacao_relatorio_aprovado: "Relatório aprovado",
+      aprovacao_relatorio_rejeitado: "Relatório rejeitado",
+      aprovacao_relatorio_correcao_solicitada: "Correção solicitada no relatório",
       visita_agendada: "Visita agendada",
       visita_agendada_editada: "Agendamento editado",
       encontro_enviado_aprovacao: "Encontro enviado para aprovação",

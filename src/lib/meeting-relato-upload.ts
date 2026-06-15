@@ -55,6 +55,38 @@ export async function uploadMeetingRelato(params: {
   return storagePath;
 }
 
+export async function uploadClosureRelato(params: {
+  file: File;
+  requestId: string;
+  closureId: string;
+  userId: string;
+}): Promise<string> {
+  const validationError = validateMeetingRelatoFile(params.file);
+  if (validationError) throw new Error(validationError);
+
+  const ext = params.file.name.includes(".")
+    ? params.file.name.split(".").pop()!.toLowerCase()
+    : "bin";
+  const storagePath = `authenticated/closures/${params.requestId}/${params.closureId}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(MEETING_RELATO_BUCKET)
+    .upload(storagePath, params.file, { contentType: params.file.type, upsert: false });
+  if (uploadError) throw uploadError;
+
+  const { error: attachmentError } = await supabase.from("attachments").insert({
+    request_id: params.requestId,
+    filename: params.file.name,
+    storage_path: storagePath,
+    mime_type: params.file.type,
+    size_bytes: params.file.size,
+    uploaded_by: params.userId,
+  });
+  if (attachmentError) throw attachmentError;
+
+  return storagePath;
+}
+
 export async function getMeetingRelatoDownloadUrl(storagePath: string): Promise<string> {
   const { data, error } = await supabase.storage
     .from(MEETING_RELATO_BUCKET)

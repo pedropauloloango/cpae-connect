@@ -8,10 +8,27 @@ import { Button } from "@/components/ui/button";
 import { Check, Edit3, X } from "lucide-react";
 import { toast } from "sonner";
 import { MeetingStatusBadge } from "@/components/meetings/MeetingStatusBadge";
-import { meetingNumberLabels, reportStatusCardTone } from "@/lib/labels";
 import { MeetingRelatoDownload } from "@/components/meetings/MeetingRelatoDownload";
+import { complaintTypeLabels, closureResultLabels, reportStatusCardTone } from "@/lib/labels";
 
 export const Route = createFileRoute("/_authenticated/aprovacoes")({ component: Aprovacoes });
+
+type PendingClosure = {
+  id: string;
+  status: string;
+  relato_texto: string | null;
+  relato_anexo_url: string | null;
+  classificacao_final: string;
+  resultado: string;
+  submitted_at: string | null;
+  request: {
+    id: string;
+    numero: string;
+    aluno_nome: string;
+    school_nome_snapshot: string | null;
+    professional: { nome: string } | null;
+  };
+};
 
 function Aprovacoes() {
   const qc = useQueryClient();
@@ -21,74 +38,163 @@ function Aprovacoes() {
     queryKey: ["pending-approvals"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("meetings")
-        .select("id, numero, status, data_atendimento, relato_texto, relato_anexo_url, submitted_at, request:requests!inner(id, numero, aluno_nome, school_nome_snapshot), professional:professionals(nome)")
+        .from("case_closures")
+        .select(
+          "id, status, relato_texto, relato_anexo_url, classificacao_final, resultado, submitted_at, request:requests!inner(id, numero, aluno_nome, school_nome_snapshot, professional:professionals!assigned_professional_id(nome))",
+        )
         .eq("status", "aguardando_aprovacao")
         .order("submitted_at", { ascending: true });
-      if (error) throw error; return data ?? [];
+      if (error) throw error;
+      return (data ?? []) as unknown as PendingClosure[];
     },
   });
 
   const decide = useMutation({
-    mutationFn: async ({ meetingId, requestId, decision, comentario }: { meetingId: string; requestId: string; decision: "aprovado" | "rejeitado" | "correcao_solicitada"; comentario?: string }) => {
-      const newStatus = decision === "aprovado" ? "aprovado" : decision === "rejeitado" ? "rejeitado" : "correcao_solicitada";
-      const { error: e1 } = await supabase.from("meetings").update({ status: newStatus as "aprovado" }).eq("id", meetingId);
+    mutationFn: async ({
+      closureId,
+      requestId,
+      decision,
+      comentario,
+      relatoTexto,
+    }: {
+      closureId: string;
+      requestId: string;
+      decision: "aprovado" | "rejeitado" | "correcao_solicitada";
+      comentario?: string;
+      relatoTexto: string | null;
+    }) => {
+      const newStatus =
+        decision === "aprovado" ? "aprovado" : decision === "rejeitado" ? "rejeitado" : "correcao_solicitada";
+      const { error: e1 } = await supabase
+        .from("case_closures")
+        .update({
+          status: newStatus,
+          ...(decision === "aprovado" ? { parecer_final: relatoTexto } : {}),
+        })
+        .eq("id", closureId);
       if (e1) throw e1;
-      await supabase.from("approvals").insert({ meeting_id: meetingId, reviewer_id: user?.id, decision, comentario });
-      if (decision === "aprovado") await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
-      await supabase.from("activity_logs").insert({ request_id: requestId, actor_id: user?.id, action: `aprovacao_${decision}`, details: { meeting_id: meetingId, comentario } });
+      await supabase.from("approvals").insert({
+        closure_id: closureId,
+        reviewer_id: user?.id,
+        decision,
+        comentario,
+      });
+      if (decision === "aprovado") {
+        await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
+      } else {
+        await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
+      }
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: `aprovacao_relatorio_${decision}`,
+        details: { closure_id: closureId, comentario },
+      });
     },
-    onSuccess: () => { toast.success("Decisão registrada"); qc.invalidateQueries(); },
+    onSuccess: () => {
+      toast.success("Decisão registrada");
+      qc.invalidateQueries();
+    },
     onError: (e: Error) => toast.error("Erro", { description: e.message }),
   });
 
   return (
     <div>
-      <PageHeader title="Aprovações" description="Relatos enviados pelos profissionais aguardando análise." />
+      <PageHeader
+        title="Aprovações"
+        description="Relatórios consolidados enviados pelos profissionais aguardando análise."
+      />
 
       {pending.length === 0 && (
         <Card><CardContent className="p-12 text-center text-muted-foreground">Nada pendente. ✨</CardContent></Card>
       )}
 
       <div className="space-y-4">
-        {(pending as unknown as Array<{ id: string; numero: string; data_atendimento: string; relato_texto: string | null; relato_anexo_url: string | null; submitted_at: string; status: string; request: { id: string; numero: string; aluno_nome: string; school_nome_snapshot: string }; professional: { nome: string } | null }>).map((m) => (
-          <Card key={m.id} className={`border-l-4 ${reportStatusCardTone[m.status] ?? reportStatusCardTone.aguardando_aprovacao}`}>
+        {pending.map((c) => (
+          <Card
+            key={c.id}
+            className={`border-l-4 ${reportStatusCardTone[c.status] ?? reportStatusCardTone.aguardando_aprovacao}`}
+          >
             <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
               <div className="min-w-0">
                 <CardTitle className="text-base">
-                  <Link to="/demandas/$id" params={{ id: m.request.id }} className="hover:underline">
-                    {m.request.aluno_nome} — {meetingNumberLabels[m.numero]}
+                  <Link to="/demandas/$id" params={{ id: c.request.id }} className="hover:underline">
+                    {c.request.aluno_nome} — Relatório consolidado
                   </Link>
                 </CardTitle>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {m.request.school_nome_snapshot} • Profissional: {m.professional?.nome ?? "—"} • Protocolo {m.request.numero}
+                  {c.request.school_nome_snapshot ?? "—"} • Profissional: {c.request.professional?.nome ?? "—"} •
+                  Protocolo {c.request.numero}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {complaintTypeLabels[c.classificacao_final]} • {closureResultLabels[c.resultado]}
                 </div>
               </div>
-              <MeetingStatusBadge status={m.status} />
+              <MeetingStatusBadge status={c.status} />
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="text-xs text-muted-foreground">Atendimento: {new Date(m.data_atendimento).toLocaleString("pt-BR")}</div>
-              {m.relato_texto && <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{m.relato_texto}</div>}
-              {m.relato_anexo_url && <MeetingRelatoDownload storagePath={m.relato_anexo_url} />}
-              {!m.relato_texto && !m.relato_anexo_url && (
+              {c.submitted_at && (
+                <div className="text-xs text-muted-foreground">
+                  Enviado em: {new Date(c.submitted_at).toLocaleString("pt-BR")}
+                </div>
+              )}
+              {c.relato_texto && (
+                <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{c.relato_texto}</div>
+              )}
+              {c.relato_anexo_url && <MeetingRelatoDownload storagePath={c.relato_anexo_url} />}
+              {!c.relato_texto && !c.relato_anexo_url && (
                 <p className="text-sm text-muted-foreground">Relato não informado.</p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => decide.mutate({ meetingId: m.id, requestId: m.request.id, decision: "aprovado" })} disabled={decide.isPending}>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    decide.mutate({
+                      closureId: c.id,
+                      requestId: c.request.id,
+                      decision: "aprovado",
+                      relatoTexto: c.relato_texto,
+                    })
+                  }
+                  disabled={decide.isPending}
+                >
                   <Check className="mr-1.5 h-4 w-4" /> Aprovar
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => {
-                  const c = prompt("Comentário (opcional):");
-                  if (c === null) return;
-                  decide.mutate({ meetingId: m.id, requestId: m.request.id, decision: "correcao_solicitada", comentario: c });
-                }} disabled={decide.isPending}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const comment = prompt("Comentário (opcional):");
+                    if (comment === null) return;
+                    decide.mutate({
+                      closureId: c.id,
+                      requestId: c.request.id,
+                      decision: "correcao_solicitada",
+                      comentario: comment,
+                      relatoTexto: c.relato_texto,
+                    });
+                  }}
+                  disabled={decide.isPending}
+                >
                   <Edit3 className="mr-1.5 h-4 w-4" /> Solicitar correção
                 </Button>
-                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => {
-                  const c = prompt("Motivo da rejeição:");
-                  if (c === null || !c.trim()) return;
-                  decide.mutate({ meetingId: m.id, requestId: m.request.id, decision: "rejeitado", comentario: c });
-                }} disabled={decide.isPending}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    const comment = prompt("Motivo da rejeição:");
+                    if (comment === null || !comment.trim()) return;
+                    decide.mutate({
+                      closureId: c.id,
+                      requestId: c.request.id,
+                      decision: "rejeitado",
+                      comentario: comment,
+                      relatoTexto: c.relato_texto,
+                    });
+                  }}
+                  disabled={decide.isPending}
+                >
                   <X className="mr-1.5 h-4 w-4" /> Rejeitar
                 </Button>
               </div>

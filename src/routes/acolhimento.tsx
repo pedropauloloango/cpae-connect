@@ -4,7 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
-import { CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle2, ArrowLeft, Loader2, Shield, HeartHandshake, School, GraduationCap, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,79 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+const primaryBtn =
+  "rounded-[14px] font-semibold text-white transition-all duration-300 ease-in-out shadow-[0_10px_30px_rgba(15,82,186,0.2)] bg-[#0F52BA] hover:bg-[#083D8C]";
+
+const formCard =
+  "rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.05)]";
+
+const optionLabel =
+  "flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm transition-colors has-[[data-state=checked]]:border-[#0F52BA] has-[[data-state=checked]]:bg-[#EAF2FF]/50";
+
+const checkboxOptionLabel =
+  "flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm transition-colors hover:border-slate-300 has-[[data-state=checked]]:border-[#0F52BA] has-[[data-state=checked]]:bg-[#EAF2FF]/50";
+
+function AcolhimentoShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased"
+      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+    >
+      <header className="sticky top-0 z-50 h-20 border-b border-slate-200/80 bg-white">
+        <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between gap-4 px-4 lg:px-8">
+          <Link to="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
+            <img src="/logo_CPAE.png" alt="CPAE" className="h-11 w-11 shrink-0 object-contain" />
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-bold text-[#0F172A]">Gestão de Sistemas</div>
+              <div className="text-xs font-medium text-[#64748B]">CPAE</div>
+            </div>
+          </Link>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 rounded-[14px] px-4 py-2 text-sm font-medium text-[#64748B] transition-colors hover:bg-[#EAF2FF] hover:text-[#0F52BA]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao início
+          </Link>
+        </div>
+      </header>
+      {children}
+      <footer className="mt-12 bg-[#083D8C] px-4 py-8 text-center text-sm text-white/90">
+        © {new Date().getFullYear()} CPAE — Coordenadoria Municipal de Psicologia e Assistência Educacional
+      </footer>
+    </div>
+  );
+}
+
+function FormSection({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className={formCard}>
+      <CardHeader className="border-b border-slate-100 pb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EAF2FF] text-[#0F52BA]">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-bold text-[#0F172A]">{title}</CardTitle>
+            {description && <CardDescription className="mt-1 text-[#64748B]">{description}</CardDescription>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-6">{children}</CardContent>
+    </Card>
+  );
+}
 
 function AcolhimentoPublico() {
   const navigate = useNavigate();
@@ -161,54 +234,54 @@ function AcolhimentoPublico() {
 
   if (successNumero) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-soft via-background to-success/10 p-4">
-        <Card className="w-full max-w-lg shadow-elegant">
-          <CardHeader className="text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <CardTitle className="mt-4">Solicitação registrada</CardTitle>
-            <CardDescription>Guarde o número de protocolo para acompanhamento.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-center">
-            <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary-soft py-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Protocolo</div>
-              <div className="mt-1 font-mono text-2xl font-bold text-primary">{successNumero}</div>
-            </div>
-            <p className="text-sm text-muted-foreground">A equipe da CPAE foi notificada e entrará em contato.</p>
-            <Button onClick={() => navigate({ to: "/" })} className="w-full">Voltar ao início</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AcolhimentoShell>
+        <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4 py-16">
+          <Card className={`w-full max-w-lg ${formCard} shadow-[0_20px_40px_rgba(15,23,42,0.08)]`}>
+            <CardHeader className="text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#F2FFF6] text-[#52C41A]">
+                <CheckCircle2 className="h-9 w-9" />
+              </div>
+              <CardTitle className="mt-5 text-2xl font-bold text-[#0F172A]">Solicitação registrada</CardTitle>
+              <CardDescription className="text-[#64748B]">
+                Guarde o número de protocolo para acompanhamento.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 text-center">
+              <div className="rounded-2xl border-2 border-dashed border-[#0F52BA]/25 bg-[#EAF2FF]/50 py-6">
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">Protocolo</div>
+                <div className="mt-2 font-mono text-3xl font-bold text-[#0F52BA]">{successNumero}</div>
+              </div>
+              <p className="text-sm text-[#64748B]">A equipe da CPAE foi notificada e entrará em contato.</p>
+              <Button onClick={() => navigate({ to: "/" })} className={`w-full ${primaryBtn}`}>
+                Voltar ao início
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AcolhimentoShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Início
-          </Link>
-          <div className="flex items-center gap-2">
-            <img src="/icon-192.png" alt="CPAE" className="h-7 w-7 rounded" />
-            <span className="text-sm font-semibold">CPAE</span>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold sm:text-3xl">Solicitação de Acolhimento</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+    <AcolhimentoShell>
+      <section className="relative bg-[url('/cpae-hero-bg.png')] bg-cover bg-center bg-no-repeat px-4 py-12 md:py-16">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#EAF2FF] px-4 py-1.5 text-sm font-semibold text-[#0F52BA]">
+            <Shield className="h-4 w-4" />
+            Formulário público
+          </span>
+          <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-[#0F172A] sm:text-4xl">
+            Solicitação de <span className="text-[#0F52BA]">Acolhimento</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[#64748B] sm:text-lg">
             Preencha todos os campos obrigatórios (*). Suas informações são tratadas com sigilo pela equipe da CPAE.
           </p>
         </div>
+      </section>
 
+      <main className="relative z-10 mx-auto -mt-6 max-w-3xl px-4 pb-12 lg:px-8 md:-mt-10">
         <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Identificação</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <FormSection title="Identificação" description="Dados da escola e do solicitante" icon={School}>
               <Field label="1. Nome da Escola / EMEI *" error={form.formState.errors.school_id?.message ?? form.formState.errors.school_nome?.message}>
                 <SchoolSearchSelect
                   schools={schools}
@@ -292,20 +365,20 @@ function AcolhimentoPublico() {
                   <Input placeholder="(67) 99999-9999" {...form.register("solicitante_telefone")} />
                 </Field>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Acolhimento</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <FormSection title="Acolhimento" description="Modalidade do atendimento" icon={HeartHandshake}>
               <Field label="8. Modalidade do acolhimento *" error={form.formState.errors.modalidade_acolhimento?.message}>
                 <Controller
                   control={form.control}
                   name="modalidade_acolhimento"
                   render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="space-y-2">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 sm:grid-cols-2">
                       {modalidadeOptions.map((o) => (
-                        <label key={o.value} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <label
+                          key={o.value}
+                          className={optionLabel}
+                        >
                           <RadioGroupItem value={o.value} />
                           {o.label}
                         </label>
@@ -314,12 +387,9 @@ function AcolhimentoPublico() {
                   )}
                 />
               </Field>
-            </CardContent>
-          </Card>
+          </FormSection>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Dados do(a) aluno(a)</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <FormSection title="Dados do(a) aluno(a)" description="Informações do estudante" icon={GraduationCap}>
               <Field label="9. Nome do(a) aluno(a) *" error={form.formState.errors.aluno_nome?.message}>
                 <Input {...form.register("aluno_nome")} />
               </Field>
@@ -354,11 +424,11 @@ function AcolhimentoPublico() {
                   control={form.control}
                   name="educacao_especial"
                   render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-6">
-                      <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
+                      <label className={optionLabel}>
                         <RadioGroupItem value="sim" /> Sim
                       </label>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <label className={optionLabel}>
                         <RadioGroupItem value="nao" /> Não
                       </label>
                     </RadioGroup>
@@ -413,7 +483,7 @@ function AcolhimentoPublico() {
                   render={({ field }) => (
                     <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 sm:grid-cols-2">
                       {periodoOptions.map((o) => (
-                        <label key={o.value} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <label key={o.value} className={optionLabel}>
                           <RadioGroupItem value={o.value} />
                           {o.label}
                         </label>
@@ -422,27 +492,30 @@ function AcolhimentoPublico() {
                   )}
                 />
               </Field>
-            </CardContent>
-          </Card>
+          </FormSection>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Situação e comunicações</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
+          <FormSection title="Situação e comunicações" description="Contexto do acolhimento solicitado" icon={ClipboardList}>
               <Field
                 label="16. Em caso de abuso ou outras negligências, a Escola comunicou *"
                 error={form.formState.errors.comunicou_abuso?.message}
               >
-                <div className="space-y-2">
-                  {comunicouAbusoOptions.map((o) => (
-                    <label key={o.value} className="flex cursor-pointer items-start gap-2 text-sm">
+                <div className="grid gap-2">
+                  {comunicouAbusoOptions.map((o) => {
+                    const checked = form.watch("comunicou_abuso").includes(o.value);
+                    return (
+                    <label
+                      key={o.value}
+                      className={`${checkboxOptionLabel}${checked ? " border-[#0F52BA] bg-[#EAF2FF]/50" : ""}`}
+                    >
                       <Checkbox
-                        checked={form.watch("comunicou_abuso").includes(o.value)}
+                        checked={checked}
                         onCheckedChange={(c) => toggleArrayValue("comunicou_abuso", o.value, c === true)}
                         className="mt-0.5"
                       />
                       <span>{o.label}</span>
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </Field>
 
@@ -450,17 +523,23 @@ function AcolhimentoPublico() {
                 label="17. Selecione a situação observada *"
                 error={form.formState.errors.situacao_observada?.message}
               >
-                <div className="space-y-2">
-                  {situacaoObservadaOptions.map((o) => (
-                    <label key={o.value} className="flex cursor-pointer items-start gap-2 text-sm">
+                <div className="grid gap-2">
+                  {situacaoObservadaOptions.map((o) => {
+                    const checked = form.watch("situacao_observada").includes(o.value);
+                    return (
+                    <label
+                      key={o.value}
+                      className={`${checkboxOptionLabel}${checked ? " border-[#0F52BA] bg-[#EAF2FF]/50" : ""}`}
+                    >
                       <Checkbox
-                        checked={form.watch("situacao_observada").includes(o.value)}
+                        checked={checked}
                         onCheckedChange={(c) => toggleArrayValue("situacao_observada", o.value, c === true)}
                         className="mt-0.5"
                       />
                       <span>{o.label}</span>
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </Field>
 
@@ -469,11 +548,11 @@ function AcolhimentoPublico() {
                   control={form.control}
                   name="acolhido_anteriormente"
                   render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-6">
-                      <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
+                      <label className={optionLabel}>
                         <RadioGroupItem value="sim" /> Sim
                       </label>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <label className={optionLabel}>
                         <RadioGroupItem value="nao" /> Não
                       </label>
                     </RadioGroup>
@@ -489,9 +568,9 @@ function AcolhimentoPublico() {
                   control={form.control}
                   name="autorizacao_ata"
                   render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="space-y-2">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2">
                       {autorizacaoAtaOptions.map((o) => (
-                        <label key={o.value} className="flex cursor-pointer items-start gap-2 text-sm">
+                        <label key={o.value} className={`${optionLabel} items-start`}>
                           <RadioGroupItem value={o.value} className="mt-0.5" />
                           {o.label}
                         </label>
@@ -500,25 +579,24 @@ function AcolhimentoPublico() {
                   )}
                 />
               </Field>
-            </CardContent>
-          </Card>
+          </FormSection>
 
-          <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
+          <Button type="submit" size="lg" className={`w-full ${primaryBtn} py-6 text-base`} disabled={mutation.isPending}>
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enviar solicitação
           </Button>
         </form>
       </main>
-    </div>
+    </AcolhimentoShell>
   );
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
+    <div className="space-y-2">
+      <Label className="text-sm font-semibold text-[#0F172A]">{label}</Label>
       {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs font-medium text-destructive">{error}</p>}
     </div>
   );
 }

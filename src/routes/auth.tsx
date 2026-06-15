@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, MailCheck } from "lucide-react";
+import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Entrar — CPAE" }, { name: "description", content: "Acesso da equipe CPAE." }] }),
   component: AuthPage,
@@ -103,6 +103,13 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-soft via-background to-accent/10 p-4">
       <div className="w-full max-w-md">
+        <Link
+          to="/"
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar ao site
+        </Link>
         <Link to="/" className="mb-6 flex items-center justify-center gap-3">
           <img src="/icon-192.png" alt="CPAE" className="h-10 w-10 rounded-md" />
           <span className="text-lg font-semibold">Gestão CPAE</span>
