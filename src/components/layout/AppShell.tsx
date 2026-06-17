@@ -118,7 +118,7 @@ function AppShellLayout({ children }: { children: ReactNode }) {
 
       <aside
         className={cn(
-          "cpae-sidebar fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col text-white transition-transform lg:static lg:translate-x-0 relative",
+          "cpae-sidebar fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col text-white transition-transform lg:static lg:relative lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
