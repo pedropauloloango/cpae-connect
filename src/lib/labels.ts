@@ -13,15 +13,21 @@ export const requestStatusLabels: Record<string, string> = {
   recebida: "Solicitação Recebida",
   distribuida: "Distribuída",
   em_andamento: "Em Andamento",
+  em_ajuste: "Em Ajuste",
   aguardando_aprovacao: "Aguardando Aprovação",
   concluida: "Concluída",
   cancelada: "Cancelada",
 };
 
+export function isRequestLockedForMeetingEdits(status: string | null | undefined): boolean {
+  return status === "aguardando_aprovacao" || status === "concluida";
+}
+
 export const requestStatusTone: Record<string, string> = {
   recebida: "bg-info/10 text-info border-info/20",
   distribuida: "bg-primary/10 text-primary border-primary/20",
   em_andamento: "bg-warning/15 text-warning-foreground border-warning/30",
+  em_ajuste: "bg-orange-500/10 text-orange-700 border-orange-500/25 dark:text-orange-400",
   aguardando_aprovacao: "bg-accent/10 text-accent border-accent/20",
   concluida: "bg-success/10 text-success border-success/20",
   cancelada: "bg-muted text-muted-foreground border-border",

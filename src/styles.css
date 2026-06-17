@@ -105,14 +105,14 @@
   --chart-4: oklch(0.78 0.15 75);
   --chart-5: oklch(0.55 0.22 25);
 
-  --sidebar: oklch(0.22 0.04 250);
-  --sidebar-foreground: oklch(0.92 0.01 240);
-  --sidebar-primary: oklch(0.62 0.13 200);
+  --sidebar: oklch(0.28 0.08 250);
+  --sidebar-foreground: oklch(0.92 0.02 240);
+  --sidebar-primary: oklch(0.48 0.16 250);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.28 0.05 250);
+  --sidebar-accent: oklch(0.34 0.1 265);
   --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(0.28 0.05 250);
-  --sidebar-ring: oklch(0.62 0.13 200);
+  --sidebar-border: oklch(0.38 0.08 250);
+  --sidebar-ring: oklch(0.62 0.18 250);
 }
 
 .dark {
@@ -165,3 +165,104 @@
 }
 .fc .fc-toolbar-title { font-size: 1.05rem; font-weight: 600; }
 .fc .fc-button { text-transform: capitalize; font-weight: 500; }
+
+/* App shell — modern CPAE layout */
+.cpae-rainbow-border {
+  background: linear-gradient(
+    180deg,
+    #7b2cbf 0%,
+    #d633c6 18%,
+    #ff8c00 38%,
+    #f7b500 55%,
+    #52c41a 72%,
+    #0f52ba 100%
+  );
+}
+
+.cpae-main-surface {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.cpae-content-panel {
+  position: relative;
+  isolation: isolate;
+}
+
+.cpae-content-panel::before,
+.cpae-content-panel::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.45;
+}
+
+.cpae-content-panel::before {
+  bottom: -6rem;
+  left: -4rem;
+  width: 22rem;
+  height: 22rem;
+  background: radial-gradient(circle, rgba(15, 82, 186, 0.18) 0%, transparent 70%);
+}
+
+.cpae-content-panel::after {
+  right: -3rem;
+  bottom: -4rem;
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle, rgba(123, 44, 191, 0.16) 0%, transparent 70%);
+}
+
+.cpae-wave-bg {
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 0;
+  height: 14rem;
+  opacity: 0.35;
+  background-image: url("/cpae-hero-bg.png");
+  background-size: cover;
+  background-position: center bottom;
+  mask-image: linear-gradient(180deg, transparent 0%, black 55%);
+}
+
+.cpae-card {
+  border-radius: 1rem;
+  border: 1px solid oklch(0.93 0.01 240);
+  background: white;
+  box-shadow: 0 4px 24px -4px oklch(0.2 0.02 250 / 0.08);
+}
+
+.cpae-app-header {
+  background: linear-gradient(135deg, #eaf2ff 0%, #f6f9ff 45%, #faf5ff 100%);
+  border-bottom: 1px solid rgb(15 82 186 / 0.1);
+  box-shadow: 0 4px 24px -8px rgb(15 82 186 / 0.18);
+}
+
+.cpae-app-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #7b2cbf 0%, #0f52ba 35%, #52c41a 70%, #f7b500 100%);
+  opacity: 0.55;
+}
+
+.cpae-sidebar {
+  background: linear-gradient(180deg, #0a2560 0%, #061838 50%, #081e47 100%);
+  box-shadow: 4px 0 28px rgb(6 24 56 / 0.22);
+}
+
+.cpae-sidebar-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at -10% 0%, rgb(123 44 191 / 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 110% 100%, rgb(15 82 186 / 0.28), transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 40%, rgb(214 51 198 / 0.08), transparent 60%);
+}

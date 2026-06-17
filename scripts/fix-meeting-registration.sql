@@ -1,0 +1,7 @@
+-- Execute no Supabase SQL Editor em DUAS etapas (obrigatório):
+--
+-- 1) Rode fix-meeting-registration-part1.sql e aguarde "Success"
+-- 2) Rode fix-meeting-registration-part2.sql
+--
+-- O PostgreSQL não permite usar um valor novo de enum na mesma transação
+-- em que ele foi criado (erro 55P04).

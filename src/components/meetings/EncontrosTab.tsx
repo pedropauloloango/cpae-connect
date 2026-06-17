@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CollapsibleRecordCard } from "@/components/ui/collapsible-record-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
   meetingTypeLabels,
   reportStatusCardTone,
   schoolRepresentativeLabels,
+  isRequestLockedForMeetingEdits,
 } from "@/lib/labels";
 import { AppointmentScheduledBadge, MeetingStatusBadge } from "@/components/meetings/MeetingStatusBadge";
 import {
@@ -49,6 +51,16 @@ import {
 import { toast } from "sonner";
 import { Calendar, MessageSquare, Paperclip, Pencil } from "lucide-react";
 
+function meetingSaveErrorMessage(message: string): string {
+  if (message.includes("report_status") && message.includes("registrado")) {
+    return 'O status "registrado" ainda não existe no banco. Execute scripts/fix-meeting-registration-part1.sql e depois part2.sql no Supabase SQL Editor.';
+  }
+  if (message.includes("opcoes_encaminhamento")) {
+    return "A coluna opcoes_encaminhamento ainda não existe no banco. Execute scripts/fix-meeting-registration-part2.sql no Supabase SQL Editor.";
+  }
+  return message;
+}
+
 export type EncontrosTabProps = {
   requestId: string;
   protocolo: string;
@@ -64,6 +76,7 @@ export type EncontrosTabProps = {
   onOpenRegisterFormChange: (open: boolean) => void;
   onOpenScheduleFormChange: (open: boolean) => void;
   registerAppointment: RequestAppointment | null;
+  requestStatus: string | null;
 };
 
 type EditableMeeting = {
@@ -91,14 +104,23 @@ export function EncontrosTab({
   onOpenRegisterFormChange,
   onOpenScheduleFormChange,
   registerAppointment,
+  requestStatus,
 }: EncontrosTabProps) {
   const qc = useQueryClient();
   const { user, isAdmin } = useAuth();
+  const meetingsLockedForProfessional = !isAdmin && isRequestLockedForMeetingEdits(requestStatus);
   const [relatoMode, setRelatoMode] = useState<"texto" | "arquivo">("texto");
   const [relatoFile, setRelatoFile] = useState<File | null>(null);
   const [referralOptions, setReferralOptions] = useState<MeetingReferralOption[]>([]);
   const [editingAppointment, setEditingAppointment] = useState<RequestAppointment | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<EditableMeeting | null>(null);
+
+  useEffect(() => {
+    if (meetingsLockedForProfessional) {
+      setEditingAppointment(null);
+      setEditingMeeting(null);
+    }
+  }, [meetingsLockedForProfessional]);
 
   useEffect(() => {
     if (openScheduleForm || openRegisterForm) {
@@ -269,7 +291,7 @@ export function EncontrosTab({
       invalidateAll();
       resetRegisterForm();
     },
-    onError: (e: Error) => toast.error("Erro", { description: e.message }),
+    onError: (e: Error) => toast.error("Erro", { description: meetingSaveErrorMessage(e.message) }),
   });
 
   const updateMeetingMut = useMutation({
@@ -334,7 +356,7 @@ export function EncontrosTab({
       invalidateAll();
       resetMeetingEdit();
     },
-    onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
+    onError: (e: Error) => toast.error("Erro ao salvar", { description: meetingSaveErrorMessage(e.message) }),
   });
 
   const appointmentByNumero = Object.fromEntries(
@@ -372,15 +394,18 @@ export function EncontrosTab({
 
         return (
           <div key={numero} className="space-y-3">
-            {appointment && editingAppointment?.id !== appointment.id && (
-              <Card className="border-primary/20 bg-primary/[0.02]">
-                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+            {appointment && (
+              <CollapsibleRecordCard
+                className="border-primary/20 bg-primary/[0.02]"
+                title={
+                  <span className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
                     Visita agendada — {meetingNumberLabels[numero]}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {!meeting && !isAdmin && (
+                  </span>
+                }
+                headerActions={
+                  <>
+                    {!meeting && !isAdmin && !meetingsLockedForProfessional && (
                       <Button
                         type="button"
                         variant="outline"
@@ -397,9 +422,10 @@ export function EncontrosTab({
                       </Button>
                     )}
                     <AppointmentScheduledBadge />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm">
+                  </>
+                }
+              >
+                <div className="space-y-1">
                   <p>
                     <span className="text-muted-foreground">Representante:</span>{" "}
                     {appointment.representante_nome ?? "—"}
@@ -418,24 +444,27 @@ export function EncontrosTab({
                   {appointment.observacoes && (
                     <p className="text-xs text-muted-foreground">Obs: {appointment.observacoes}</p>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </CollapsibleRecordCard>
             )}
 
             {meeting && (
-              <Card className={`border-l-4 ${reportStatusCardTone[meeting.status] ?? reportStatusCardTone.registrado}`}>
-                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" /> {meetingNumberLabels[meeting.numero]}
-                  </CardTitle>
-                  <MeetingStatusBadge status={meeting.status} />
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="text-muted-foreground">
-                    {new Date(meeting.data_atendimento).toLocaleString("pt-BR")}
-                  </div>
+              <CollapsibleRecordCard
+                className={`border-l-4 ${reportStatusCardTone[meeting.status] ?? reportStatusCardTone.registrado}`}
+                title={
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    {meetingNumberLabels[meeting.numero]}
+                  </span>
+                }
+                headerActions={<MeetingStatusBadge status={meeting.status} />}
+                forceOpen={editingMeeting?.id === meeting.id}
+              >
+                <div className="text-muted-foreground">
+                  {new Date(meeting.data_atendimento).toLocaleString("pt-BR")}
+                </div>
 
-                  {editingMeeting?.id === meeting.id ? (
+                {editingMeeting?.id === meeting.id ? (
                     <form
                       className="space-y-3"
                       onSubmit={(e) => {
@@ -548,21 +577,20 @@ export function EncontrosTab({
                       {meeting.observacoes && (
                         <div className="text-xs text-muted-foreground">Obs: {meeting.observacoes}</div>
                       )}
-                      {!isAdmin && meeting.status === "registrado" && (
+                      {!isAdmin && meeting.status === "registrado" && !meetingsLockedForProfessional && (
                         <Button size="sm" variant="outline" onClick={() => openMeetingEdit(meeting)}>
                           <Pencil className="mr-2 h-3.5 w-3.5" /> Editar relato
                         </Button>
                       )}
                     </>
                   )}
-                </CardContent>
-              </Card>
+              </CollapsibleRecordCard>
             )}
           </div>
         );
       })}
 
-      {scheduleNumero && openScheduleForm && !editingAppointment && (
+      {scheduleNumero && openScheduleForm && !editingAppointment && !meetingsLockedForProfessional && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -596,30 +624,38 @@ export function EncontrosTab({
         </Card>
       )}
 
-      {!isAdmin && editingAppointment && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Editar agendamento — {editingAppointment.numero ? meetingNumberLabels[editingAppointment.numero] : "Visita"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <VisitScheduleForm
-              formKey={editingAppointment.id}
-              defaultValues={appointmentToFormValues(editingAppointment)}
-              submitLabel="Salvar alterações"
-              isPending={updateScheduleMut.isPending}
-              onCancel={() => setEditingAppointment(null)}
-              onSubmit={(values) =>
-                updateScheduleMut.mutate({ appointment: editingAppointment, values })
-              }
-            />
-          </CardContent>
-        </Card>
-      )}
+      <Dialog
+        open={!isAdmin && !!editingAppointment && !meetingsLockedForProfessional}
+        onOpenChange={(open) => {
+          if (!open) setEditingAppointment(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          {editingAppointment && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  Editar agendamento —{" "}
+                  {editingAppointment.numero ? meetingNumberLabels[editingAppointment.numero] : "Visita"}
+                </DialogTitle>
+              </DialogHeader>
+              <VisitScheduleForm
+                formKey={editingAppointment.id}
+                defaultValues={appointmentToFormValues(editingAppointment)}
+                submitLabel="Salvar alterações"
+                isPending={updateScheduleMut.isPending}
+                onCancel={() => setEditingAppointment(null)}
+                onSubmit={(values) =>
+                  updateScheduleMut.mutate({ appointment: editingAppointment, values })
+                }
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
-        open={!!(registerNumero && registerAppointment && openRegisterForm && !editingAppointment)}
+        open={!!(registerNumero && registerAppointment && openRegisterForm && !editingAppointment && !meetingsLockedForProfessional)}
         onOpenChange={(open) => {
           if (!open) resetRegisterForm();
         }}

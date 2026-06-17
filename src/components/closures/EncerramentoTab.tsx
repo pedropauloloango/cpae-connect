@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CollapsibleRecordCard } from "@/components/ui/collapsible-record-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -29,10 +30,14 @@ import {
   closureResultLabels,
   meetingNumberLabels,
   reportStatusCardTone,
+  isRequestLockedForMeetingEdits,
 } from "@/lib/labels";
 import { MEETING_ORDER } from "@/lib/meeting-schedule";
+import type { RequestAppointment } from "@/lib/meeting-schedule";
+import { buildConsolidatedReportDraft } from "@/lib/consolidated-report";
+import { exportConsolidatedReportPdf } from "@/lib/export-consolidated-report-pdf";
 import { toast } from "sonner";
-import { Check, CheckCircle2, Edit3, FileText, MessageSquare, Paperclip, Pencil, Plus, Send, X } from "lucide-react";
+import { Check, CheckCircle2, Edit3, FileDown, FileText, MessageSquare, Paperclip, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
 
 export type CaseClosureRow = {
   id: string;
@@ -61,8 +66,13 @@ export type EncerramentoMeeting = {
 
 type EncerramentoTabProps = {
   requestId: string;
+  protocolo: string;
+  escolaNome: string;
+  alunoNome: string;
+  requestStatus: string | null;
   closure: CaseClosureRow | null | undefined;
   meetings: EncerramentoMeeting[];
+  appointments: RequestAppointment[];
 };
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -74,32 +84,67 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTabProps) {
+export function EncerramentoTab({
+  requestId,
+  protocolo,
+  escolaNome,
+  alunoNome,
+  requestStatus,
+  closure,
+  meetings,
+  appointments,
+}: EncerramentoTabProps) {
   const qc = useQueryClient();
   const { user, isAdmin } = useAuth();
   const [relatoMode, setRelatoMode] = useState<"texto" | "arquivo">("texto");
   const [relatoFile, setRelatoFile] = useState<File | null>(null);
+  const [relatoTexto, setRelatoTexto] = useState("");
   const [classificacao, setClassificacao] = useState(closure?.classificacao_final ?? "");
   const [resultado, setResultado] = useState(closure?.resultado ?? "");
   const [formOpen, setFormOpen] = useState(false);
 
+  const reportContext = useMemo(
+    () => ({ protocolo, escolaNome, alunoNome }),
+    [protocolo, escolaNome, alunoNome],
+  );
+
+  const buildDraft = () => buildConsolidatedReportDraft(reportContext, meetings, appointments);
+
+  const handleExportPdf = (texto: string) => {
+    if (!texto.trim()) {
+      toast.error("Não há texto para exportar.");
+      return;
+    }
+    try {
+      exportConsolidatedReportPdf(reportContext, texto.trim());
+    } catch (e) {
+      toast.error("Erro ao exportar", { description: e instanceof Error ? e.message : "Tente novamente." });
+    }
+  };
+
   const registeredMeetings = meetings.filter((m) => m.status === "registrado" || m.status === "aprovado");
   const meetingByNumero = Object.fromEntries(meetings.map((m) => [m.numero, m]));
+  const isConcluida = requestStatus === "concluida";
+  const consolidatedExportText = closure?.relato_texto?.trim() || closure?.parecer_final?.trim() || "";
 
   const canEditClosure =
-    !closure || closure.status === "rascunho" || closure.status === "correcao_solicitada" || closure.status === "rejeitado";
+    !isRequestLockedForMeetingEdits(requestStatus) &&
+    (!closure || closure.status === "rascunho" || closure.status === "correcao_solicitada" || closure.status === "rejeitado");
 
   const openFormModal = () => {
     setClassificacao(closure?.classificacao_final ?? "");
     setResultado(closure?.resultado ?? "");
     setRelatoMode(closure?.relato_anexo_url && !closure?.relato_texto ? "arquivo" : "texto");
     setRelatoFile(null);
+    const saved = closure?.relato_texto?.trim();
+    setRelatoTexto(saved ?? buildDraft());
     setFormOpen(true);
   };
 
   const closeFormModal = () => {
     setFormOpen(false);
     setRelatoFile(null);
+    setRelatoTexto("");
   };
 
   const { data: correctionComment } = useQuery({
@@ -125,6 +170,7 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
     qc.invalidateQueries({ queryKey: ["request", requestId] });
     qc.invalidateQueries({ queryKey: ["logs", requestId] });
     qc.invalidateQueries({ queryKey: ["pending-approvals"] });
+    qc.invalidateQueries({ queryKey: ["pending-corrections"] });
     qc.invalidateQueries({ queryKey: ["demandas"] });
   };
 
@@ -272,7 +318,7 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
       if (decision === "aprovado") {
         await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
       } else {
-        await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
+        await supabase.from("requests").update({ status: "em_ajuste" }).eq("id", requestId);
       }
 
       await supabase.from("activity_logs").insert({
@@ -289,7 +335,12 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
     onError: (e: Error) => toast.error("Erro", { description: e.message }),
   });
 
-  const showCreateButton = !isAdmin && registeredMeetings.length > 0 && canEditClosure;
+  const showCreateButton = !isAdmin && registeredMeetings.length > 0 && canEditClosure && !closure;
+  const showProfessionalClosureActions =
+    !isAdmin &&
+    !!closure &&
+    canEditClosure &&
+    (closure.status === "rascunho" || closure.status === "correcao_solicitada" || closure.status === "rejeitado");
 
   const encerramentoHeader = (
     <div className="flex items-start justify-between gap-3">
@@ -301,17 +352,8 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
       </div>
       {showCreateButton && (
         <Button size="sm" className="shrink-0" onClick={openFormModal}>
-          {closure ? (
-            <>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar relatório consolidado
-            </>
-          ) : (
-            <>
-              <Plus className="mr-2 h-4 w-4" />
-              Criar relatório consolidado
-            </>
-          )}
+          <Plus className="mr-2 h-4 w-4" />
+          Criar relatório consolidado
         </Button>
       )}
     </div>
@@ -327,11 +369,10 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            const f = new FormData(e.currentTarget);
             saveMut.mutate({
               classificacao_final: classificacao,
               resultado,
-              relato_texto: relatoMode === "texto" ? String(f.get("relato") ?? "") : "",
+              relato_texto: relatoMode === "texto" ? relatoTexto : "",
               relatoFile: relatoMode === "arquivo" ? relatoFile : null,
               relatoMode,
               existingAnexo: closure?.relato_anexo_url ?? null,
@@ -376,8 +417,12 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
             <RadioGroup
               value={relatoMode}
               onValueChange={(v) => {
-                setRelatoMode(v as "texto" | "arquivo");
+                const mode = v as "texto" | "arquivo";
+                setRelatoMode(mode);
                 setRelatoFile(null);
+                if (mode === "texto" && !relatoTexto.trim() && !closure?.relato_texto?.trim()) {
+                  setRelatoTexto(buildDraft());
+                }
               }}
               className="grid gap-2 sm:grid-cols-2"
             >
@@ -392,17 +437,42 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
             </RadioGroup>
 
             {relatoMode === "texto" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="relato-consolidado">Texto do relato consolidado</Label>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label htmlFor="relato-consolidado">Texto do relato consolidado</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRelatoTexto(buildDraft())}
+                    >
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                      Gerar rascunho
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!relatoTexto.trim()}
+                      onClick={() => handleExportPdf(relatoTexto)}
+                    >
+                      <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                      Exportar PDF
+                    </Button>
+                  </div>
+                </div>
                 <Textarea
                   id="relato-consolidado"
-                  name="relato"
-                  rows={8}
+                  rows={14}
                   required
-                  key={`${closure?.id ?? "new"}-${formOpen}`}
-                  defaultValue={closure?.relato_texto ?? ""}
+                  value={relatoTexto}
+                  onChange={(e) => setRelatoTexto(e.target.value)}
                   placeholder="Consolide aqui os relatos de todos os encontros realizados…"
                 />
+                <p className="text-xs text-muted-foreground">
+                  O rascunho é montado automaticamente a partir das visitas agendadas e dos encontros registrados. Você pode editar livremente antes de salvar.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -434,7 +504,7 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
             <Button type="button" variant="outline" onClick={closeFormModal}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saveMut.isPending || !classificacao || !resultado}>
+            <Button type="submit" disabled={saveMut.isPending || !classificacao || !resultado || (relatoMode === "texto" && !relatoTexto.trim())}>
               Salvar relatório
             </Button>
           </DialogFooter>
@@ -443,32 +513,51 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
     </Dialog>
   );
 
-  if (closure?.status === "aprovado") {
+  if (isConcluida || closure?.status === "aprovado") {
     return (
       <div className="space-y-4">
         {encerramentoHeader}
+        <CollapsibleRecordCard
+          className="border-l-4 border-l-success"
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              Caso encerrado
+            </span>
+          }
+        >
+          {closure ? (
+            <>
+              <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
+              <Field label="Resultado" value={closureResultLabels[closure.resultado]} />
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Relato consolidado</div>
+                {consolidatedExportText && (
+                  <div className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{consolidatedExportText}</div>
+                )}
+                {isConcluida && consolidatedExportText && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => handleExportPdf(consolidatedExportText)}
+                  >
+                    <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                    Exportar PDF
+                  </Button>
+                )}
+                {closure.relato_anexo_url && <MeetingRelatoDownload storagePath={closure.relato_anexo_url} />}
+                {!consolidatedExportText && !closure.relato_anexo_url && (
+                  <p className="mt-1 text-muted-foreground">Relato consolidado não disponível em texto.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground">Caso concluído.</p>
+          )}
+        </CollapsibleRecordCard>
         <MeetingsSummary meetings={meetings} meetingByNumero={meetingByNumero} />
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success" /> Caso encerrado
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
-            <Field label="Resultado" value={closureResultLabels[closure.resultado]} />
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Relato consolidado</div>
-              {closure.relato_texto && (
-                <div className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{closure.relato_texto}</div>
-              )}
-              {closure.relato_anexo_url && <MeetingRelatoDownload storagePath={closure.relato_anexo_url} />}
-              {!closure.relato_texto && !closure.relato_anexo_url && closure.parecer_final && (
-                <div className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{closure.parecer_final}</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -478,25 +567,17 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
       {encerramentoHeader}
       {reportFormModal}
 
-      <MeetingsSummary meetings={meetings} meetingByNumero={meetingByNumero} />
-
-      {registeredMeetings.length === 0 && (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Registre pelo menos um encontro na aba Encontros antes de elaborar o relatório consolidado.
-          </CardContent>
-        </Card>
-      )}
-
       {closure && (
-        <Card className={`border-l-4 ${reportStatusCardTone[closure.status] ?? reportStatusCardTone.rascunho}`}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Relatório consolidado
-            </CardTitle>
-            <MeetingStatusBadge status={closure.status} />
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+        <CollapsibleRecordCard
+          className={`border-l-4 ${reportStatusCardTone[closure.status] ?? reportStatusCardTone.rascunho}`}
+          title={
+            <span className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Relatório consolidado
+            </span>
+          }
+          headerActions={<MeetingStatusBadge status={closure.status} />}
+        >
             <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
             <Field label="Resultado" value={closureResultLabels[closure.resultado]} />
 
@@ -512,18 +593,38 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
             )}
 
             {closure.relato_texto && (
-              <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3">{closure.relato_texto}</div>
+              <div className="space-y-2">
+                <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3">{closure.relato_texto}</div>
+                {!isRequestLockedForMeetingEdits(requestStatus) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExportPdf(closure.relato_texto!)}
+                  >
+                    <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                    Exportar PDF
+                  </Button>
+                )}
+              </div>
             )}
             {closure.relato_anexo_url && <MeetingRelatoDownload storagePath={closure.relato_anexo_url} />}
 
-            {!isAdmin && (closure.status === "rascunho" || closure.status === "correcao_solicitada" || closure.status === "rejeitado") && (
-              <Button
-                size="sm"
-                onClick={() => sendMut.mutate(closure)}
-                disabled={sendMut.isPending || !(closure.relato_texto?.trim() || closure.relato_anexo_url)}
-              >
-                <Send className="mr-2 h-3.5 w-3.5" /> Enviar para Aprovação
-              </Button>
+            {showProfessionalClosureActions && (
+              <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                <Button type="button" size="sm" variant="outline" onClick={openFormModal}>
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Editar relatório consolidado
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => sendMut.mutate(closure)}
+                  disabled={sendMut.isPending || !(closure.relato_texto?.trim() || closure.relato_anexo_url)}
+                >
+                  <Send className="mr-2 h-3.5 w-3.5" />
+                  Enviar para Aprovação
+                </Button>
+              </div>
             )}
 
             {isAdmin && closure.status === "aguardando_aprovacao" && (
@@ -578,8 +679,7 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </CollapsibleRecordCard>
       )}
 
       {isAdmin && !closure && registeredMeetings.length > 0 && (
@@ -589,6 +689,16 @@ export function EncerramentoTab({ requestId, closure, meetings }: EncerramentoTa
           </CardContent>
         </Card>
       )}
+
+      {registeredMeetings.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Registre pelo menos um encontro na aba Encontros antes de elaborar o relatório consolidado.
+          </CardContent>
+        </Card>
+      )}
+
+      <MeetingsSummary meetings={meetings} meetingByNumero={meetingByNumero} />
     </div>
   );
 }
@@ -603,23 +713,23 @@ function MeetingsSummary({
   if (meetings.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Encontros registrados</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold">Encontros registrados</h3>
+      <div className="space-y-3">
         {[...MEETING_ORDER].reverse().map((numero) => {
           const meeting = meetingByNumero[numero];
           if (!meeting) return null;
           return (
-            <div key={numero} className="rounded-md border border-border p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium flex items-center gap-2">
+            <CollapsibleRecordCard
+              key={numero}
+              title={
+                <span className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   {meetingNumberLabels[numero]}
-                </p>
-                <MeetingStatusBadge status={meeting.status} />
-              </div>
+                </span>
+              }
+              headerActions={<MeetingStatusBadge status={meeting.status} />}
+            >
               <p className="text-xs text-muted-foreground">
                 {new Date(meeting.data_atendimento).toLocaleString("pt-BR")}
               </p>
@@ -631,10 +741,10 @@ function MeetingsSummary({
               {meeting.observacoes && (
                 <p className="text-xs text-muted-foreground">Obs: {meeting.observacoes}</p>
               )}
-            </div>
+            </CollapsibleRecordCard>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

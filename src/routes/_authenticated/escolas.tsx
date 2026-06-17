@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { schoolTipoLabels } from "@/lib/labels";
 import {
@@ -33,6 +33,8 @@ import {
 } from "@/lib/schools-import";
 
 export const Route = createFileRoute("/_authenticated/escolas")({ component: Escolas });
+
+const PAGE_SIZE = 15;
 
 interface School {
   id: string;
@@ -79,6 +81,7 @@ function Escolas() {
   const [deleteTarget, setDeleteTarget] = useState<School | null>(null);
   const [importPreview, setImportPreview] = useState<SchoolImportPreview | null>(null);
   const [parsingFile, setParsingFile] = useState(false);
+  const [page, setPage] = useState(1);
 
   const { data: schools = [] } = useQuery({
     queryKey: ["schools"],
@@ -102,6 +105,18 @@ function Escolas() {
       (s.codigo_inep ?? "").toLowerCase().includes(t)
     );
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, regiao, filterTipo]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
+  const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
 
   const onDialogOpenChange = (next: boolean) => {
     setOpen(next);
@@ -357,14 +372,14 @@ function Escolas() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered.length === 0 && (
+                {paginated.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       Nenhuma escola.
                     </td>
                   </tr>
                 )}
-                {filtered.map((s) => (
+                {paginated.map((s) => (
                   <tr key={s.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium">{s.nome}</td>
                     <td className="px-4 py-3">
@@ -407,7 +422,10 @@ function Escolas() {
             </table>
           </div>
           <div className="divide-y md:hidden">
-            {filtered.map((s) => (
+            {paginated.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma escola.</div>
+            )}
+            {paginated.map((s) => (
               <div key={s.id} className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -446,6 +464,46 @@ function Escolas() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-center gap-2 sm:justify-start">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage <= 1 || totalFiltered === 0}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="min-w-[7rem] text-center text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage >= totalPages || totalFiltered === 0}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="text-center text-sm sm:ml-auto sm:text-right">
+              <span className="font-semibold text-[#0F172A]">{totalFiltered}</span>
+              <span className="text-muted-foreground"> {totalFiltered === 1 ? "escola" : "escolas"}</span>
+              {totalFiltered > 0 && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Exibindo {showingFrom}–{showingTo}
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

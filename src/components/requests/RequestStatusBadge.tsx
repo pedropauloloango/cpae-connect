@@ -3,6 +3,7 @@ import { requestStatusLabels, requestStatusTone } from "@/lib/labels";
 import {
   CheckCircle2,
   Clock,
+  Edit3,
   Inbox,
   PlayCircle,
   Share2,
@@ -14,6 +15,7 @@ const requestStatusIcons: Record<string, LucideIcon> = {
   recebida: Inbox,
   distribuida: Share2,
   em_andamento: PlayCircle,
+  em_ajuste: Edit3,
   aguardando_aprovacao: Clock,
   concluida: CheckCircle2,
   cancelada: XCircle,

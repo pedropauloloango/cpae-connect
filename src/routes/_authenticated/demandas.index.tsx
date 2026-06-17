@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,10 +21,13 @@ import {
 import { PageHeader } from "@/components/layout/AppShell";
 import { MeetingCountIndicators } from "@/components/requests/MeetingCountIndicators";
 import { complaintTypeLabels, requestStatusLabels, requestStatusTone } from "@/lib/labels";
+import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
-import { Eye, Loader2, Search, Trash2 } from "lucide-react";
+import { Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/")({ component: Demandas });
+
+const PAGE_SIZE = 15;
 
 interface Req {
   id: string;
@@ -44,7 +47,27 @@ function Demandas() {
   const { isAdmin } = useAuth();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("todos");
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
+
+  const { data: availableStatuses = [], isLoading: loadingStatuses } = useQuery({
+    queryKey: ["demandas-status-options"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("requests").select("status").is("deleted_at", null);
+      if (error) throw error;
+
+      const unique = [...new Set((data ?? []).map((row) => row.status).filter(Boolean))];
+      const order = Object.keys(requestStatusLabels);
+      return unique.sort((a, b) => {
+        const ai = order.indexOf(a);
+        const bi = order.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b, "pt-BR");
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    },
+  });
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ["demandas", status],
@@ -76,6 +99,8 @@ function Demandas() {
       toast.success("Solicitação excluída.");
       setDeleteTarget(null);
       qc.invalidateQueries({ queryKey: ["demandas"] });
+      qc.invalidateQueries({ queryKey: ["demandas-status-options"] });
+      qc.invalidateQueries({ queryKey: PENDING_RECEIVED_REQUESTS_QUERY_KEY });
     },
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
   });
@@ -90,29 +115,51 @@ function Demandas() {
     );
   });
 
+  useEffect(() => {
+    if (status !== "todos" && availableStatuses.length > 0 && !availableStatuses.includes(status)) {
+      setStatus("todos");
+    }
+  }, [status, availableStatuses]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, status]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
+  const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
+
   const colSpan = 10;
 
   return (
     <div>
       <PageHeader title="Demandas" description="Acompanhamento das solicitações de acolhimento." />
 
-      <Card className="mb-4">
+      <Card className="cpae-card mb-4 border-0 shadow-none">
         <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_220px]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por número, aluno ou escola…" className="pl-9" />
           </div>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={status} onValueChange={setStatus} disabled={loadingStatuses}>
+            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
-              {Object.entries(requestStatusLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
+              {availableStatuses.map((statusValue) => (
+                <SelectItem key={statusValue} value={statusValue}>
+                  {requestStatusLabels[statusValue] ?? statusValue}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="cpae-card border-0 shadow-none">
         <CardContent className="p-0">
           <div className="hidden md:block">
             <table className="w-full text-sm">
@@ -132,8 +179,8 @@ function Demandas() {
               </thead>
               <tbody className="divide-y">
                 {isLoading && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>)}
-                {!isLoading && filtered.length === 0 && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma demanda encontrada.</td></tr>)}
-                {filtered.map((r) => (
+                {!isLoading && paginated.length === 0 && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma demanda encontrada.</td></tr>)}
+                {paginated.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono text-xs font-medium">{r.numero}</td>
                     <td className="px-4 py-3 font-medium">{r.aluno_nome}</td>
@@ -175,8 +222,8 @@ function Demandas() {
 
           <div className="divide-y md:hidden">
             {isLoading && <div className="p-6 text-center text-muted-foreground">Carregando…</div>}
-            {!isLoading && filtered.length === 0 && <div className="p-6 text-center text-muted-foreground">Nenhuma demanda.</div>}
-            {filtered.map((r) => (
+            {!isLoading && paginated.length === 0 && <div className="p-6 text-center text-muted-foreground">Nenhuma demanda.</div>}
+            {paginated.map((r) => (
               <div key={r.id} className="p-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-xs font-semibold">{r.numero}</span>
@@ -215,6 +262,46 @@ function Demandas() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-center gap-2 sm:justify-start">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage <= 1 || totalFiltered === 0 || isLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="min-w-[7rem] text-center text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage >= totalPages || totalFiltered === 0 || isLoading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="text-center text-sm sm:ml-auto sm:text-right">
+              <span className="font-semibold text-[#0F172A]">{totalFiltered}</span>
+              <span className="text-muted-foreground"> {totalFiltered === 1 ? "demanda" : "demandas"}</span>
+              {totalFiltered > 0 && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Exibindo {showingFrom}–{showingTo}
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

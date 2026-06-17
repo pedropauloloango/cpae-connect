@@ -9,44 +9,18 @@ import { Check, Edit3, X } from "lucide-react";
 import { toast } from "sonner";
 import { MeetingStatusBadge } from "@/components/meetings/MeetingStatusBadge";
 import { MeetingRelatoDownload } from "@/components/meetings/MeetingRelatoDownload";
+import { fetchPendingApprovals, PENDING_APPROVALS_QUERY_KEY } from "@/lib/pending-approvals";
 import { complaintTypeLabels, closureResultLabels, reportStatusCardTone } from "@/lib/labels";
 
 export const Route = createFileRoute("/_authenticated/aprovacoes")({ component: Aprovacoes });
-
-type PendingClosure = {
-  id: string;
-  status: string;
-  relato_texto: string | null;
-  relato_anexo_url: string | null;
-  classificacao_final: string;
-  resultado: string;
-  submitted_at: string | null;
-  request: {
-    id: string;
-    numero: string;
-    aluno_nome: string;
-    school_nome_snapshot: string | null;
-    professional: { nome: string } | null;
-  };
-};
 
 function Aprovacoes() {
   const qc = useQueryClient();
   const { user } = useAuth();
 
   const { data: pending = [] } = useQuery({
-    queryKey: ["pending-approvals"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("case_closures")
-        .select(
-          "id, status, relato_texto, relato_anexo_url, classificacao_final, resultado, submitted_at, request:requests!inner(id, numero, aluno_nome, school_nome_snapshot, professional:professionals!assigned_professional_id(nome))",
-        )
-        .eq("status", "aguardando_aprovacao")
-        .order("submitted_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as unknown as PendingClosure[];
-    },
+    queryKey: PENDING_APPROVALS_QUERY_KEY,
+    queryFn: fetchPendingApprovals,
   });
 
   const decide = useMutation({
@@ -82,7 +56,7 @@ function Aprovacoes() {
       if (decision === "aprovado") {
         await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
       } else {
-        await supabase.from("requests").update({ status: "em_andamento" }).eq("id", requestId);
+        await supabase.from("requests").update({ status: "em_ajuste" }).eq("id", requestId);
       }
       await supabase.from("activity_logs").insert({
         request_id: requestId,

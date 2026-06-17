@@ -718,6 +718,7 @@ export type Database = {
         | "recebida"
         | "distribuida"
         | "em_andamento"
+        | "em_ajuste"
         | "aguardando_aprovacao"
         | "concluida"
         | "cancelada"
@@ -895,6 +896,7 @@ export const Constants = {
         "recebida",
         "distribuida",
         "em_andamento",
+        "em_ajuste",
         "aguardando_aprovacao",
         "concluida",
         "cancelada",

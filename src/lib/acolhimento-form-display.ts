@@ -110,8 +110,8 @@ export function buildAcolhimentoFormSections(req: RequestFormData): AcolhimentoF
           answer: req.tipo_escola ? schoolTipoLabels[req.tipo_escola] ?? req.tipo_escola : "—",
         },
         { number: 3, question: "Região onde a Escola / EMEI está localizada", answer: regiao(req) },
-        { number: 4, question: "E-mail", answer: req.solicitante_email ?? "—" },
-        { number: 5, question: "Nome completo do solicitante", answer: solicitanteNome(req) },
+        { number: 4, question: "Nome completo do solicitante", answer: solicitanteNome(req) },
+        { number: 5, question: "E-mail", answer: req.solicitante_email ?? "—" },
         { number: 6, question: "Cargo do(a) Solicitante", answer: solicitanteCargo(req) },
         { number: 7, question: "Telefone para contato", answer: req.solicitante_telefone ?? req.diretor_telefone ?? "—" },
       ],
@@ -192,11 +192,11 @@ export function getSectionLayoutRows(section: AcolhimentoFormSection): number[][
   const rows = (() => {
     switch (section.title) {
       case "Identificação":
-        return [row(1), row(2, 3), row(4), row(5), row(6, 7)];
+        return [row(1, 2, 3), row(4, 5, 6, 7)];
       case "Acolhimento":
         return [row(8)];
       case "Dados do(a) aluno(a)":
-        return [row(9), row(10, 11), row(12), row(13, 14), row(15)];
+        return [row(9, 10, 11), row(12, 13, 14, 15)];
       case "Situação e comunicações":
         return [row(16), row(17), row(18), row(19), row(20)];
       default:

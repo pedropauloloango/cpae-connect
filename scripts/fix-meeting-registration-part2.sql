@@ -1,9 +1,6 @@
--- Obsoleto como script único (erro 55P04 no PostgreSQL).
--- Use em sequência:
---   1) scripts/fix-meeting-registration-part1.sql
---   2) scripts/fix-meeting-registration-part2.sql
-
-ALTER TYPE public.report_status ADD VALUE IF NOT EXISTS 'registrado';
+-- PARTE 2 de 2 — Execute somente após a Parte 1 concluir com sucesso
+--
+-- Atualiza encontros, encerramento consolidado e opções de encaminhamento
 
 UPDATE public.meetings
 SET status = 'registrado'
@@ -39,24 +36,28 @@ CREATE TRIGGER trg_case_closures_updated
   BEFORE UPDATE ON public.case_closures
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE POLICY "closures_professional_own" ON public.case_closures
-  FOR ALL TO authenticated
-  USING (
-    request_id IN (
-      SELECT id FROM public.requests
-      WHERE assigned_professional_id IN (
-        SELECT id FROM public.professionals WHERE user_id = auth.uid()
+DO $$ BEGIN
+  CREATE POLICY "closures_professional_own" ON public.case_closures
+    FOR ALL TO authenticated
+    USING (
+      request_id IN (
+        SELECT id FROM public.requests
+        WHERE assigned_professional_id IN (
+          SELECT id FROM public.professionals WHERE user_id = auth.uid()
+        )
       )
     )
-  )
-  WITH CHECK (
-    request_id IN (
-      SELECT id FROM public.requests
-      WHERE assigned_professional_id IN (
-        SELECT id FROM public.professionals WHERE user_id = auth.uid()
+    WITH CHECK (
+      request_id IN (
+        SELECT id FROM public.requests
+        WHERE assigned_professional_id IN (
+          SELECT id FROM public.professionals WHERE user_id = auth.uid()
+        )
       )
-    )
-  );
+    );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 DROP POLICY IF EXISTS "approvals_professional_view" ON public.approvals;
 
@@ -77,3 +78,17 @@ CREATE POLICY "approvals_professional_view" ON public.approvals
       )
     )
   );
+
+DO $$ BEGIN
+  CREATE TYPE public.meeting_referral_option AS ENUM (
+    'ubs_ubsf',
+    'clinica_escola_psicologia',
+    'caps_ij',
+    'rede_privada'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE public.meetings
+  ADD COLUMN IF NOT EXISTS opcoes_encaminhamento public.meeting_referral_option[] NOT NULL DEFAULT '{}';

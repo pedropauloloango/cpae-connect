@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +23,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
-import { complaintTypeLabels, meetingNumberLabels } from "@/lib/labels";
+import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits } from "@/lib/labels";
 import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
 import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
-import { MeetingCountIndicators } from "@/components/requests/MeetingCountIndicators";
+import { MeetingCountIndicators, summarizeMeetings } from "@/components/requests/MeetingCountIndicators";
+import { ClosureTabIndicator } from "@/components/requests/ClosureTabIndicator";
 import { EncerramentoTab, type CaseClosureRow } from "@/components/closures/EncerramentoTab";
 import {
   activityLogTitle,
@@ -36,15 +37,22 @@ import {
 } from "@/lib/activity-log-descriptions";
 import { EncontrosTab } from "@/components/meetings/EncontrosTab";
 import { getNextEncontroAction, type RequestAppointment } from "@/lib/meeting-schedule";
+import { PENDING_ASSIGNMENTS_QUERY_KEY, PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
-import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar, Bell } from "lucide-react";
+import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/demandas/$id")({ component: DemandaDetail });
+export const Route = createFileRoute("/_authenticated/demandas/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
+  component: DemandaDetail,
+});
 
 function DemandaDetail() {
   const { id } = useParams({ from: "/_authenticated/demandas/$id" });
+  const { tab } = Route.useSearch();
   const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState("info");
+  const [activeTab, setActiveTab] = useState(tab ?? "info");
   const [openMeetingForm, setOpenMeetingForm] = useState(false);
   const [openScheduleForm, setOpenScheduleForm] = useState(false);
 
@@ -82,7 +90,7 @@ function DemandaDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, numero, tipo, inicio, fim, representante_cargo, representante_nome, observacoes")
+        .select("id, numero, tipo, inicio, fim, representante_cargo, representante_nome, observacoes, created_at")
         .eq("request_id", id)
         .order("inicio");
       if (error) throw error;
@@ -102,6 +110,12 @@ function DemandaDetail() {
   const scheduleNumero = nextAction?.type === "schedule" ? nextAction.numero : null;
   const registerNumero = nextAction?.type === "register" ? nextAction.numero : null;
   const registerAppointment = nextAction?.type === "register" ? nextAction.appointment : null;
+  const { registered: registeredMeetingsCount } = summarizeMeetings(meetings);
+  const encontrosLockedForProfessional = !isAdmin && isRequestLockedForMeetingEdits(req?.status ?? null);
+
+  useEffect(() => {
+    if (tab) setActiveTab(tab);
+  }, [tab]);
 
   return (
     <div>
@@ -135,22 +149,21 @@ function DemandaDetail() {
             </TabsTrigger>
             <TabsTrigger value="encerramento" className="gap-1.5">
               Encerramento
-              {(closure as CaseClosureRow | null | undefined)?.status === "aguardando_aprovacao" && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-orange-600 ring-1 ring-warning/30 dark:text-orange-400">
-                  <Bell className="h-3 w-3" />1
-                </span>
-              )}
+              <ClosureTabIndicator
+                closure={closure as CaseClosureRow | null | undefined}
+                registeredMeetingsCount={registeredMeetingsCount}
+              />
             </TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
-          {activeTab === "encontros" && scheduleNumero && !openScheduleForm && !openMeetingForm && (
+          {activeTab === "encontros" && scheduleNumero && !openScheduleForm && !openMeetingForm && !encontrosLockedForProfessional && (
             <Button onClick={() => setOpenScheduleForm(true)} className="shrink-0 self-end sm:self-auto">
               <Calendar className="mr-2 h-4 w-4" />
               Agendar visita — {meetingNumberLabels[scheduleNumero]}
             </Button>
           )}
-          {activeTab === "encontros" && registerNumero && !openMeetingForm && !openScheduleForm && (
+          {activeTab === "encontros" && registerNumero && !openMeetingForm && !openScheduleForm && !encontrosLockedForProfessional && (
             <Button onClick={() => setOpenMeetingForm(true)} className="shrink-0 self-end sm:self-auto">
               <FileText className="mr-2 h-4 w-4" />
               Registrar {meetingNumberLabels[registerNumero]}
@@ -238,14 +251,20 @@ function DemandaDetail() {
             onOpenRegisterFormChange={setOpenMeetingForm}
             onOpenScheduleFormChange={setOpenScheduleForm}
             registerAppointment={registerAppointment}
+            requestStatus={req?.status ?? null}
           />
         </TabsContent>
 
         <TabsContent value="encerramento">
           <EncerramentoTab
             requestId={id}
+            protocolo={req?.numero ?? ""}
+            escolaNome={req?.school_nome_snapshot ?? req?.school?.nome ?? "Escola"}
+            alunoNome={req?.aluno_nome ?? ""}
+            requestStatus={req?.status ?? null}
             closure={closure as CaseClosureRow | null | undefined}
             meetings={meetings as import("@/components/closures/EncerramentoTab").EncerramentoMeeting[]}
+            appointments={appointments}
           />
         </TabsContent>
 
@@ -335,6 +354,14 @@ function TimelineTab({
   );
 }
 
+function formSectionRowGridClass(columnCount: number): string | undefined {
+  if (columnCount <= 1) return undefined;
+  if (columnCount === 2) return "grid gap-4 sm:grid-cols-2";
+  if (columnCount === 3) return "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+  if (columnCount >= 4) return "grid gap-4 sm:grid-cols-2 lg:grid-cols-4";
+  return undefined;
+}
+
 function FormSectionCard({ section }: { section: AcolhimentoFormSection }) {
   const rows = getSectionLayoutRows(section);
   const itemByNumber = Object.fromEntries(section.items.map((i) => [i.number, i]));
@@ -344,7 +371,7 @@ function FormSectionCard({ section }: { section: AcolhimentoFormSection }) {
       <CardHeader><CardTitle className="text-base">{section.title}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         {rows.map((row, idx) => (
-          <div key={idx} className={row.length > 1 ? "grid gap-4 sm:grid-cols-2" : undefined}>
+          <div key={idx} className={formSectionRowGridClass(row.length)}>
             {row.map((num) => {
               const item = itemByNumber[num];
               return item ? <FormAnswerField key={num} item={item} /> : null;
@@ -424,6 +451,8 @@ function AtribuicaoTab({
     qc.invalidateQueries({ queryKey: ["request", requestId] });
     qc.invalidateQueries({ queryKey: ["logs", requestId] });
     qc.invalidateQueries({ queryKey: ["demandas"] });
+    qc.invalidateQueries({ queryKey: PENDING_RECEIVED_REQUESTS_QUERY_KEY });
+    qc.invalidateQueries({ queryKey: PENDING_ASSIGNMENTS_QUERY_KEY });
   };
 
   const assignMut = useMutation({

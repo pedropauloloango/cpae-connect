@@ -11,6 +11,7 @@ export type RequestAppointment = {
   representante_cargo: string | null;
   representante_nome: string | null;
   observacoes: string | null;
+  created_at?: string | null;
 };
 
 export type RequestMeeting = {

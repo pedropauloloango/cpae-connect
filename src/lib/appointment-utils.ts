@@ -1,3 +1,15 @@
+/** Horários permitidos no agendamento de visitas */
+export const VISIT_SCHEDULE_HOURS = Array.from({ length: 12 }, (_, i) =>
+  String(7 + i).padStart(2, "0"),
+);
+export const VISIT_SCHEDULE_MINUTES = ["00", "15", "30", "45"] as const;
+
+export type VisitScheduleDateTimeParts = {
+  date: string;
+  hour: string;
+  minute: string;
+};
+
 /** Converte ISO datetime para valor de input datetime-local */
 export function toDatetimeLocalValue(iso: string): string {
   const d = new Date(iso);
@@ -12,6 +24,55 @@ export function datetimeLocalToIso(local: string): string {
   const d = new Date(local);
   if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
   return d.toISOString();
+}
+
+export function parseDatetimeLocal(value: string): VisitScheduleDateTimeParts {
+  if (!value) return { date: "", hour: "", minute: "" };
+  if (!value.includes("T")) {
+    return { date: value, hour: "", minute: "" };
+  }
+  const [date, time = ""] = value.split("T");
+  const [hour = "", minute = ""] = time.split(":");
+  return { date: date ?? "", hour, minute: minute.slice(0, 2) };
+}
+
+export function buildDatetimeLocal(parts: VisitScheduleDateTimeParts): string {
+  if (!parts.date) return "";
+  if (!parts.hour) return parts.date;
+  if (!parts.minute) return `${parts.date}T${parts.hour}`;
+  return `${parts.date}T${parts.hour}:${parts.minute}`;
+}
+
+function snapHour(hour: number): string {
+  const clamped = Math.min(18, Math.max(7, Number.isNaN(hour) ? 7 : hour));
+  return String(clamped).padStart(2, "0");
+}
+
+function snapMinute(minute: number): string {
+  const allowed = VISIT_SCHEDULE_MINUTES.map(Number);
+  const safe = Number.isNaN(minute) ? 0 : minute;
+  const closest = allowed.reduce((prev, curr) =>
+    Math.abs(curr - safe) < Math.abs(prev - safe) ? curr : prev,
+  );
+  return String(closest).padStart(2, "0");
+}
+
+/** Ajusta data/hora ao intervalo permitido no agendamento de visitas. */
+export function normalizeVisitScheduleDatetime(value: string): string {
+  if (!value) return "";
+  const parts = parseDatetimeLocal(value);
+  if (!parts.date) return value;
+  if (!parts.hour || !parts.minute) return buildDatetimeLocal(parts);
+  const hour = snapHour(Number(parts.hour));
+  const minute = snapMinute(Number(parts.minute));
+  return buildDatetimeLocal({ date: parts.date, hour, minute });
+}
+
+function assertCompleteDatetime(value: string, fieldLabel: string): void {
+  const parts = parseDatetimeLocal(value);
+  if (!parts.date || !parts.hour || !parts.minute) {
+    throw new Error(`Informe data, hora e minutos de ${fieldLabel}.`);
+  }
 }
 
 export type VisitScheduleFormValues = {
@@ -35,9 +96,14 @@ export const emptyVisitScheduleFormValues = (): VisitScheduleFormValues => ({
 export function mergeVisitScheduleDefaults(
   defaults?: Partial<VisitScheduleFormValues>,
 ): VisitScheduleFormValues {
-  return {
+  const merged = {
     ...emptyVisitScheduleFormValues(),
     ...defaults,
+  };
+  return {
+    ...merged,
+    inicio: normalizeVisitScheduleDatetime(merged.inicio),
+    fim: normalizeVisitScheduleDatetime(merged.fim),
   };
 }
 
@@ -45,6 +111,8 @@ export function prepareAppointmentDatetimes(values: VisitScheduleFormValues): {
   inicio: string;
   fim: string;
 } {
+  assertCompleteDatetime(values.inicio, "início");
+  assertCompleteDatetime(values.fim, "término");
   const inicio = datetimeLocalToIso(values.inicio);
   const fim = datetimeLocalToIso(values.fim);
   if (new Date(fim) <= new Date(inicio)) {

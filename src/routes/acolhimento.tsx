@@ -279,8 +279,8 @@ function AcolhimentoPublico() {
         </div>
       </section>
 
-      <main className="relative z-10 mx-auto -mt-6 max-w-3xl px-4 pb-12 lg:px-8 md:-mt-10">
-        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-6">
+      <main className="relative z-10 mx-auto -mt-6 w-full max-w-6xl px-4 pb-12 lg:px-8 md:-mt-10">
+        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="w-full space-y-6">
           <FormSection title="Identificação" description="Dados da escola e do solicitante" icon={School}>
               <Field label="1. Nome da Escola / EMEI *" error={form.formState.errors.school_id?.message ?? form.formState.errors.school_nome?.message}>
                 <SchoolSearchSelect
@@ -333,12 +333,12 @@ function AcolhimentoPublico() {
                 </Field>
               </div>
 
-              <Field label="4. E-mail *" error={form.formState.errors.solicitante_email?.message}>
-                <Input type="email" placeholder="seu.email@escola.ms.gov.br" {...form.register("solicitante_email")} />
+              <Field label="4. Nome completo do solicitante *" error={form.formState.errors.solicitante_nome?.message}>
+                <Input placeholder="Ex.: Maria Silva" {...form.register("solicitante_nome")} />
               </Field>
 
-              <Field label="5. Nome completo do solicitante *" error={form.formState.errors.solicitante_nome?.message}>
-                <Input placeholder="Ex.: Maria Silva" {...form.register("solicitante_nome")} />
+              <Field label="5. E-mail *" error={form.formState.errors.solicitante_email?.message}>
+                <Input type="email" placeholder="seu.email@escola.ms.gov.br" {...form.register("solicitante_email")} />
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -390,11 +390,11 @@ function AcolhimentoPublico() {
           </FormSection>
 
           <FormSection title="Dados do(a) aluno(a)" description="Informações do estudante" icon={GraduationCap}>
-              <Field label="9. Nome do(a) aluno(a) *" error={form.formState.errors.aluno_nome?.message}>
-                <Input {...form.register("aluno_nome")} />
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="9. Nome do(a) aluno(a) *" error={form.formState.errors.aluno_nome?.message}>
+                  <Input {...form.register("aluno_nome")} />
+                </Field>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="10. Data de Nascimento *" error={form.formState.errors.aluno_nascimento?.message}>
                   <Input type="date" {...form.register("aluno_nascimento")} />
                 </Field>
@@ -419,24 +419,24 @@ function AcolhimentoPublico() {
                 </Field>
               </div>
 
-              <Field label="12. O(a) estudante é público-alvo da Educação Especial *" error={form.formState.errors.educacao_especial?.message}>
-                <Controller
-                  control={form.control}
-                  name="educacao_especial"
-                  render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
-                      <label className={optionLabel}>
-                        <RadioGroupItem value="sim" /> Sim
-                      </label>
-                      <label className={optionLabel}>
-                        <RadioGroupItem value="nao" /> Não
-                      </label>
-                    </RadioGroup>
-                  )}
-                />
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="12. O(a) estudante é público-alvo da Educação Especial *" error={form.formState.errors.educacao_especial?.message}>
+                  <Controller
+                    control={form.control}
+                    name="educacao_especial"
+                    render={({ field }) => (
+                      <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
+                        <label className={optionLabel}>
+                          <RadioGroupItem value="sim" /> Sim
+                        </label>
+                        <label className={optionLabel}>
+                          <RadioGroupItem value="nao" /> Não
+                        </label>
+                      </RadioGroup>
+                    )}
+                  />
+                </Field>
 
-              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="13. Série *" error={form.formState.errors.aluno_serie?.message}>
                   <Controller
                     control={form.control}
@@ -474,24 +474,26 @@ function AcolhimentoPublico() {
                     )}
                   />
                 </Field>
-              </div>
 
-              <Field label="15. Período *" error={form.formState.errors.periodo?.message}>
-                <Controller
-                  control={form.control}
-                  name="periodo"
-                  render={({ field }) => (
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 sm:grid-cols-2">
-                      {periodoOptions.map((o) => (
-                        <label key={o.value} className={optionLabel}>
-                          <RadioGroupItem value={o.value} />
-                          {o.label}
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  )}
-                />
-              </Field>
+                <Field label="15. Período *" error={form.formState.errors.periodo?.message}>
+                  <Controller
+                    control={form.control}
+                    name="periodo"
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o período" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {periodoOptions.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+              </div>
           </FormSection>
 
           <FormSection title="Situação e comunicações" description="Contexto do acolhimento solicitado" icon={ClipboardList}>

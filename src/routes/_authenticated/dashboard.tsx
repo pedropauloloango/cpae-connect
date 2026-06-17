@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
 import { complaintTypeLabels } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -24,7 +25,7 @@ function Dashboard() {
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
       const [r1, r2, r3, ap] = await Promise.all([
         supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "recebida"),
-        supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).in("status", ["distribuida", "em_andamento", "aguardando_aprovacao"]),
+        supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).in("status", ["distribuida", "em_andamento", "em_ajuste", "aguardando_aprovacao"]),
         supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "concluida"),
         supabase.from("appointments").select("id", { count: "exact", head: true }).gte("inicio", monthStart.toISOString()),
       ]);
@@ -120,21 +121,21 @@ function Dashboard() {
       />
 
       <div className={`grid gap-4 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"}`}>
-        <Kpi label="Solicitações Recebidas" value={counters?.recebida ?? 0} icon={Inbox} tone="text-info" />
-        <Kpi label="Em Andamento" value={counters?.em_andamento ?? 0} icon={Clock} tone="text-warning" />
-        <Kpi label="Concluídas" value={counters?.concluida ?? 0} icon={CheckCircle2} tone="text-success" />
-        <Kpi label="Atendimentos no Mês" value={counters?.agendados_mes ?? 0} icon={Calendar} tone="text-primary" />
+        <Kpi label="Solicitações Recebidas" value={counters?.recebida ?? 0} sub="Total recebido" icon={Inbox} iconBg="bg-[#FAF5FF] text-[#7B2CBF]" />
+        <Kpi label="Em Andamento" value={counters?.em_andamento ?? 0} sub="Em atendimento" icon={Clock} iconBg="bg-[#FFFBEB] text-[#F7B500]" />
+        <Kpi label="Concluídas" value={counters?.concluida ?? 0} sub="Finalizadas" icon={CheckCircle2} iconBg="bg-[#F2FFF6] text-[#52C41A]" />
+        <Kpi label="Atendimentos no Mês" value={counters?.agendados_mes ?? 0} sub="Agenda do mês" icon={Calendar} iconBg="bg-[#EAF2FF] text-[#0F52BA]" />
         {isAdmin && (
           <>
-            <Kpi label="Escolas Ativas" value={counters?.total_escolas ?? 0} icon={School} tone="text-accent" />
-            <Kpi label="Profissionais Ativos" value={counters?.total_profissionais ?? 0} icon={Users} tone="text-primary" />
+            <Kpi label="Escolas Ativas" value={counters?.total_escolas ?? 0} sub="Cadastradas" icon={School} iconBg="bg-[#EAF2FF] text-[#0F52BA]" />
+            <Kpi label="Profissionais Ativos" value={counters?.total_profissionais ?? 0} sub="Na equipe" icon={Users} iconBg="bg-[#FAF5FF] text-[#D633C6]" />
           </>
         )}
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Evolução Mensal</CardTitle></CardHeader>
+        <Card className="cpae-card border-0 shadow-none">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-[#0F52BA]" /> Evolução Mensal</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthly}>
@@ -148,8 +149,8 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Distribuição por Queixa</CardTitle></CardHeader>
+        <Card className="cpae-card border-0 shadow-none">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertCircle className="h-4 w-4 text-[#0F52BA]" /> Distribuição por Queixa</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -162,7 +163,7 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="cpae-card border-0 shadow-none lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               {!isAdmin && <School className="h-4 w-4" />}
@@ -194,15 +195,32 @@ function Dashboard() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, tone }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; tone: string; }) {
+function Kpi({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  iconBg,
+}: {
+  label: string;
+  value: number;
+  sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+}) {
   return (
-    <Card className="shadow-card">
+    <Card className="cpae-card border-0 shadow-none">
       <CardContent className="p-5">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-          <Icon className={`h-4 w-4 ${tone}`} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-[#64748B]">{label}</div>
+            <div className="mt-2 text-3xl font-bold tabular-nums text-[#0F172A]">{value}</div>
+            <div className="mt-1 text-[11px] text-[#94A3B8]">{sub}</div>
+          </div>
+          <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconBg)}>
+            <Icon className="h-5 w-5" />
+          </div>
         </div>
-        <div className="mt-2 text-3xl font-bold tabular-nums">{value}</div>
       </CardContent>
     </Card>
   );

@@ -1,14 +1,31 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useState, useLayoutEffect, type ReactNode } from "react";
 import {
-  LayoutDashboard, Inbox, School, Users, Calendar, CheckSquare,
-  LogOut, Menu, X, Heart, ChevronDown, Settings, UserCog,
+  LayoutDashboard,
+  Inbox,
+  School,
+  Users,
+  Calendar,
+  CheckSquare,
+  LogOut,
+  Menu,
+  X,
+  ChevronDown,
+  Settings,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageHeaderProvider, usePageHeaderContext } from "@/components/layout/page-header-context";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
-interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; admin?: boolean; }
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  admin?: boolean;
+}
 
 interface NavGroup {
   label: string;
@@ -33,13 +50,28 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Settings,
     admin: true,
     basePath: "/configuracoes",
-    children: [
-      { to: "/configuracoes/usuarios", label: "Usuários", icon: UserCog },
-    ],
+    children: [{ to: "/configuracoes/usuarios", label: "Usuários", icon: UserCog }],
   },
 ];
 
+function displayName(email: string | undefined, metadata?: Record<string, unknown>) {
+  const full = metadata?.full_name;
+  if (typeof full === "string" && full.trim()) return full.trim();
+  if (!email) return "Usuário";
+  const local = email.split("@")[0] ?? email;
+  return local.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <PageHeaderProvider>
+      <AppShellLayout>{children}</AppShellLayout>
+    </PageHeaderProvider>
+  );
+}
+
+function AppShellLayout({ children }: { children: ReactNode }) {
+  const { meta } = usePageHeaderContext();
   const [open, setOpen] = useState(false);
   const { isAdmin, user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -47,8 +79,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = NAV.filter((i) => !i.admin || isAdmin);
   const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
-
   const [settingsOpen, setSettingsOpen] = useState(() => pathname.startsWith("/configuracoes"));
+
+  const userName = displayName(user?.email, user?.user_metadata);
+  const userInitials = userName
+    .split(" ")
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
 
   const handleSignOut = async () => {
     await signOut();
@@ -57,57 +96,60 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const linkClass = (active: boolean) =>
     cn(
-      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
+      "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
       active
-        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        ? "bg-[#0F52BA]/35 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-gradient-to-b before:from-[#D633C6] before:via-[#0F52BA] before:to-[#52C41A]"
+        : "text-[#CBD5E1] hover:bg-white/8 hover:text-white",
     );
 
   const subLinkClass = (active: boolean) =>
     cn(
-      "flex items-center gap-3 rounded-md py-2 pl-9 pr-3 text-sm transition",
+      "flex items-center gap-3 rounded-xl py-2 pl-10 pr-3 text-sm transition-all duration-200",
       active
-        ? "bg-sidebar-primary/90 font-medium text-sidebar-primary-foreground"
-        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        ? "bg-[#0F52BA]/30 font-medium text-white"
+        : "text-[#94A3B8] hover:bg-white/8 hover:text-[#E2E8F0]",
     );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Mobile overlay */}
-      {open && <div className="fixed inset-0 z-30 bg-foreground/30 lg:hidden" onClick={() => setOpen(false)} />}
+    <div className="flex min-h-screen bg-[#F8FAFC]">
+      {open && (
+        <div className="fixed inset-0 z-30 bg-[#0F172A]/20 backdrop-blur-[1px] lg:hidden" onClick={() => setOpen(false)} />
+      )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "cpae-sidebar fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col text-white transition-transform lg:static lg:translate-x-0 relative",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 items-center justify-between gap-3 border-b border-sidebar-border px-5">
-          <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-            <div className="grid h-9 w-9 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-              <Heart className="h-4 w-4" />
+        <div className="cpae-sidebar-glow" aria-hidden />
+
+        <div className="relative flex h-[72px] items-center justify-between gap-3 border-b border-white/10 px-5">
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-3" onClick={() => setOpen(false)}>
+            <div className="rounded-xl bg-white/95 p-1 shadow-md ring-1 ring-white/20">
+              <img src="/logo_CPAE.png" alt="CPAE" className="h-9 w-9 shrink-0 object-contain" />
             </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">Gestão CPAE</div>
-              <div className="text-[11px] text-sidebar-foreground/60">HUB de sistemas</div>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-bold text-white">Gestão CPAE</div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-[#93C5FD]/80">Hub de Sistemas</div>
             </div>
           </Link>
-          <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu">
+          <button className="rounded-lg p-2 text-[#CBD5E1] hover:bg-white/10 lg:hidden" onClick={() => setOpen(false)} aria-label="Fechar menu">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="px-3 pt-4 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+        <div className="relative px-5 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#93C5FD]/55">
           Módulo Acolhimento
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-3">
+        <nav className="relative flex-1 space-y-0.5 overflow-y-auto px-3">
           {items.map((it) => {
             const active = pathname === it.to || pathname.startsWith(it.to + "/");
             return (
               <Link key={it.to} to={it.to} onClick={() => setOpen(false)} className={linkClass(active)}>
-                <it.icon className="h-4 w-4 shrink-0" /> <span className="truncate">{it.label}</span>
+                <it.icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-[#7DD3FC]" : "text-[#94A3B8]")} />
+                <span className="truncate">{it.label}</span>
               </Link>
             );
           })}
@@ -121,14 +163,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setSettingsOpen((v) => !v)}
-                  className={cn(
-                    linkClass(groupActive),
-                    "w-full justify-between",
-                  )}
+                  className={cn(linkClass(groupActive), "w-full justify-between")}
                   aria-expanded={expanded}
                 >
                   <span className="flex min-w-0 items-center gap-3">
-                    <group.icon className="h-4 w-4 shrink-0" />
+                    <group.icon className="h-[18px] w-[18px] shrink-0" />
                     <span className="truncate">{group.label}</span>
                   </span>
                   <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")} />
@@ -139,12 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {group.children.map((child) => {
                       const active = pathname === child.to || pathname.startsWith(child.to + "/");
                       return (
-                        <Link
-                          key={child.to}
-                          to={child.to}
-                          onClick={() => setOpen(false)}
-                          className={subLinkClass(active)}
-                        >
+                        <Link key={child.to} to={child.to} onClick={() => setOpen(false)} className={subLinkClass(active)}>
                           <child.icon className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{child.label}</span>
                         </Link>
@@ -157,52 +191,97 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
-          <div className="rounded-md bg-sidebar-accent/40 p-3">
-            <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs font-semibold">
-                {(user?.email ?? "?").slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{user?.email}</div>
-                <div className="text-[11px] text-sidebar-foreground/60">{isAdmin ? "Administrador" : "Profissional"}</div>
-              </div>
-            </div>
-            <Button onClick={handleSignOut} variant="ghost" className="mt-3 w-full justify-start gap-2 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground">
-              <LogOut className="h-4 w-4" /> Sair
-            </Button>
-          </div>
-        </div>
+        <div className="cpae-rainbow-border absolute right-0 top-0 bottom-0 z-10 w-[3px]" aria-hidden />
       </aside>
 
-      {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur lg:hidden">
-          <button onClick={() => setOpen(true)} aria-label="Abrir menu" className="rounded-md p-2 hover:bg-muted">
+        <header className="cpae-app-header sticky top-0 z-20 relative flex min-h-[72px] items-center gap-3 px-4 py-3 backdrop-blur-md lg:px-6">
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Abrir menu"
+            className="shrink-0 rounded-xl p-2 text-[#0F52BA] transition-colors hover:bg-white/70 lg:hidden"
+          >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <img src="/icon-192.png" alt="CPAE" className="h-7 w-7 rounded" />
-            <span className="font-semibold">Gestão CPAE</span>
+
+          <div className="min-w-0 flex-1">
+            {meta.title ? (
+              <>
+                <h1 className="relative inline-block truncate text-lg font-bold tracking-tight text-[#0F172A] sm:text-xl">
+                  {meta.title}
+                  <span className="absolute -bottom-0.5 left-0 h-0.5 w-8 rounded-full bg-[#F7B500]" aria-hidden />
+                </h1>
+                {meta.description && (
+                  <p className="mt-0.5 truncate text-[11px] leading-snug text-[#64748B] sm:text-xs">
+                    {meta.description}
+                  </p>
+                )}
+              </>
+            ) : null}
+          </div>
+
+          {meta.actions && <div className="hidden shrink-0 items-center gap-2 sm:flex">{meta.actions}</div>}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <NotificationBell />
+
+            <div className="flex items-center gap-2 rounded-2xl border border-white/60 bg-white/75 py-1.5 pl-1.5 pr-2 shadow-sm backdrop-blur-sm sm:gap-3 sm:pr-3">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#0F52BA] to-[#7B2CBF] text-xs font-bold text-white">
+                {userInitials}
+              </div>
+              <div className="hidden min-w-0 md:block">
+                <div className="truncate text-sm font-semibold text-[#0F172A]">{userName}</div>
+                <div className="text-[11px] text-[#64748B]">{isAdmin ? "Coordenador" : "Profissional"}</div>
+              </div>
+              <Button
+                type="button"
+                onClick={handleSignOut}
+                variant="ghost"
+                size="sm"
+                className="h-9 shrink-0 gap-1.5 rounded-xl px-2.5 text-[#0F52BA] hover:bg-[#0F52BA]/10 hover:text-[#0A3D8C] sm:px-3"
+                aria-label="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </Button>
+            </div>
           </div>
         </header>
-        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+
+        {meta.actions && (
+          <div className="flex justify-end border-b border-[#0F52BA]/5 bg-[#F6F9FF]/80 px-4 py-2 sm:hidden">
+            {meta.actions}
+          </div>
+        )}
+
+        <main className="cpae-main-surface relative min-w-0 flex-1 overflow-hidden">
+          <div className="cpae-content-panel relative min-h-full">
+            <div className="cpae-wave-bg" aria-hidden />
+            <div className="relative z-10 p-4 sm:p-6 lg:p-8">{children}</div>
+          </div>
+        </main>
       </div>
     </div>
   );
 }
 
-// Reusable page header
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
-  return (
-    <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {actions && <div className="shrink-0">{actions}</div>}
-    </div>
-  );
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+}) {
+  const { setMeta } = usePageHeaderContext();
+
+  useLayoutEffect(() => {
+    setMeta({ title, description, actions });
+    return () => setMeta({});
+  }, [title, description, actions, setMeta]);
+
+  return null;
 }
 
 export { ChevronDown };

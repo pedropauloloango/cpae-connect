@@ -6,9 +6,77 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { meetingTypeLabels, schoolRepresentativeLabels, visitTypeOptions } from "@/lib/labels";
 import {
+  buildDatetimeLocal,
   mergeVisitScheduleDefaults,
+  parseDatetimeLocal,
+  VISIT_SCHEDULE_HOURS,
+  VISIT_SCHEDULE_MINUTES,
   type VisitScheduleFormValues,
 } from "@/lib/appointment-utils";
+
+function VisitScheduleDateTimeInput({
+  label,
+  value,
+  onChange,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  const parts = parseDatetimeLocal(value);
+
+  const update = (patch: Partial<typeof parts>) => {
+    onChange(buildDatetimeLocal({ ...parts, ...patch }));
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-2">
+        <Input
+          type="date"
+          required={required}
+          value={parts.date}
+          onChange={(e) => update({ date: e.target.value })}
+        />
+        <Select
+          value={parts.hour || undefined}
+          onValueChange={(hour) => update({ hour })}
+          required={required}
+        >
+          <SelectTrigger aria-label={`Hora — ${label}`}>
+            <SelectValue placeholder="Hora" />
+          </SelectTrigger>
+          <SelectContent>
+            {VISIT_SCHEDULE_HOURS.map((hour) => (
+              <SelectItem key={hour} value={hour}>
+                {hour}h
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={parts.minute || undefined}
+          onValueChange={(minute) => update({ minute })}
+          required={required}
+        >
+          <SelectTrigger aria-label={`Minutos — ${label}`}>
+            <SelectValue placeholder="Min" />
+          </SelectTrigger>
+          <SelectContent>
+            {VISIT_SCHEDULE_MINUTES.map((minute) => (
+              <SelectItem key={minute} value={minute}>
+                {minute}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 
 export type VisitScheduleFormProps = {
   formKey?: string;
@@ -74,7 +142,7 @@ export function VisitScheduleForm({
           </Select>
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="space-y-1.5">
           <Label>Tipo da visita *</Label>
           <Select value={values.tipo} onValueChange={(v) => set("tipo", v)}>
@@ -86,24 +154,18 @@ export function VisitScheduleForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label>Início *</Label>
-          <Input
-            type="datetime-local"
-            required
-            value={values.inicio}
-            onChange={(e) => set("inicio", e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Término *</Label>
-          <Input
-            type="datetime-local"
-            required
-            value={values.fim}
-            onChange={(e) => set("fim", e.target.value)}
-          />
-        </div>
+        <VisitScheduleDateTimeInput
+          label="Início *"
+          required
+          value={values.inicio}
+          onChange={(inicio) => set("inicio", inicio)}
+        />
+        <VisitScheduleDateTimeInput
+          label="Término *"
+          required
+          value={values.fim}
+          onChange={(fim) => set("fim", fim)}
+        />
       </div>
       <div className="space-y-1.5">
         <Label>Observações</Label>

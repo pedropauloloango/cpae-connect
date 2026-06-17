@@ -20,6 +20,8 @@ const reportStatusIcons: Record<string, LucideIcon> = {
   correcao_solicitada: Edit3,
 };
 
+export { reportStatusIcons };
+
 export function MeetingStatusBadge({ status, className }: { status: string; className?: string }) {
   const Icon = reportStatusIcons[status] ?? Inbox;
   const label = reportStatusLabels[status] ?? status;
