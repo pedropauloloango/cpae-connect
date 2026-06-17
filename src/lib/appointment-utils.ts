@@ -1,8 +1,9 @@
-/** Horários permitidos no agendamento de visitas */
-export const VISIT_SCHEDULE_HOURS = Array.from({ length: 12 }, (_, i) =>
+/** Horários permitidos no agendamento de visitas (07h–21h) */
+export const VISIT_SCHEDULE_HOURS = Array.from({ length: 15 }, (_, i) =>
   String(7 + i).padStart(2, "0"),
 );
 export const VISIT_SCHEDULE_MINUTES = ["00", "15", "30", "45"] as const;
+export const VISIT_SCHEDULE_DURATION_MS = 60 * 60 * 1000;
 
 export type VisitScheduleDateTimeParts = {
   date: string;
@@ -44,7 +45,7 @@ export function buildDatetimeLocal(parts: VisitScheduleDateTimeParts): string {
 }
 
 function snapHour(hour: number): string {
-  const clamped = Math.min(18, Math.max(7, Number.isNaN(hour) ? 7 : hour));
+  const clamped = Math.min(21, Math.max(7, Number.isNaN(hour) ? 7 : hour));
   return String(clamped).padStart(2, "0");
 }
 
@@ -80,7 +81,6 @@ export type VisitScheduleFormValues = {
   representante_cargo: string;
   tipo: string;
   inicio: string;
-  fim: string;
   observacoes: string;
 };
 
@@ -89,7 +89,6 @@ export const emptyVisitScheduleFormValues = (): VisitScheduleFormValues => ({
   representante_cargo: "diretor",
   tipo: "acolhimento",
   inicio: "",
-  fim: "",
   observacoes: "",
 });
 
@@ -103,20 +102,15 @@ export function mergeVisitScheduleDefaults(
   return {
     ...merged,
     inicio: normalizeVisitScheduleDatetime(merged.inicio),
-    fim: normalizeVisitScheduleDatetime(merged.fim),
   };
 }
 
-export function prepareAppointmentDatetimes(values: VisitScheduleFormValues): {
+export function prepareAppointmentDatetimes(values: Pick<VisitScheduleFormValues, "inicio">): {
   inicio: string;
   fim: string;
 } {
   assertCompleteDatetime(values.inicio, "início");
-  assertCompleteDatetime(values.fim, "término");
   const inicio = datetimeLocalToIso(values.inicio);
-  const fim = datetimeLocalToIso(values.fim);
-  if (new Date(fim) <= new Date(inicio)) {
-    throw new Error("O término deve ser posterior ao início.");
-  }
+  const fim = new Date(new Date(inicio).getTime() + VISIT_SCHEDULE_DURATION_MS).toISOString();
   return { inicio, fim };
 }

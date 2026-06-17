@@ -17,6 +17,10 @@ import {
 
 type ComplaintType = Database["public"]["Enums"]["complaint_type"];
 
+export function normalizeAcolhimentoPersonName(value: string): string {
+  return value.trim().toLocaleUpperCase("pt-BR");
+}
+
 export type AcolhimentoSubmission = {
   school_id: string;
   school_nome: string;
@@ -60,7 +64,9 @@ export async function submitAcolhimentoRequest(
 ): Promise<{ numero: string; id: string }> {
   const tipo_queixa = deriveTipoQueixa(data.situacao_observada) as ComplaintType;
   const cargoLabel = solicitanteCargoLabels[data.solicitante_cargo] ?? data.solicitante_cargo;
-  const nomeCargo = `${data.solicitante_nome.trim()} — ${cargoLabel}`;
+  const solicitanteNome = normalizeAcolhimentoPersonName(data.solicitante_nome);
+  const alunoNome = normalizeAcolhimentoPersonName(data.aluno_nome);
+  const nomeCargo = `${solicitanteNome} — ${cargoLabel}`;
   const serieLabel = alunoSerieLabels[data.aluno_serie] ?? `${data.aluno_serie}º ano`;
   const turmaAno = `${serieLabel} ${data.aluno_turma}`;
 
@@ -70,12 +76,12 @@ export async function submitAcolhimentoRequest(
     tipo_escola: data.tipo_escola,
     regiao_escola: data.regiao_escola || null,
     solicitante_email: data.solicitante_email.trim(),
-    solicitante_nome: data.solicitante_nome.trim(),
+    solicitante_nome: solicitanteNome,
     solicitante_cargo: data.solicitante_cargo,
     solicitante_nome_cargo: nomeCargo,
     solicitante_telefone: data.solicitante_telefone.trim(),
     modalidade_acolhimento: data.modalidade_acolhimento,
-    aluno_nome: data.aluno_nome.trim(),
+    aluno_nome: alunoNome,
     aluno_nascimento: data.aluno_nascimento,
     aluno_sexo: data.aluno_sexo,
     educacao_especial: data.educacao_especial === "sim",

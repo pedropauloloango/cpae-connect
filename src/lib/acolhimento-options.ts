@@ -46,6 +46,7 @@ export const autorizacaoAtaOptions = [
 export const solicitanteCargoOptions = [
   { value: "diretor", label: "Diretor(a)" },
   { value: "diretor_adjunto", label: "Diretor(a) Adjunto" },
+  { value: "coordenador_pedagogico", label: "Coordenador Pedagógico" },
   { value: "secretario", label: "Secretário(a)" },
 ] as const;
 
@@ -56,6 +57,11 @@ export const alunoSexoOptions = [
 ] as const;
 
 export const alunoSerieOptions = [
+  { value: "grupo_1", label: "Grupo 1" },
+  { value: "grupo_2", label: "Grupo 2" },
+  { value: "grupo_3", label: "Grupo 3" },
+  { value: "grupo_4", label: "Grupo 4" },
+  { value: "grupo_5", label: "Grupo 5" },
   { value: "1", label: "1º ano" },
   { value: "2", label: "2º ano" },
   { value: "3", label: "3º ano" },
@@ -73,12 +79,24 @@ export const alunoTurmaOptions = [
   { value: "C", label: "C" },
   { value: "D", label: "D" },
   { value: "E", label: "E" },
+  { value: "F", label: "F" },
+  { value: "G", label: "G" },
+  { value: "H", label: "H" },
+  { value: "I", label: "I" },
+  { value: "J", label: "J" },
 ] as const;
 
 export type SolicitanteCargo = (typeof solicitanteCargoOptions)[number]["value"];
 export type AlunoSexo = (typeof alunoSexoOptions)[number]["value"];
 export type AlunoSerie = (typeof alunoSerieOptions)[number]["value"];
 export type AlunoTurma = (typeof alunoTurmaOptions)[number]["value"];
+
+export const solicitanteCargoValues = solicitanteCargoOptions.map((o) => o.value) as [
+  SolicitanteCargo,
+  ...SolicitanteCargo[],
+];
+export const alunoSerieValues = alunoSerieOptions.map((o) => o.value) as [AlunoSerie, ...AlunoSerie[]];
+export const alunoTurmaValues = alunoTurmaOptions.map((o) => o.value) as [AlunoTurma, ...AlunoTurma[]];
 
 export type RegiaoEscola = (typeof regiaoEscolaOptions)[number]["value"];
 export type ModalidadeAcolhimento = (typeof modalidadeOptions)[number]["value"];

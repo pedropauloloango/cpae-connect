@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { deriveTipoQueixa, alunoSerieLabels, solicitanteCargoLabels } from "./acolhimento-options";
+import { deriveTipoQueixa, alunoSerieLabels, alunoSerieValues, alunoTurmaValues, solicitanteCargoLabels, solicitanteCargoValues } from "./acolhimento-options";
+import { normalizeAcolhimentoPersonName } from "./acolhimento-submit";
 import type { Database } from "@/integrations/supabase/types";
 
 type ComplaintType = Database["public"]["Enums"]["complaint_type"];
@@ -12,15 +13,15 @@ const submissionSchema = z.object({
   tipo_escola: z.enum(["escola", "emei"]),
   regiao_escola: z.string().max(50).optional().nullable(),
   solicitante_nome: z.string().min(2, "Informe o nome completo").max(200),
-  solicitante_cargo: z.enum(["diretor", "diretor_adjunto", "secretario"]),
+  solicitante_cargo: z.enum(solicitanteCargoValues),
   solicitante_telefone: z.string().min(8, "Informe o telefone").max(50),
   modalidade_acolhimento: z.enum(["presencial", "online"]),
   aluno_nome: z.string().min(2, "Informe o nome do aluno").max(200),
   aluno_nascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data de nascimento"),
   aluno_sexo: z.enum(["masculino", "feminino", "outro"]),
   educacao_especial: z.enum(["sim", "nao"]),
-  aluno_serie: z.enum(["1", "2", "3", "4", "5", "6", "7", "8", "9"]),
-  aluno_turma: z.enum(["A", "B", "C", "D", "E"]),
+  aluno_serie: z.enum(alunoSerieValues),
+  aluno_turma: z.enum(alunoTurmaValues),
   periodo: z.enum(["matutino", "vespertino", "integral", "noturno"]),
   comunicou_abuso: z
     .array(z.enum(["conselho_tutelar", "orgao_semed", "nao_se_aplica", "outra_rede", "outro"]))
@@ -40,7 +41,9 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
     const tipo_queixa = deriveTipoQueixa(data.situacao_observada) as ComplaintType;
 
     const cargoLabel = solicitanteCargoLabels[data.solicitante_cargo] ?? data.solicitante_cargo;
-    const nomeCargo = `${data.solicitante_nome.trim()} — ${cargoLabel}`;
+    const solicitanteNome = normalizeAcolhimentoPersonName(data.solicitante_nome);
+    const alunoNome = normalizeAcolhimentoPersonName(data.aluno_nome);
+    const nomeCargo = `${solicitanteNome} — ${cargoLabel}`;
     const serieLabel = alunoSerieLabels[data.aluno_serie] ?? `${data.aluno_serie}º ano`;
     const turmaAno = `${serieLabel} ${data.aluno_turma}`;
 
@@ -52,12 +55,12 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
         tipo_escola: data.tipo_escola,
         regiao_escola: data.regiao_escola || null,
         solicitante_email: data.solicitante_email.trim(),
-        solicitante_nome: data.solicitante_nome.trim(),
+        solicitante_nome: solicitanteNome,
         solicitante_cargo: data.solicitante_cargo,
         solicitante_nome_cargo: nomeCargo,
         solicitante_telefone: data.solicitante_telefone.trim(),
         modalidade_acolhimento: data.modalidade_acolhimento,
-        aluno_nome: data.aluno_nome.trim(),
+        aluno_nome: alunoNome,
         aluno_nascimento: data.aluno_nascimento,
         aluno_sexo: data.aluno_sexo,
         educacao_especial: data.educacao_especial === "sim",

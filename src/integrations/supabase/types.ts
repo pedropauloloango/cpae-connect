@@ -682,6 +682,7 @@ export type Database = {
       account_status: "pendente" | "aprovado" | "rejeitado"
       app_role: "admin" | "profissional"
       closure_result:
+        | "concluido"
         | "resolvido"
         | "encaminhado"
         | "em_acompanhamento"
@@ -855,6 +856,7 @@ export const Constants = {
       account_status: ["pendente", "aprovado", "rejeitado"],
       app_role: ["admin", "profissional"],
       closure_result: [
+        "concluido",
         "resolvido",
         "encaminhado",
         "em_acompanhamento",

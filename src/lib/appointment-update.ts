@@ -65,7 +65,6 @@ export function appointmentToFormValues(a: {
     representante_cargo: a.representante_cargo ?? "diretor",
     tipo: a.tipo,
     inicio: toDatetimeLocalValue(a.inicio),
-    fim: toDatetimeLocalValue(a.fim),
     observacoes: a.observacoes ?? "",
   };
 }

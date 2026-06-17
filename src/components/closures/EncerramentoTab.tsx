@@ -192,7 +192,7 @@ export function EncerramentoTab({
         throw new Error("Informe o relato consolidado em texto ou anexe o arquivo.");
       }
       if (!vals.classificacao_final || !vals.resultado) {
-        throw new Error("Informe classificação final e resultado.");
+        throw new Error("Informe classificação final e status.");
       }
       if (vals.relatoFile) {
         const fileError = validateMeetingRelatoFile(vals.relatoFile);
@@ -395,7 +395,7 @@ export function EncerramentoTab({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Resultado *</Label>
+              <Label>Status *</Label>
               <Select value={resultado} onValueChange={setResultado} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione…" />
@@ -529,7 +529,7 @@ export function EncerramentoTab({
           {closure ? (
             <>
               <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
-              <Field label="Resultado" value={closureResultLabels[closure.resultado]} />
+              <Field label="Status" value={closureResultLabels[closure.resultado]} />
               <div>
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Relato consolidado</div>
                 {consolidatedExportText && (
@@ -579,7 +579,7 @@ export function EncerramentoTab({
           headerActions={<MeetingStatusBadge status={closure.status} />}
         >
             <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
-            <Field label="Resultado" value={closureResultLabels[closure.resultado]} />
+            <Field label="Status" value={closureResultLabels[closure.resultado]} />
 
             {closure.status === "correcao_solicitada" && (
               <div className="rounded-md border border-warning/30 bg-warning/10 p-3">

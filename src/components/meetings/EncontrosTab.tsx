@@ -170,7 +170,6 @@ export function EncontrosTab({
       representante_cargo: string;
       tipo: string;
       inicio: string;
-      fim: string;
       observacoes: string;
     }) => {
       if (!professionalId) throw new Error("Esta demanda ainda não está atribuída a um profissional.");
@@ -370,7 +369,7 @@ export function EncontrosTab({
       {!hasAnyContent && !openScheduleForm && !openRegisterForm && !editingAppointment && (
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Agende a visita na escola antes de registrar o primeiro encontro.
+            Agende a primeira visita na escola. Você pode agendar todas as visitas antes de registrar os encontros.
           </CardContent>
         </Card>
       )}
@@ -615,7 +614,6 @@ export function EncontrosTab({
                   representante_cargo: values.representante_cargo,
                   tipo: values.tipo,
                   inicio: values.inicio,
-                  fim: values.fim,
                   observacoes: values.observacoes,
                 })
               }

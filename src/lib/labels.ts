@@ -102,6 +102,7 @@ export const reportStatusCardTone: Record<string, string> = {
 };
 
 export const closureResultLabels: Record<string, string> = {
+  concluido: "Concluído",
   resolvido: "Resolvido",
   encaminhado: "Encaminhado",
   em_acompanhamento: "Em Acompanhamento",

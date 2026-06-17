@@ -142,7 +142,7 @@ export function VisitScheduleForm({
           </Select>
         </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Tipo da visita *</Label>
           <Select value={values.tipo} onValueChange={(v) => set("tipo", v)}>
@@ -154,18 +154,15 @@ export function VisitScheduleForm({
             </SelectContent>
           </Select>
         </div>
-        <VisitScheduleDateTimeInput
-          label="Início *"
-          required
-          value={values.inicio}
-          onChange={(inicio) => set("inicio", inicio)}
-        />
-        <VisitScheduleDateTimeInput
-          label="Término *"
-          required
-          value={values.fim}
-          onChange={(fim) => set("fim", fim)}
-        />
+        <div className="space-y-1.5">
+          <VisitScheduleDateTimeInput
+            label="Início *"
+            required
+            value={values.inicio}
+            onChange={(inicio) => set("inicio", inicio)}
+          />
+          <p className="text-xs text-muted-foreground">Duração de 1 hora (calculada automaticamente).</p>
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label>Observações</Label>

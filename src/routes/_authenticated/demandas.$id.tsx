@@ -36,7 +36,7 @@ import {
   type ActivityLogRow,
 } from "@/lib/activity-log-descriptions";
 import { EncontrosTab } from "@/components/meetings/EncontrosTab";
-import { getNextEncontroAction, type RequestAppointment } from "@/lib/meeting-schedule";
+import { getNextRegisterAction, getNextScheduleNumero, type RequestAppointment } from "@/lib/meeting-schedule";
 import { PENDING_ASSIGNMENTS_QUERY_KEY, PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
 import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar } from "lucide-react";
@@ -106,10 +106,10 @@ function DemandaDetail() {
     },
   });
 
-  const nextAction = getNextEncontroAction(appointments, meetings);
-  const scheduleNumero = nextAction?.type === "schedule" ? nextAction.numero : null;
-  const registerNumero = nextAction?.type === "register" ? nextAction.numero : null;
-  const registerAppointment = nextAction?.type === "register" ? nextAction.appointment : null;
+  const scheduleNumero = getNextScheduleNumero(appointments);
+  const nextRegister = getNextRegisterAction(appointments, meetings);
+  const registerNumero = nextRegister?.numero ?? null;
+  const registerAppointment = nextRegister?.appointment ?? null;
   const { registered: registeredMeetingsCount } = summarizeMeetings(meetings);
   const encontrosLockedForProfessional = !isAdmin && isRequestLockedForMeetingEdits(req?.status ?? null);
 
@@ -157,17 +157,24 @@ function DemandaDetail() {
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
-          {activeTab === "encontros" && scheduleNumero && !openScheduleForm && !openMeetingForm && !encontrosLockedForProfessional && (
-            <Button onClick={() => setOpenScheduleForm(true)} className="shrink-0 self-end sm:self-auto">
-              <Calendar className="mr-2 h-4 w-4" />
-              Agendar visita — {meetingNumberLabels[scheduleNumero]}
-            </Button>
-          )}
-          {activeTab === "encontros" && registerNumero && !openMeetingForm && !openScheduleForm && !encontrosLockedForProfessional && (
-            <Button onClick={() => setOpenMeetingForm(true)} className="shrink-0 self-end sm:self-auto">
-              <FileText className="mr-2 h-4 w-4" />
-              Registrar {meetingNumberLabels[registerNumero]}
-            </Button>
+          {activeTab === "encontros" && !encontrosLockedForProfessional && (scheduleNumero || registerNumero) && !openScheduleForm && !openMeetingForm && (
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 self-end sm:self-auto">
+              {scheduleNumero && (
+                <Button onClick={() => setOpenScheduleForm(true)}>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Agendar visita — {meetingNumberLabels[scheduleNumero]}
+                </Button>
+              )}
+              {registerNumero && (
+                <Button
+                  variant={scheduleNumero ? "outline" : "default"}
+                  onClick={() => setOpenMeetingForm(true)}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Registrar {meetingNumberLabels[registerNumero]}
+                </Button>
+              )}
+            </div>
           )}
         </div>
 

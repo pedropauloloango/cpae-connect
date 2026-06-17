@@ -87,13 +87,13 @@ function regiao(req: RequestFormData): string {
 
 function serie(req: RequestFormData): string {
   if (req.aluno_serie) return req.aluno_serie;
-  if (req.aluno_turma_ano) return req.aluno_turma_ano.replace(/\s+[A-E]$/i, "").trim() || req.aluno_turma_ano;
+  if (req.aluno_turma_ano) return req.aluno_turma_ano.replace(/\s+[A-J]$/i, "").trim() || req.aluno_turma_ano;
   return "—";
 }
 
 function turma(req: RequestFormData): string {
   if (req.aluno_turma) return alunoTurmaLabels[req.aluno_turma] ?? req.aluno_turma;
-  const match = req.aluno_turma_ano?.match(/\s([A-E])$/i);
+  const match = req.aluno_turma_ano?.match(/\s([A-J])$/i);
   return match ? match[1].toUpperCase() : "—";
 }
 
