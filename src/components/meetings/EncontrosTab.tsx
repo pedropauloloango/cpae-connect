@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CollapsibleRecordCard } from "@/components/ui/collapsible-record-card";
@@ -66,6 +67,9 @@ export type EncontrosTabProps = {
   protocolo: string;
   escolaNome: string;
   schoolId: string | null;
+  alunoNome: string;
+  alunoSerie: string;
+  tipoQueixa: string;
   meetings: Array<Record<string, unknown>>;
   appointments: RequestAppointment[];
   professionalId: string | null;
@@ -94,6 +98,9 @@ export function EncontrosTab({
   protocolo,
   escolaNome,
   schoolId,
+  alunoNome,
+  alunoSerie,
+  tipoQueixa,
   meetings,
   appointments,
   professionalId,
@@ -180,7 +187,7 @@ export function EncontrosTab({
         school_id: schoolId,
         numero: vals.numero,
         representante_nome: vals.representante_nome.trim(),
-        representante_cargo: vals.representante_cargo as "diretor",
+        representante_cargo: vals.representante_cargo as Database["public"]["Enums"]["school_representative_role"],
         titulo: buildAppointmentTitle({ protocolo, numero: vals.numero, escola: escolaNome }),
         tipo: vals.tipo as "acolhimento",
         inicio,
@@ -598,8 +605,9 @@ export function EncontrosTab({
           </CardHeader>
           <CardContent>
             <p className="mb-4 text-sm text-muted-foreground">
-              Entre em contato com o representante da escola (Diretor, Adjunto ou Secretário) e registre
-              o agendamento da visita. O compromisso aparecerá na sua agenda e na agenda do administrador.
+              Entre em contato com o representante da escola (Diretor, Diretor Adjunto, Coordenador Pedagógico ou
+              Secretário) e registre o agendamento da visita. O compromisso aparecerá na sua agenda e na agenda do
+              administrador.
             </p>
             <VisitScheduleForm
               submitLabel="Confirmar agendamento"
@@ -664,6 +672,20 @@ export function EncontrosTab({
               <DialogHeader>
                 <DialogTitle>Registrar {meetingNumberLabels[registerNumero]}</DialogTitle>
               </DialogHeader>
+              <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Aluno(a)</p>
+                  <p className="font-medium">{alunoNome || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Série / turma</p>
+                  <p className="font-medium">{alunoSerie || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Queixa</p>
+                  <p className="font-medium">{tipoQueixa || "—"}</p>
+                </div>
+              </div>
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
                 <p className="font-medium">Visita agendada</p>
                 <p className="mt-1 text-muted-foreground">

@@ -683,6 +683,8 @@ export type Database = {
       app_role: "admin" | "profissional"
       closure_result:
         | "concluido"
+        | "concluido_com_encaminhamento"
+        | "em_andamento"
         | "resolvido"
         | "encaminhado"
         | "em_acompanhamento"
@@ -694,12 +696,14 @@ export type Database = {
         | "bullying"
         | "conflito_familiar"
         | "outros"
-      meeting_number: "primeiro" | "segundo" | "terceiro"
+      meeting_number: "primeiro" | "segundo" | "terceiro" | "quarto" | "quinto"
       meeting_referral_option:
         | "ubs_ubsf"
         | "clinica_escola_psicologia"
         | "caps_ij"
         | "rede_privada"
+        | "dae_sugenor"
+        | "conselho_tutelar"
       meeting_type:
         | "acolhimento"
         | "vivencia"
@@ -723,7 +727,11 @@ export type Database = {
         | "aguardando_aprovacao"
         | "concluida"
         | "cancelada"
-      school_representative_role: "diretor" | "adjunto" | "secretario"
+      school_representative_role:
+        | "diretor"
+        | "adjunto"
+        | "coordenador_pedagogico"
+        | "secretario"
       school_status: "ativa" | "inativa"
       school_tipo: "escola" | "emei"
     }
@@ -857,6 +865,8 @@ export const Constants = {
       app_role: ["admin", "profissional"],
       closure_result: [
         "concluido",
+        "concluido_com_encaminhamento",
+        "em_andamento",
         "resolvido",
         "encaminhado",
         "em_acompanhamento",
@@ -870,12 +880,14 @@ export const Constants = {
         "conflito_familiar",
         "outros",
       ],
-      meeting_number: ["primeiro", "segundo", "terceiro"],
+      meeting_number: ["primeiro", "segundo", "terceiro", "quarto", "quinto"],
       meeting_referral_option: [
         "ubs_ubsf",
         "clinica_escola_psicologia",
         "caps_ij",
         "rede_privada",
+        "dae_sugenor",
+        "conselho_tutelar",
       ],
       meeting_type: [
         "acolhimento",
@@ -903,7 +915,7 @@ export const Constants = {
         "concluida",
         "cancelada",
       ],
-      school_representative_role: ["diretor", "adjunto", "secretario"],
+      school_representative_role: ["diretor", "adjunto", "coordenador_pedagogico", "secretario"],
       school_status: ["ativa", "inativa"],
       school_tipo: ["escola", "emei"],
     },

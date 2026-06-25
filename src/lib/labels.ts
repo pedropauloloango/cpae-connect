@@ -49,6 +49,8 @@ export const meetingNumberLabels: Record<string, string> = {
   primeiro: "1º Encontro",
   segundo: "2º Encontro",
   terceiro: "3º Encontro",
+  quarto: "4º Encontro",
+  quinto: "5º Encontro",
 };
 
 export const meetingTypeLabels: Record<string, string> = {
@@ -70,7 +72,8 @@ export const visitTypeOptions = [
 
 export const schoolRepresentativeLabels: Record<string, string> = {
   diretor: "Diretor",
-  adjunto: "Adjunto",
+  adjunto: "Diretor Adjunto",
+  coordenador_pedagogico: "Coordenador Pedagógico",
   secretario: "Secretário",
 };
 
@@ -103,11 +106,20 @@ export const reportStatusCardTone: Record<string, string> = {
 
 export const closureResultLabels: Record<string, string> = {
   concluido: "Concluído",
+  concluido_com_encaminhamento: "Concluído com encaminhamento",
+  em_andamento: "Em andamento",
   resolvido: "Resolvido",
   encaminhado: "Encaminhado",
   em_acompanhamento: "Em Acompanhamento",
   nao_localizado: "Não Localizado",
 };
+
+/** Opções exibidas no formulário do relatório circunstanciado. */
+export const closureResultSelectOptions = [
+  { value: "concluido", label: "Concluído" },
+  { value: "concluido_com_encaminhamento", label: "Concluído com encaminhamento" },
+  { value: "em_andamento", label: "Em andamento" },
+] as const;
 
 export const accountStatusLabels: Record<string, string> = {
   pendente: "Aguardando aprovação",

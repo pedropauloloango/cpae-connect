@@ -3,6 +3,8 @@ export const meetingReferralOptions = [
   { value: "clinica_escola_psicologia", label: "Clínica Escola de Psicologia" },
   { value: "caps_ij", label: "CAPS-IJ" },
   { value: "rede_privada", label: "Rede Privada" },
+  { value: "dae_sugenor", label: "DAE/SUGENOR" },
+  { value: "conselho_tutelar", label: "Conselho Tutelar" },
 ] as const;
 
 export type MeetingReferralOption = (typeof meetingReferralOptions)[number]["value"];

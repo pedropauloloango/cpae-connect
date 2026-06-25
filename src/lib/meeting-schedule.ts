@@ -1,4 +1,4 @@
-export const MEETING_ORDER = ["primeiro", "segundo", "terceiro"] as const;
+export const MEETING_ORDER = ["primeiro", "segundo", "terceiro", "quarto", "quinto"] as const;
 
 export type MeetingNumber = (typeof MEETING_ORDER)[number];
 
@@ -67,6 +67,8 @@ export function buildAppointmentTitle(params: {
     primeiro: "1º Encontro",
     segundo: "2º Encontro",
     terceiro: "3º Encontro",
+    quarto: "4º Encontro",
+    quinto: "5º Encontro",
   };
   return `${params.protocolo} — ${labels[params.numero]} — ${params.escola}`;
 }

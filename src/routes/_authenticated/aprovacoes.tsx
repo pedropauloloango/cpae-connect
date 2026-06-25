@@ -93,7 +93,7 @@ function Aprovacoes() {
               <div className="min-w-0">
                 <CardTitle className="text-base">
                   <Link to="/demandas/$id" params={{ id: c.request.id }} className="hover:underline">
-                    {c.request.aluno_nome} — Relatório consolidado
+                    {c.request.aluno_nome} — Relatório circunstanciado
                   </Link>
                 </CardTitle>
                 <div className="mt-1 text-xs text-muted-foreground">

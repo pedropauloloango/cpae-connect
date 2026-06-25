@@ -148,7 +148,7 @@ export function buildConsolidatedReportDraft(
   );
 
   const lines: string[] = [
-    `Relatório consolidado — Protocolo ${ctx.protocolo}`,
+    `Relatório circunstanciado — Protocolo ${ctx.protocolo}`,
     `Escola: ${ctx.escolaNome}`,
     `Aluno(a): ${ctx.alunoNome}`,
     "",

@@ -248,6 +248,9 @@ function DemandaDetail() {
             protocolo={req?.numero ?? ""}
             escolaNome={req?.school_nome_snapshot ?? req?.school?.nome ?? "Escola"}
             schoolId={req?.school_id ?? null}
+            alunoNome={req?.aluno_nome ?? ""}
+            alunoSerie={req?.aluno_turma_ano ?? req?.aluno_serie ?? ""}
+            tipoQueixa={req?.tipo_queixa ? complaintTypeLabels[req.tipo_queixa] ?? req.tipo_queixa : ""}
             meetings={meetings}
             appointments={appointments}
             professionalId={req?.assigned_professional_id ?? null}

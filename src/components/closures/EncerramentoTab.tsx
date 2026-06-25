@@ -28,6 +28,7 @@ import {
 import {
   complaintTypeLabels,
   closureResultLabels,
+  closureResultSelectOptions,
   meetingNumberLabels,
   reportStatusCardTone,
   isRequestLockedForMeetingEdits,
@@ -189,10 +190,10 @@ export function EncerramentoTab({
       const keepExistingFile = vals.relatoMode === "arquivo" && !hasNewFile && !!vals.existingAnexo;
 
       if (!hasText && !hasNewFile && !keepExistingFile) {
-        throw new Error("Informe o relato consolidado em texto ou anexe o arquivo.");
+        throw new Error("Informe o relato circunstanciado em texto ou anexe o arquivo.");
       }
       if (!vals.classificacao_final || !vals.resultado) {
-        throw new Error("Informe classificação final e status.");
+        throw new Error("Informe queixa final e status.");
       }
       if (vals.relatoFile) {
         const fileError = validateMeetingRelatoFile(vals.relatoFile);
@@ -206,7 +207,7 @@ export function EncerramentoTab({
           .insert({
             request_id: requestId,
             classificacao_final: vals.classificacao_final as "ansiedade_depressao",
-            resultado: vals.resultado as "resolvido",
+            resultado: vals.resultado as "concluido",
             status: "rascunho",
             closed_by: user?.id,
           })
@@ -236,7 +237,7 @@ export function EncerramentoTab({
         .from("case_closures")
         .update({
           classificacao_final: vals.classificacao_final as "ansiedade_depressao",
-          resultado: vals.resultado as "resolvido",
+          resultado: vals.resultado as "concluido",
           relato_texto,
           relato_anexo_url,
           status: "rascunho",
@@ -253,7 +254,7 @@ export function EncerramentoTab({
       });
     },
     onSuccess: () => {
-      toast.success("Relatório consolidado salvo.");
+      toast.success("Relatório circunstanciado salvo.");
       invalidate();
       closeFormModal();
     },
@@ -263,7 +264,7 @@ export function EncerramentoTab({
   const sendMut = useMutation({
     mutationFn: async (c: CaseClosureRow) => {
       if (!c.relato_texto?.trim() && !c.relato_anexo_url) {
-        throw new Error("Informe o relato consolidado antes de enviar para aprovação.");
+        throw new Error("Informe o relato circunstanciado antes de enviar para aprovação.");
       }
       const { error } = await supabase
         .from("case_closures")
@@ -279,7 +280,7 @@ export function EncerramentoTab({
       });
     },
     onSuccess: () => {
-      toast.success("Relatório consolidado enviado para aprovação.");
+      toast.success("Relatório circunstanciado enviado para aprovação.");
       invalidate();
     },
     onError: (e: Error) => toast.error("Erro", { description: e.message }),
@@ -347,13 +348,13 @@ export function EncerramentoTab({
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Encerramento</h2>
         <p className="text-sm text-muted-foreground">
-          Elabore o relatório consolidado dos encontros registrados.
+          Elabore o relatório circunstanciado dos encontros registrados.
         </p>
       </div>
       {showCreateButton && (
         <Button size="sm" className="shrink-0" onClick={openFormModal}>
           <Plus className="mr-2 h-4 w-4" />
-          Criar relatório consolidado
+          Criar relatório circunstanciado
         </Button>
       )}
     </div>
@@ -363,7 +364,7 @@ export function EncerramentoTab({
     <Dialog open={formOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeFormModal())}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{closure ? "Editar relatório consolidado" : "Criar relatório consolidado"}</DialogTitle>
+          <DialogTitle>{closure ? "Editar relatório circunstanciado" : "Criar relatório circunstanciado"}</DialogTitle>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -382,7 +383,7 @@ export function EncerramentoTab({
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Classificação final *</Label>
+              <Label>Queixa final *</Label>
               <Select value={classificacao} onValueChange={setClassificacao} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione…" />
@@ -401,8 +402,8 @@ export function EncerramentoTab({
                   <SelectValue placeholder="Selecione…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(closureResultLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  {closureResultSelectOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -410,7 +411,7 @@ export function EncerramentoTab({
           </div>
 
           <div className="space-y-3 rounded-md border border-border p-4">
-            <Label>Relato consolidado dos encontros *</Label>
+            <Label>Relato circunstanciado dos encontros *</Label>
             <p className="text-xs text-muted-foreground">
               Elabore um relatório único que consolide os atendimentos registrados acima.
             </p>
@@ -439,7 +440,7 @@ export function EncerramentoTab({
             {relatoMode === "texto" ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor="relato-consolidado">Texto do relato consolidado</Label>
+                  <Label htmlFor="relato-consolidado">Texto do relato circunstanciado</Label>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -476,7 +477,7 @@ export function EncerramentoTab({
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="relato-arquivo-consolidado">Arquivo do relato consolidado</Label>
+                <Label htmlFor="relato-arquivo-consolidado">Arquivo do relato circunstanciado</Label>
                 {closure?.relato_anexo_url && !relatoFile && (
                   <div className="rounded-md border border-border bg-muted/30 p-2">
                     <p className="mb-2 text-xs text-muted-foreground">Arquivo atual:</p>
@@ -528,10 +529,10 @@ export function EncerramentoTab({
         >
           {closure ? (
             <>
-              <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
+              <Field label="Queixa final" value={complaintTypeLabels[closure.classificacao_final]} />
               <Field label="Status" value={closureResultLabels[closure.resultado]} />
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Relato consolidado</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Relato circunstanciado</div>
                 {consolidatedExportText && (
                   <div className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-3">{consolidatedExportText}</div>
                 )}
@@ -549,7 +550,7 @@ export function EncerramentoTab({
                 )}
                 {closure.relato_anexo_url && <MeetingRelatoDownload storagePath={closure.relato_anexo_url} />}
                 {!consolidatedExportText && !closure.relato_anexo_url && (
-                  <p className="mt-1 text-muted-foreground">Relato consolidado não disponível em texto.</p>
+                  <p className="mt-1 text-muted-foreground">Relato circunstanciado não disponível em texto.</p>
                 )}
               </div>
             </>
@@ -573,12 +574,12 @@ export function EncerramentoTab({
           title={
             <span className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Relatório consolidado
+              Relatório circunstanciado
             </span>
           }
           headerActions={<MeetingStatusBadge status={closure.status} />}
         >
-            <Field label="Classificação final" value={complaintTypeLabels[closure.classificacao_final]} />
+            <Field label="Queixa final" value={complaintTypeLabels[closure.classificacao_final]} />
             <Field label="Status" value={closureResultLabels[closure.resultado]} />
 
             {closure.status === "correcao_solicitada" && (
@@ -587,7 +588,7 @@ export function EncerramentoTab({
                 {correctionComment ? (
                   <p className="mt-1 whitespace-pre-wrap">{correctionComment}</p>
                 ) : (
-                  <p className="mt-1 text-muted-foreground">Ajuste o relatório consolidado e envie novamente.</p>
+                  <p className="mt-1 text-muted-foreground">Ajuste o relatório circunstanciado e envie novamente.</p>
                 )}
               </div>
             )}
@@ -614,7 +615,7 @@ export function EncerramentoTab({
               <div className="flex flex-wrap gap-2 border-t border-border pt-3">
                 <Button type="button" size="sm" variant="outline" onClick={openFormModal}>
                   <Pencil className="mr-2 h-3.5 w-3.5" />
-                  Editar relatório consolidado
+                  Editar relatório circunstanciado
                 </Button>
                 <Button
                   size="sm"
@@ -685,7 +686,7 @@ export function EncerramentoTab({
       {isAdmin && !closure && registeredMeetings.length > 0 && (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            Aguardando o profissional elaborar e enviar o relatório consolidado.
+            Aguardando o profissional elaborar e enviar o relatório circunstanciado.
           </CardContent>
         </Card>
       )}
@@ -693,7 +694,7 @@ export function EncerramentoTab({
       {registeredMeetings.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Registre pelo menos um encontro na aba Encontros antes de elaborar o relatório consolidado.
+            Registre pelo menos um encontro na aba Encontros antes de elaborar o relatório circunstanciado.
           </CardContent>
         </Card>
       )}

@@ -17,7 +17,7 @@ function buildPrintMarkup(ctx: ConsolidatedReportContext, relatoTexto: string): 
 
   return `
     <div class="cpae-print-doc">
-      <h1>Relatório Consolidado de Acolhimento</h1>
+      <h1>Relatório Circunstanciado de Acolhimento</h1>
       <div class="cpae-print-meta">
         <p><strong>Protocolo:</strong> ${escapeHtml(ctx.protocolo)}</p>
         <p><strong>Escola:</strong> ${escapeHtml(ctx.escolaNome)}</p>

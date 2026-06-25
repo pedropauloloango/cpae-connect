@@ -37,7 +37,7 @@ export function ClosureTabIndicator({ closure, registeredMeetingsCount = 0 }: Cl
               <FilePenLine className="h-3 w-3" />
             </span>
           </TooltipTrigger>
-          <TooltipContent>Elaborar relatório consolidado</TooltipContent>
+          <TooltipContent>Elaborar relatório circunstanciado</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );

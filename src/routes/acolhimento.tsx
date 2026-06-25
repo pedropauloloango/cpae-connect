@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { submitAcolhimentoRequest } from "@/lib/acolhimento-submit";
+import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schools";
 import { schoolTipoLabels } from "@/lib/labels";
-import { SchoolSearchSelect, type PublicSchoolOption } from "@/components/schools/SchoolSearchSelect";
+import { SchoolSearchSelect } from "@/components/schools/SchoolSearchSelect";
+import type { PublicSchoolOption } from "@/lib/public-schools";
 import {
   autorizacaoAtaOptions,
   comunicouAbusoOptions,
@@ -158,18 +159,18 @@ function AcolhimentoPublico() {
   const navigate = useNavigate();
   const [successNumero, setSuccessNumero] = useState<string | null>(null);
 
-  const { data: schools = [], isLoading: schoolsLoading } = useQuery({
+  const {
+    data: schools = [],
+    isPending: schoolsLoading,
+    isError: schoolsError,
+    error: schoolsFetchError,
+    refetch: refetchSchools,
+    isFetching: schoolsFetching,
+  } = useQuery({
     queryKey: ["public-schools-acolhimento"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("schools")
-        .select("id, nome, regiao, tipo_escola")
-        .is("deleted_at", null)
-        .eq("status", "ativa")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as PublicSchoolOption[];
-    },
+    queryFn: () => loadPublicSchools(),
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 
   const form = useForm<FormValues>({
@@ -290,7 +291,11 @@ function AcolhimentoPublico() {
                   schools={schools}
                   value={selectedSchoolId || null}
                   onSelect={handleSchoolSelect}
-                  loading={schoolsLoading}
+                  loading={schoolsLoading || schoolsFetching}
+                  error={
+                    schoolsError ? publicSchoolsErrorMessage(schoolsFetchError) : null
+                  }
+                  onRetry={() => refetchSchools()}
                 />
               </Field>
 

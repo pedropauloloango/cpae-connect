@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { deriveTipoQueixa, alunoSerieLabels, alunoSerieValues, alunoTurmaValues, solicitanteCargoLabels, solicitanteCargoValues } from "./acolhimento-options";
+import { sendAcolhimentoCreatedEmails } from "./acolhimento-notify.server";
 import { normalizeAcolhimentoPersonName } from "./acolhimento-submit";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -90,6 +91,36 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
       action: "solicitacao_criada",
       details: { numero: req.numero, situacao_observada: data.situacao_observada },
     });
+
+    try {
+      await sendAcolhimentoCreatedEmails({
+        requestId: req.id,
+        numero: req.numero,
+        school_nome: data.school_nome.trim(),
+        tipo_escola: data.tipo_escola,
+        regiao_escola: data.regiao_escola || null,
+        solicitante_email: data.solicitante_email.trim(),
+        solicitante_nome: solicitanteNome,
+        solicitante_cargo: data.solicitante_cargo,
+        solicitante_telefone: data.solicitante_telefone.trim(),
+        modalidade_acolhimento: data.modalidade_acolhimento,
+        aluno_nome: alunoNome,
+        aluno_nascimento: data.aluno_nascimento,
+        aluno_sexo: data.aluno_sexo,
+        educacao_especial: data.educacao_especial === "sim",
+        aluno_serie: serieLabel,
+        aluno_turma: data.aluno_turma,
+        aluno_turma_ano: turmaAno,
+        periodo: data.periodo,
+        comunicou_abuso: data.comunicou_abuso,
+        situacao_observada: data.situacao_observada,
+        acolhido_anteriormente: data.acolhido_anteriormente === "sim",
+        autorizacao_ata: data.autorizacao_ata,
+        tipo_queixa,
+      });
+    } catch (emailError) {
+      console.error("sendAcolhimentoCreatedEmails error", emailError);
+    }
 
     return { numero: req.numero, id: req.id };
   });

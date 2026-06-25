@@ -27,6 +27,8 @@ type SchoolSearchSelectProps = {
   onSelect: (school: PublicSchoolOption) => void;
   disabled?: boolean;
   loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyLabel?: string;
@@ -38,14 +40,18 @@ export function SchoolSearchSelect({
   onSelect,
   disabled,
   loading,
+  error,
+  onRetry,
   placeholder = "Selecione a escola ou EMEI…",
   searchPlaceholder = "Buscar escola ou EMEI…",
   emptyLabel = "Nenhuma escola encontrada.",
 }: SchoolSearchSelectProps) {
   const [open, setOpen] = useState(false);
   const selected = schools.find((s) => s.id === value);
+  const showLoading = loading && !error;
 
   return (
+    <div className="space-y-1.5">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
@@ -53,11 +59,11 @@ export function SchoolSearchSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          disabled={disabled || loading}
+          disabled={disabled || showLoading || !!error}
           className={cn("h-10 w-full justify-between font-normal", !selected && "text-muted-foreground")}
         >
           <span className="truncate">
-            {loading ? "Carregando escolas…" : selected ? selected.nome : placeholder}
+            {showLoading ? "Carregando escolas…" : error ? "Falha ao carregar escolas" : selected ? selected.nome : placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -89,5 +95,16 @@ export function SchoolSearchSelect({
         </Command>
       </PopoverContent>
     </Popover>
+    {error && (
+      <div className="flex flex-wrap items-center gap-2 text-xs text-destructive">
+        <span>{error}</span>
+        {onRetry && (
+          <button type="button" className="font-medium underline underline-offset-2" onClick={onRetry}>
+            Tentar novamente
+          </button>
+        )}
+      </div>
+    )}
+    </div>
   );
 }

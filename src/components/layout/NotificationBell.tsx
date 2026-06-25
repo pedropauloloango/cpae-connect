@@ -246,7 +246,7 @@ export function NotificationBell() {
                         subtitle={
                           item.status === "rejeitado"
                             ? "Relatório rejeitado — revise e reenvie"
-                            : "Correção solicitada — ajuste o relatório consolidado"
+                            : "Correção solicitada — ajuste o relatório circunstanciado"
                         }
                       />
                     ))}
