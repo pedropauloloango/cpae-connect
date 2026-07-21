@@ -14,7 +14,15 @@ export async function updateVisitAppointment(params: {
   const { values, appointmentId, requestId, protocolo, escolaNome, numero, actorId } = params;
   const { inicio, fim } = prepareAppointmentDatetimes(values);
 
-  const updatePayload: Record<string, unknown> = {
+  const updatePayload: {
+    representante_nome: string;
+    representante_cargo: VisitScheduleFormValues["representante_cargo"];
+    tipo: VisitScheduleFormValues["tipo"];
+    inicio: string;
+    fim: string;
+    observacoes: string | null;
+    titulo?: string;
+  } = {
     representante_nome: values.representante_nome.trim(),
     representante_cargo: values.representante_cargo,
     tipo: values.tipo,

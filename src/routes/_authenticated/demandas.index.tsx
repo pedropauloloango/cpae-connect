@@ -44,16 +44,36 @@ interface Req {
 
 function Demandas() {
   const qc = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
 
-  const { data: availableStatuses = [], isLoading: loadingStatuses } = useQuery({
-    queryKey: ["demandas-status-options"],
+  const { data: myProfId, isLoading: loadingMyProf } = useQuery({
+    queryKey: ["my-pro", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("requests").select("status").is("deleted_at", null);
+      const { data, error } = await supabase
+        .from("professionals")
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+    enabled: !!user && !isAdmin,
+  });
+
+  const { data: availableStatuses = [], isLoading: loadingStatuses } = useQuery({
+    queryKey: ["demandas-status-options", isAdmin, myProfId],
+    enabled: isAdmin || myProfId !== undefined,
+    queryFn: async () => {
+      let qb = supabase.from("requests").select("status").is("deleted_at", null);
+      if (!isAdmin) {
+        if (!myProfId) return [];
+        qb = qb.eq("assigned_professional_id", myProfId);
+      }
+      const { data, error } = await qb;
       if (error) throw error;
 
       const unique = [...new Set((data ?? []).map((row) => row.status).filter(Boolean))];
@@ -70,8 +90,11 @@ function Demandas() {
   });
 
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ["demandas", status],
+    queryKey: ["demandas", status, isAdmin, myProfId],
+    enabled: isAdmin || (!loadingMyProf && myProfId !== undefined),
     queryFn: async () => {
+      if (!isAdmin && !myProfId) return [];
+
       let qb = supabase
         .from("requests")
         .select(
@@ -80,6 +103,7 @@ function Demandas() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
+      if (!isAdmin && myProfId) qb = qb.eq("assigned_professional_id", myProfId);
       if (status !== "todos") qb = qb.eq("status", status as "recebida");
       const { data, error } = await qb;
       if (error) throw error;
@@ -133,11 +157,19 @@ function Demandas() {
   const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
   const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
 
+  const listLoading = isLoading || (!isAdmin && loadingMyProf);
   const colSpan = 10;
 
   return (
     <div>
-      <PageHeader title="Demandas" description="Acompanhamento das solicitações de acolhimento." />
+      <PageHeader
+        title="Demandas"
+        description={
+          isAdmin
+            ? "Acompanhamento das solicitações de acolhimento."
+            : "Suas solicitações de acolhimento atribuídas."
+        }
+      />
 
       <Card className="cpae-card mb-4 border-0 shadow-none">
         <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_220px]">
@@ -178,8 +210,8 @@ function Demandas() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {isLoading && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>)}
-                {!isLoading && paginated.length === 0 && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma demanda encontrada.</td></tr>)}
+                {listLoading && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>)}
+                {!listLoading && paginated.length === 0 && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma demanda encontrada.</td></tr>)}
                 {paginated.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono text-xs font-medium">{r.numero}</td>
@@ -221,8 +253,8 @@ function Demandas() {
           </div>
 
           <div className="divide-y md:hidden">
-            {isLoading && <div className="p-6 text-center text-muted-foreground">Carregando…</div>}
-            {!isLoading && paginated.length === 0 && <div className="p-6 text-center text-muted-foreground">Nenhuma demanda.</div>}
+            {listLoading && <div className="p-6 text-center text-muted-foreground">Carregando…</div>}
+            {!listLoading && paginated.length === 0 && <div className="p-6 text-center text-muted-foreground">Nenhuma demanda.</div>}
             {paginated.map((r) => (
               <div key={r.id} className="p-4">
                 <div className="flex items-center justify-between gap-2">
@@ -271,7 +303,7 @@ function Demandas() {
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                disabled={currentPage <= 1 || totalFiltered === 0 || isLoading}
+                disabled={currentPage <= 1 || totalFiltered === 0 || listLoading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -285,7 +317,7 @@ function Demandas() {
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                disabled={currentPage >= totalPages || totalFiltered === 0 || isLoading}
+                disabled={currentPage >= totalPages || totalFiltered === 0 || listLoading}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
                 Próxima

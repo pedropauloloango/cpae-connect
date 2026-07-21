@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VivenciasRouteImport } from './routes/vivencias'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -20,11 +21,23 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authenticated/aprovacoes'
 import { Route as AuthenticatedAguardandoAprovacaoRouteImport } from './routes/_authenticated/aguardando-aprovacao'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/_authenticated/modulo-vivencias/route'
 import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
+import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
 import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
+import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
+import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
+import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
 import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 import { Route as AuthenticatedConfiguracoesUsuariosRouteImport } from './routes/_authenticated/configuracoes/usuarios'
+import { Route as AuthenticatedModuloVivenciasDemandasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.index'
+import { Route as AuthenticatedModuloVivenciasDemandasIdRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.$id'
 
+const VivenciasRoute = VivenciasRouteImport.update({
+  id: '/vivencias',
+  path: '/vivencias',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -81,17 +94,47 @@ const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   path: '/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedModuloVivenciasRouteRoute =
+  AuthenticatedModuloVivenciasRouteRouteImport.update({
+    id: '/modulo-vivencias',
+    path: '/modulo-vivencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConfiguracoesRouteRoute =
   AuthenticatedConfiguracoesRouteRouteImport.update({
     id: '/configuracoes',
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedModuloVivenciasIndexRoute =
+  AuthenticatedModuloVivenciasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
 const AuthenticatedDemandasIndexRoute =
   AuthenticatedDemandasIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedDemandasRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDemandasRoute =
+  AuthenticatedModuloVivenciasDemandasRouteImport.update({
+    id: '/demandas',
+    path: '/demandas',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDashboardRoute =
+  AuthenticatedModuloVivenciasDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasAgendaRoute =
+  AuthenticatedModuloVivenciasAgendaRouteImport.update({
+    id: '/agenda',
+    path: '/agenda',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
   } as any)
 const AuthenticatedDemandasIdRoute = AuthenticatedDemandasIdRouteImport.update({
   id: '/$id',
@@ -104,12 +147,26 @@ const AuthenticatedConfiguracoesUsuariosRoute =
     path: '/usuarios',
     getParentRoute: () => AuthenticatedConfiguracoesRouteRoute,
   } as any)
+const AuthenticatedModuloVivenciasDemandasIndexRoute =
+  AuthenticatedModuloVivenciasDemandasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDemandasIdRoute =
+  AuthenticatedModuloVivenciasDemandasIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/vivencias': typeof VivenciasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  '/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
   '/aprovacoes': typeof AuthenticatedAprovacoesRoute
@@ -119,12 +176,19 @@ export interface FileRoutesByFullPath {
   '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
+  '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
+  '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/demandas/': typeof AuthenticatedDemandasIndexRoute
+  '/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/vivencias': typeof VivenciasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
@@ -134,7 +198,12 @@ export interface FileRoutesByTo {
   '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
+  '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/demandas': typeof AuthenticatedDemandasIndexRoute
+  '/modulo-vivencias': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -142,7 +211,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
+  '/vivencias': typeof VivenciasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  '/_authenticated/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
   '/_authenticated/aprovacoes': typeof AuthenticatedAprovacoesRoute
@@ -152,7 +223,13 @@ export interface FileRoutesById {
   '/_authenticated/profissionais': typeof AuthenticatedProfissionaisRoute
   '/_authenticated/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/_authenticated/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/_authenticated/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
+  '/_authenticated/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
+  '/_authenticated/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/_authenticated/demandas/': typeof AuthenticatedDemandasIndexRoute
+  '/_authenticated/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/_authenticated/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/_authenticated/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,7 +237,9 @@ export interface FileRouteTypes {
     | '/'
     | '/acolhimento'
     | '/auth'
+    | '/vivencias'
     | '/configuracoes'
+    | '/modulo-vivencias'
     | '/agenda'
     | '/aguardando-aprovacao'
     | '/aprovacoes'
@@ -170,12 +249,19 @@ export interface FileRouteTypes {
     | '/profissionais'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
+    | '/modulo-vivencias/agenda'
+    | '/modulo-vivencias/dashboard'
+    | '/modulo-vivencias/demandas'
     | '/demandas/'
+    | '/modulo-vivencias/'
+    | '/modulo-vivencias/demandas/$id'
+    | '/modulo-vivencias/demandas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/acolhimento'
     | '/auth'
+    | '/vivencias'
     | '/configuracoes'
     | '/agenda'
     | '/aguardando-aprovacao'
@@ -185,14 +271,21 @@ export interface FileRouteTypes {
     | '/profissionais'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
+    | '/modulo-vivencias/agenda'
+    | '/modulo-vivencias/dashboard'
     | '/demandas'
+    | '/modulo-vivencias'
+    | '/modulo-vivencias/demandas/$id'
+    | '/modulo-vivencias/demandas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/acolhimento'
     | '/auth'
+    | '/vivencias'
     | '/_authenticated/configuracoes'
+    | '/_authenticated/modulo-vivencias'
     | '/_authenticated/agenda'
     | '/_authenticated/aguardando-aprovacao'
     | '/_authenticated/aprovacoes'
@@ -202,7 +295,13 @@ export interface FileRouteTypes {
     | '/_authenticated/profissionais'
     | '/_authenticated/configuracoes/usuarios'
     | '/_authenticated/demandas/$id'
+    | '/_authenticated/modulo-vivencias/agenda'
+    | '/_authenticated/modulo-vivencias/dashboard'
+    | '/_authenticated/modulo-vivencias/demandas'
     | '/_authenticated/demandas/'
+    | '/_authenticated/modulo-vivencias/'
+    | '/_authenticated/modulo-vivencias/demandas/$id'
+    | '/_authenticated/modulo-vivencias/demandas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,10 +309,18 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AcolhimentoRoute: typeof AcolhimentoRoute
   AuthRoute: typeof AuthRoute
+  VivenciasRoute: typeof VivenciasRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vivencias': {
+      id: '/vivencias'
+      path: '/vivencias'
+      fullPath: '/vivencias'
+      preLoaderRoute: typeof VivenciasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -291,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/modulo-vivencias': {
+      id: '/_authenticated/modulo-vivencias'
+      path: '/modulo-vivencias'
+      fullPath: '/modulo-vivencias'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
       path: '/configuracoes'
@@ -298,12 +412,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/modulo-vivencias/': {
+      id: '/_authenticated/modulo-vivencias/'
+      path: '/'
+      fullPath: '/modulo-vivencias/'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
     '/_authenticated/demandas/': {
       id: '/_authenticated/demandas/'
       path: '/'
       fullPath: '/demandas/'
       preLoaderRoute: typeof AuthenticatedDemandasIndexRouteImport
       parentRoute: typeof AuthenticatedDemandasRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas': {
+      id: '/_authenticated/modulo-vivencias/demandas'
+      path: '/demandas'
+      fullPath: '/modulo-vivencias/demandas'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/dashboard': {
+      id: '/_authenticated/modulo-vivencias/dashboard'
+      path: '/dashboard'
+      fullPath: '/modulo-vivencias/dashboard'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDashboardRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/agenda': {
+      id: '/_authenticated/modulo-vivencias/agenda'
+      path: '/agenda'
+      fullPath: '/modulo-vivencias/agenda'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasAgendaRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
     }
     '/_authenticated/demandas/$id': {
       id: '/_authenticated/demandas/$id'
@@ -318,6 +460,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/configuracoes/usuarios'
       preLoaderRoute: typeof AuthenticatedConfiguracoesUsuariosRouteImport
       parentRoute: typeof AuthenticatedConfiguracoesRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas/': {
+      id: '/_authenticated/modulo-vivencias/demandas/'
+      path: '/'
+      fullPath: '/modulo-vivencias/demandas/'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas/$id': {
+      id: '/_authenticated/modulo-vivencias/demandas/$id'
+      path: '/$id'
+      fullPath: '/modulo-vivencias/demandas/$id'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIdRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
     }
   }
 }
@@ -337,6 +493,48 @@ const AuthenticatedConfiguracoesRouteRouteWithChildren =
     AuthenticatedConfiguracoesRouteRouteChildren,
   )
 
+interface AuthenticatedModuloVivenciasDemandasRouteChildren {
+  AuthenticatedModuloVivenciasDemandasIdRoute: typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  AuthenticatedModuloVivenciasDemandasIndexRoute: typeof AuthenticatedModuloVivenciasDemandasIndexRoute
+}
+
+const AuthenticatedModuloVivenciasDemandasRouteChildren: AuthenticatedModuloVivenciasDemandasRouteChildren =
+  {
+    AuthenticatedModuloVivenciasDemandasIdRoute:
+      AuthenticatedModuloVivenciasDemandasIdRoute,
+    AuthenticatedModuloVivenciasDemandasIndexRoute:
+      AuthenticatedModuloVivenciasDemandasIndexRoute,
+  }
+
+const AuthenticatedModuloVivenciasDemandasRouteWithChildren =
+  AuthenticatedModuloVivenciasDemandasRoute._addFileChildren(
+    AuthenticatedModuloVivenciasDemandasRouteChildren,
+  )
+
+interface AuthenticatedModuloVivenciasRouteRouteChildren {
+  AuthenticatedModuloVivenciasAgendaRoute: typeof AuthenticatedModuloVivenciasAgendaRoute
+  AuthenticatedModuloVivenciasDashboardRoute: typeof AuthenticatedModuloVivenciasDashboardRoute
+  AuthenticatedModuloVivenciasDemandasRoute: typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
+  AuthenticatedModuloVivenciasIndexRoute: typeof AuthenticatedModuloVivenciasIndexRoute
+}
+
+const AuthenticatedModuloVivenciasRouteRouteChildren: AuthenticatedModuloVivenciasRouteRouteChildren =
+  {
+    AuthenticatedModuloVivenciasAgendaRoute:
+      AuthenticatedModuloVivenciasAgendaRoute,
+    AuthenticatedModuloVivenciasDashboardRoute:
+      AuthenticatedModuloVivenciasDashboardRoute,
+    AuthenticatedModuloVivenciasDemandasRoute:
+      AuthenticatedModuloVivenciasDemandasRouteWithChildren,
+    AuthenticatedModuloVivenciasIndexRoute:
+      AuthenticatedModuloVivenciasIndexRoute,
+  }
+
+const AuthenticatedModuloVivenciasRouteRouteWithChildren =
+  AuthenticatedModuloVivenciasRouteRoute._addFileChildren(
+    AuthenticatedModuloVivenciasRouteRouteChildren,
+  )
+
 interface AuthenticatedDemandasRouteChildren {
   AuthenticatedDemandasIdRoute: typeof AuthenticatedDemandasIdRoute
   AuthenticatedDemandasIndexRoute: typeof AuthenticatedDemandasIndexRoute
@@ -354,6 +552,7 @@ const AuthenticatedDemandasRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRouteRoute: typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  AuthenticatedModuloVivenciasRouteRoute: typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAguardandoAprovacaoRoute: typeof AuthenticatedAguardandoAprovacaoRoute
   AuthenticatedAprovacoesRoute: typeof AuthenticatedAprovacoesRoute
@@ -366,6 +565,8 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRouteRoute:
     AuthenticatedConfiguracoesRouteRouteWithChildren,
+  AuthenticatedModuloVivenciasRouteRoute:
+    AuthenticatedModuloVivenciasRouteRouteWithChildren,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAguardandoAprovacaoRoute: AuthenticatedAguardandoAprovacaoRoute,
   AuthenticatedAprovacoesRoute: AuthenticatedAprovacoesRoute,
@@ -383,6 +584,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AcolhimentoRoute: AcolhimentoRoute,
   AuthRoute: AuthRoute,
+  VivenciasRoute: VivenciasRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

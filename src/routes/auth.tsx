@@ -2,16 +2,33 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { checkGoogleAuthEnabled } from "@/lib/auth-google.functions";
+import { homePathForModules, resolveUserModulesAccess } from "@/lib/professional-modules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
+
+async function navigateHome(userId: string, navigate: ReturnType<typeof useNavigate>) {
+  const { isAdmin, modules } = await resolveUserModulesAccess(userId);
+  navigate({ to: homePathForModules(modules, isAdmin) });
+}
+
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Entrar — CPAE" }, { name: "description", content: "Acesso da equipe CPAE." }] }),
+  head: () => ({
+    meta: [{ title: "Entrar — CPAE" }, { name: "description", content: "Acesso da equipe CPAE." }],
+  }),
   component: AuthPage,
 });
 
@@ -25,6 +42,22 @@ function AuthPage() {
   const [registeredEmail, setRegisteredEmail] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const oauthError =
+      params.get("error_description") ||
+      hashParams.get("error_description") ||
+      params.get("error") ||
+      hashParams.get("error");
+    if (oauthError) {
+      toast.error("Falha no Google", {
+        description: decodeURIComponent(oauthError.replace(/\+/g, " ")),
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!session || authLoading) return;
     (async () => {
       const { data: profile } = await supabase
@@ -34,7 +67,7 @@ function AuthPage() {
         .maybeSingle();
 
       const status = profile?.account_status;
-      if (status === "aprovado") navigate({ to: "/dashboard" });
+      if (status === "aprovado") await navigateHome(session.user.id, navigate);
       else if (status === "pendente") navigate({ to: "/aguardando-aprovacao" });
     })();
   }, [session, authLoading, navigate]);
@@ -52,24 +85,37 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error("Não foi possível entrar", { description: error.message });
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("account_status")
-      .eq("id", data.user!.id)
-      .maybeSingle();
+    const userId = data.user!.id;
+    const [{ data: profile }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("account_status").eq("id", userId).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+    ]);
 
-    const status = profile?.account_status ?? "pendente";
+    const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+    let status = profile?.account_status ?? "pendente";
+
+    if (isAdmin) {
+      if (status !== "aprovado") {
+        await supabase.from("profiles").update({ account_status: "aprovado" }).eq("id", userId);
+      }
+      status = "aprovado";
+    }
+
     if (status === "rejeitado") {
       await supabase.auth.signOut();
-      return toast.error("Acesso não autorizado", { description: "Seu cadastro foi rejeitado. Contate a administração." });
+      return toast.error("Acesso não autorizado", {
+        description: "Seu cadastro foi rejeitado. Contate a administração.",
+      });
     }
     if (status === "pendente") {
-      toast.info("Aguardando aprovação", { description: "Um administrador precisa liberar seu acesso." });
+      toast.info("Aguardando aprovação", {
+        description: "Um administrador precisa liberar seu acesso.",
+      });
       navigate({ to: "/aguardando-aprovacao" });
       return;
     }
     toast.success("Bem-vindo!");
-    navigate({ to: "/dashboard" });
+    await navigateHome(userId, navigate);
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -77,7 +123,10 @@ function AuthPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: fullName } },
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: { full_name: fullName },
+      },
     });
     if (error) {
       setLoading(false);
@@ -90,13 +139,43 @@ function AuthPage() {
   };
   const google = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    });
-    if (error) {
+    try {
+      const availability = await checkGoogleAuthEnabled();
+      if (!availability.enabled) {
+        toast.error("Login com Google indisponível", {
+          description:
+            availability.message.includes("not enabled") ||
+            availability.message.includes("não está habilitado")
+              ? "O provedor Google ainda não foi habilitado no Supabase. Ative em Authentication → Providers → Google e adicione as URLs de redirecionamento (incluindo http://localhost:8080/**)."
+              : availability.message,
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        toast.error("Falha no Google", { description: error.message });
+        return;
+      }
+      if (!data.url) {
+        toast.error("Falha no Google", {
+          description: "Não foi possível obter a URL de autenticação.",
+        });
+        return;
+      }
+      window.location.assign(data.url);
+    } catch (e) {
+      toast.error("Falha no Google", {
+        description: e instanceof Error ? e.message : "Erro inesperado ao iniciar o login.",
+      });
+    } finally {
       setLoading(false);
-      toast.error("Falha no Google", { description: error.message });
     }
   };
 
@@ -126,7 +205,9 @@ function AuthPage() {
                 <TabsTrigger value="signup">Criar conta</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="signin" className="mt-4">                <form
+              <TabsContent value="signin" className="mt-4">
+                {" "}
+                <form
                   className="space-y-3"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -140,7 +221,13 @@ function AuthPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="si-pass">Senha</Label>
-                    <Input id="si-pass" name="password" type="password" required autoComplete="current-password" />
+                    <Input
+                      id="si-pass"
+                      name="password"
+                      type="password"
+                      required
+                      autoComplete="current-password"
+                    />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Entrar
@@ -155,9 +242,15 @@ function AuthPage() {
                   onSubmit={(e) => {
                     e.preventDefault();
                     const f = new FormData(e.currentTarget);
-                    signUp(String(f.get("email")), String(f.get("password")), String(f.get("name")));
+                    signUp(
+                      String(f.get("email")),
+                      String(f.get("password")),
+                      String(f.get("name")),
+                    );
                   }}
-                >                  <div className="space-y-1.5">
+                >
+                  {" "}
+                  <div className="space-y-1.5">
                     <Label htmlFor="su-name">Nome completo</Label>
                     <Input id="su-name" name="name" required />
                   </div>
@@ -167,7 +260,14 @@ function AuthPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="su-pass">Senha</Label>
-                    <Input id="su-pass" name="password" type="password" required minLength={6} autoComplete="new-password" />
+                    <Input
+                      id="su-pass"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                    />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar conta
@@ -177,13 +277,21 @@ function AuthPage() {
             </Tabs>
 
             <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">ou</span>
               </div>
             </div>
 
-            <Button type="button" variant="outline" className="w-full" onClick={google} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={google}
+              disabled={loading}
+            >
               Continuar com Google
             </Button>
 
@@ -210,9 +318,9 @@ function AuthPage() {
               <DialogTitle className="mt-2">Confirme seu e-mail</DialogTitle>
               <DialogDescription className="text-center">
                 Enviamos um link de confirmação para{" "}
-                <span className="font-medium text-foreground">{registeredEmail}</span>.
-                Confirme seu e-mail e faça login. Após isso, um administrador deverá aprovar
-                seu cadastro e vincular sua permissão.
+                <span className="font-medium text-foreground">{registeredEmail}</span>. Confirme seu
+                e-mail e faça login. Após isso, um administrador deverá aprovar seu cadastro e
+                vincular sua permissão.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="sm:justify-center">

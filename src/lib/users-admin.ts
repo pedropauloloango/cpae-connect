@@ -5,6 +5,7 @@ export type AdminUserRow = {
   full_name: string;
   email: string | null;
   account_status: "pendente" | "aprovado" | "rejeitado";
+  receive_notification_emails: boolean;
   created_at: string;
   roles: ("admin" | "profissional")[];
   professional: { id: string; nome: string } | null;
@@ -16,7 +17,7 @@ export async function fetchUsersAdmin(): Promise<AdminUserRow[]> {
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, email, account_status, created_at")
+        .select("id, full_name, email, account_status, receive_notification_emails, created_at")
         .order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("professionals").select("id, nome, user_id").is("deleted_at", null),
@@ -26,6 +27,11 @@ export async function fetchUsersAdmin(): Promise<AdminUserRow[]> {
     if (pErr.message.includes("account_status")) {
       throw new Error(
         "Coluna profiles.account_status não existe. Execute scripts/fix-usuarios-module.sql no SQL Editor do Supabase.",
+      );
+    }
+    if (pErr.message.includes("receive_notification_emails") || pErr.code === "PGRST204") {
+      throw new Error(
+        "Coluna profiles.receive_notification_emails não existe. Execute scripts/fix-profile-notification-emails.sql no SQL Editor do Supabase.",
       );
     }
     throw pErr;
@@ -55,6 +61,7 @@ export async function fetchUsersAdmin(): Promise<AdminUserRow[]> {
       full_name: profile.full_name ?? "",
       email: profile.email,
       account_status: status,
+      receive_notification_emails: Boolean(profile.receive_notification_emails),
       created_at: profile.created_at,
       roles: userRoles,
       professional: proByUser.get(profile.id) ?? null,

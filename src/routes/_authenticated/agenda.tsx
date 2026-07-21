@@ -113,12 +113,13 @@ function Agenda() {
   });
 
   const { data: professionals = [] } = useQuery({
-    queryKey: ["professionals-agenda"],
+    queryKey: ["professionals-agenda-acolhimento"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("professionals")
         .select("id, nome")
         .eq("status", "ativo")
+        .eq("atende_acolhimento", true)
         .is("deleted_at", null)
         .order("nome");
       if (error) throw error;
@@ -154,9 +155,12 @@ function Agenda() {
   );
 
   const { data: appointments = [] } = useQuery({
-    queryKey: ["appointments"],
+    queryKey: ["appointments", isAdmin, myProfId],
+    enabled: isAdmin || myProfId !== undefined,
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!isAdmin && !myProfId) return [];
+
+      let qb = supabase
         .from("appointments")
         .select(`
           id, titulo, tipo, inicio, fim, observacoes, numero, representante_cargo, representante_nome, school_id,
@@ -165,7 +169,13 @@ function Agenda() {
             id, numero, aluno_nome, aluno_serie, aluno_turma, tipo_queixa, school_nome_snapshot, school_id
           )
         `)
+        .is("vivencia_request_id", null)
         .order("inicio");
+
+      // Profissional vê apenas os próprios agendamentos
+      if (!isAdmin && myProfId) qb = qb.eq("professional_id", myProfId);
+
+      const { data, error } = await qb;
       if (error) throw error;
       return (data ?? []) as AgendaAppointment[];
     },

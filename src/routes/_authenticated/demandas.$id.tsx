@@ -443,12 +443,13 @@ function AtribuicaoTab({
   const [selectedProfessional, setSelectedProfessional] = useState("");
 
   const { data: professionals = [], isLoading: loadingProfessionals } = useQuery({
-    queryKey: ["professionals-active"],
+    queryKey: ["professionals-active-acolhimento"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("professionals")
         .select("id, nome")
         .eq("status", "ativo")
+        .eq("atende_acolhimento", true)
         .is("deleted_at", null)
         .order("nome");
       if (error) throw error;

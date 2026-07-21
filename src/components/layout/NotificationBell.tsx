@@ -16,10 +16,29 @@ import {
   type ProfessionalAssignmentNotification,
   type ReceivedRequestNotification,
 } from "@/lib/pending-approvals";
+import {
+  fetchPendingVivenciaApprovals,
+  fetchPendingVivenciaCorrections,
+  fetchProfessionalVivenciaAssignments,
+  fetchReceivedVivenciaRequests,
+  PENDING_VIVENCIA_APPROVALS_QUERY_KEY,
+  PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
+  PENDING_VIVENCIA_CORRECTIONS_QUERY_KEY,
+  PENDING_VIVENCIA_RECEIVED_QUERY_KEY,
+  type VivenciaAssignmentNotification,
+  type VivenciaReceivedNotification,
+  type VivenciaReportNotification,
+} from "@/lib/pending-vivencias";
 import { reportStatusLabels, requestStatusLabels, schoolTipoLabels } from "@/lib/labels";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+function formatSchoolDisplay(nome: string | null, tipo: string | null): string {
+  if (!nome?.trim()) return "Escola/EMEI não informada";
+  const tipoLabel = tipo ? schoolTipoLabels[tipo] : null;
+  return tipoLabel ? `${tipoLabel} ${nome}` : nome;
+}
 
 function ClosureNotificationItem({ item, subtitle }: { item: ClosureNotification; subtitle?: string }) {
   return (
@@ -49,12 +68,6 @@ function ClosureNotificationItem({ item, subtitle }: { item: ClosureNotification
   );
 }
 
-function formatSchoolDisplay(nome: string | null, tipo: string | null): string {
-  if (!nome?.trim()) return "Escola/EMEI não informada";
-  const tipoLabel = tipo ? schoolTipoLabels[tipo] : null;
-  return tipoLabel ? `${tipoLabel} ${nome}` : nome;
-}
-
 function ReceivedRequestNotificationItem({ request }: { request: ReceivedRequestNotification }) {
   const receivedAt = new Date(request.created_at).toLocaleString("pt-BR");
 
@@ -62,7 +75,7 @@ function ReceivedRequestNotificationItem({ request }: { request: ReceivedRequest
     <Link
       to="/demandas/$id"
       params={{ id: request.id }}
-      search={{ tab: "info" }}
+      search={{ tab: "atribuicao" }}
       className="block border-b border-[#F1F5F9] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
     >
       <div className="min-w-0">
@@ -109,6 +122,99 @@ function AssignmentNotificationItem({ request }: { request: ProfessionalAssignme
   );
 }
 
+function VivenciaReceivedItem({ request }: { request: VivenciaReceivedNotification }) {
+  const receivedAt = new Date(request.created_at).toLocaleString("pt-BR");
+
+  return (
+    <Link
+      to="/modulo-vivencias/demandas/$id"
+      params={{ id: request.id }}
+      search={{ tab: "atribuicao" }}
+      className="block border-b border-[#F1F5F9] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
+    >
+      <div className="min-w-0">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7B2CBF]">
+          Vivências
+        </div>
+        <div className="truncate text-sm font-bold text-[#0F172A]">
+          {formatSchoolDisplay(request.school_nome_snapshot, request.tipo_escola)}
+        </div>
+        <div className="mt-1 text-xs text-[#64748B]">
+          Protocolo {request.numero} • {receivedAt}
+        </div>
+        <span className="mt-2 inline-block rounded-full bg-[#F3E8FF] px-2 py-0.5 text-[10px] font-semibold text-[#7B2CBF]">
+          {requestStatusLabels[request.status] ?? request.status}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function VivenciaReportItem({
+  item,
+  subtitle,
+}: {
+  item: VivenciaReportNotification;
+  subtitle?: string;
+}) {
+  const req = item.vivencia_request;
+
+  return (
+    <Link
+      to="/modulo-vivencias/demandas/$id"
+      params={{ id: req.id }}
+      search={{ tab: "relatorio" }}
+      className="block border-b border-[#F1F5F9] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7B2CBF]">
+            Vivências
+          </div>
+          <div className="truncate text-sm font-semibold text-[#0F172A]">
+            {formatSchoolDisplay(req.school_nome_snapshot, req.tipo_escola)}
+          </div>
+          <div className="mt-0.5 text-xs text-[#64748B]">Protocolo {req.numero}</div>
+          {subtitle && <div className="mt-1 text-xs font-medium text-[#B45309]">{subtitle}</div>}
+        </div>
+        <span className="shrink-0 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold text-[#B45309]">
+          {reportStatusLabels[item.status] ?? item.status}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function VivenciaAssignmentItem({ request }: { request: VivenciaAssignmentNotification }) {
+  const assignedAt = request.assigned_at
+    ? new Date(request.assigned_at).toLocaleString("pt-BR")
+    : "—";
+
+  return (
+    <Link
+      to="/modulo-vivencias/demandas/$id"
+      params={{ id: request.id }}
+      search={{ tab: "informacoes" }}
+      className="block border-b border-[#F1F5F9] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
+    >
+      <div className="min-w-0">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7B2CBF]">
+          Vivências
+        </div>
+        <div className="truncate text-sm font-bold text-[#0F172A]">
+          {formatSchoolDisplay(request.school_nome_snapshot, request.tipo_escola)}
+        </div>
+        <div className="mt-1 text-xs text-[#64748B]">
+          Protocolo {request.numero} • Atribuída em {assignedAt}
+        </div>
+        <span className="mt-2 inline-block rounded-full bg-[#F3E8FF] px-2 py-0.5 text-[10px] font-semibold text-[#7B2CBF]">
+          {requestStatusLabels[request.status] ?? request.status}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 function NotificationSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
@@ -121,45 +227,84 @@ function NotificationSection({ title, children }: { title: string; children: Rea
 }
 
 export function NotificationBell() {
-  const { isAdmin, roles } = useAuth();
+  const { isAdmin, roles, canAccessAcolhimento, canAccessVivencias } = useAuth();
   const isProfessional = roles.includes("profissional");
+
+  const showAcolhimento = isAdmin || canAccessAcolhimento;
+  const showVivencias = isAdmin || canAccessVivencias;
 
   const { data: pendingApprovals = [], isLoading: loadingApprovals } = useQuery({
     queryKey: PENDING_APPROVALS_QUERY_KEY,
     queryFn: fetchPendingApprovals,
-    enabled: isAdmin,
+    enabled: isAdmin && showAcolhimento,
     refetchInterval: 60_000,
   });
 
   const { data: receivedRequests = [], isLoading: loadingReceived } = useQuery({
     queryKey: PENDING_RECEIVED_REQUESTS_QUERY_KEY,
     queryFn: fetchReceivedRequests,
-    enabled: isAdmin,
+    enabled: isAdmin && showAcolhimento,
     refetchInterval: 60_000,
   });
 
   const { data: pendingCorrections = [], isLoading: loadingCorrections } = useQuery({
     queryKey: PENDING_CORRECTIONS_QUERY_KEY,
     queryFn: fetchPendingProfessionalCorrections,
-    enabled: isProfessional && !isAdmin,
+    enabled: isProfessional && !isAdmin && showAcolhimento,
     refetchInterval: 60_000,
   });
 
   const { data: pendingAssignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: PENDING_ASSIGNMENTS_QUERY_KEY,
     queryFn: fetchProfessionalAssignments,
-    enabled: isProfessional && !isAdmin,
+    enabled: isProfessional && !isAdmin && showAcolhimento,
+    refetchInterval: 60_000,
+  });
+
+  const { data: vivenciaReceived = [], isLoading: loadingVivReceived } = useQuery({
+    queryKey: PENDING_VIVENCIA_RECEIVED_QUERY_KEY,
+    queryFn: fetchReceivedVivenciaRequests,
+    enabled: isAdmin && showVivencias,
+    refetchInterval: 60_000,
+  });
+
+  const { data: vivenciaApprovals = [], isLoading: loadingVivApprovals } = useQuery({
+    queryKey: PENDING_VIVENCIA_APPROVALS_QUERY_KEY,
+    queryFn: fetchPendingVivenciaApprovals,
+    enabled: isAdmin && showVivencias,
+    refetchInterval: 60_000,
+  });
+
+  const { data: vivenciaCorrections = [], isLoading: loadingVivCorrections } = useQuery({
+    queryKey: PENDING_VIVENCIA_CORRECTIONS_QUERY_KEY,
+    queryFn: fetchPendingVivenciaCorrections,
+    enabled: isProfessional && !isAdmin && showVivencias,
+    refetchInterval: 60_000,
+  });
+
+  const { data: vivenciaAssignments = [], isLoading: loadingVivAssignments } = useQuery({
+    queryKey: PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
+    queryFn: fetchProfessionalVivenciaAssignments,
+    enabled: isProfessional && !isAdmin && showVivencias,
     refetchInterval: 60_000,
   });
 
   if (!isAdmin && !isProfessional) return null;
 
-  const adminCount = receivedRequests.length + pendingApprovals.length;
-  const professionalCount = pendingAssignments.length + pendingCorrections.length;
+  const adminCount =
+    receivedRequests.length +
+    pendingApprovals.length +
+    vivenciaReceived.length +
+    vivenciaApprovals.length;
+  const professionalCount =
+    pendingAssignments.length +
+    pendingCorrections.length +
+    vivenciaAssignments.length +
+    vivenciaCorrections.length;
   const count = isAdmin ? adminCount : professionalCount;
   const isLoading = isAdmin
-    ? loadingApprovals || loadingReceived
-    : loadingCorrections || loadingAssignments;
+    ? loadingApprovals || loadingReceived || loadingVivReceived || loadingVivApprovals
+    : loadingCorrections || loadingAssignments || loadingVivCorrections || loadingVivAssignments;
 
   const emptyMessage = isAdmin
     ? "Nenhuma notificação pendente."
@@ -210,67 +355,109 @@ export function NotificationBell() {
           {!isLoading && isAdmin && (
             <>
               {receivedRequests.length > 0 && (
-                <NotificationSection title="Solicitações recebidas">
+                <NotificationSection title="Acolhimento — Solicitações recebidas">
                   {receivedRequests.map((request) => (
                     <ReceivedRequestNotificationItem key={request.id} request={request} />
                   ))}
                 </NotificationSection>
               )}
+              {vivenciaReceived.length > 0 && (
+                <NotificationSection title="Vivências — Solicitações recebidas">
+                  {vivenciaReceived.map((request) => (
+                    <VivenciaReceivedItem key={request.id} request={request} />
+                  ))}
+                </NotificationSection>
+              )}
               {pendingApprovals.length > 0 && (
-                <NotificationSection title="Aguardando aprovação">
+                <NotificationSection title="Acolhimento — Aguardando aprovação">
                   {pendingApprovals.map((item) => (
                     <ClosureNotificationItem key={item.id} item={item} />
+                  ))}
+                </NotificationSection>
+              )}
+              {vivenciaApprovals.length > 0 && (
+                <NotificationSection title="Vivências — Aguardando aprovação">
+                  {vivenciaApprovals.map((item) => (
+                    <VivenciaReportItem key={item.id} item={item} />
                   ))}
                 </NotificationSection>
               )}
             </>
           )}
 
-          {!isLoading &&
-            !isAdmin &&
-            (pendingAssignments.length > 0 || pendingCorrections.length > 0) && (
-              <>
-                {pendingAssignments.length > 0 && (
-                  <NotificationSection title="Novas atribuições">
-                    {pendingAssignments.map((request) => (
-                      <AssignmentNotificationItem key={request.id} request={request} />
-                    ))}
-                  </NotificationSection>
-                )}
-                {pendingCorrections.length > 0 && (
-                  <NotificationSection title="Relatórios para correção">
-                    {pendingCorrections.map((item) => (
-                      <ClosureNotificationItem
-                        key={item.id}
-                        item={item}
-                        subtitle={
-                          item.status === "rejeitado"
-                            ? "Relatório rejeitado — revise e reenvie"
-                            : "Correção solicitada — ajuste o relatório circunstanciado"
-                        }
-                      />
-                    ))}
-                  </NotificationSection>
-                )}
-              </>
-            )}
+          {!isLoading && !isAdmin && (
+            <>
+              {pendingAssignments.length > 0 && (
+                <NotificationSection title="Acolhimento — Novas atribuições">
+                  {pendingAssignments.map((request) => (
+                    <AssignmentNotificationItem key={request.id} request={request} />
+                  ))}
+                </NotificationSection>
+              )}
+              {vivenciaAssignments.length > 0 && (
+                <NotificationSection title="Vivências — Novas atribuições">
+                  {vivenciaAssignments.map((request) => (
+                    <VivenciaAssignmentItem key={request.id} request={request} />
+                  ))}
+                </NotificationSection>
+              )}
+              {pendingCorrections.length > 0 && (
+                <NotificationSection title="Acolhimento — Relatórios para correção">
+                  {pendingCorrections.map((item) => (
+                    <ClosureNotificationItem
+                      key={item.id}
+                      item={item}
+                      subtitle={
+                        item.status === "rejeitado"
+                          ? "Relatório rejeitado — revise e reenvie"
+                          : "Correção solicitada — ajuste o relatório circunstanciado"
+                      }
+                    />
+                  ))}
+                </NotificationSection>
+              )}
+              {vivenciaCorrections.length > 0 && (
+                <NotificationSection title="Vivências — Relatórios para correção">
+                  {vivenciaCorrections.map((item) => (
+                    <VivenciaReportItem
+                      key={item.id}
+                      item={item}
+                      subtitle={
+                        item.status === "rejeitado"
+                          ? "Relatório rejeitado — revise e reenvie"
+                          : "Correção solicitada — ajuste o relatório"
+                      }
+                    />
+                  ))}
+                </NotificationSection>
+              )}
+            </>
+          )}
         </div>
 
         {isAdmin && count > 0 && (
           <div className="space-y-1 border-t p-2">
-            {receivedRequests.length > 0 && (
+            {(receivedRequests.length > 0 || vivenciaReceived.length > 0) && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
-                <Link to="/demandas">
+                <Link to={vivenciaReceived.length > 0 && receivedRequests.length === 0 ? "/modulo-vivencias/demandas" : "/demandas"}>
                   <Inbox className="h-4 w-4" />
-                  Ver demandas recebidas
+                  Ver demandas
                 </Link>
               </Button>
             )}
-            {pendingApprovals.length > 0 && (
+            {(pendingApprovals.length > 0 || vivenciaApprovals.length > 0) && pendingApprovals.length > 0 && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
                 <Link to="/aprovacoes">
                   <CheckSquare className="h-4 w-4" />
-                  Ver todas as aprovações
+                  Ver aprovações (Acolhimento)
+                </Link>
+              </Button>
+            )}
+            {vivenciaApprovals.length > 0 && (
+              <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#7B2CBF]" asChild>
+                <Link to="/modulo-vivencias/demandas">
+                  <CheckSquare className="h-4 w-4" />
+                  Ver demandas Vivências
                 </Link>
               </Button>
             )}
@@ -279,11 +466,19 @@ export function NotificationBell() {
 
         {!isAdmin && isProfessional && count > 0 && (
           <div className="space-y-1 border-t p-2">
-            {pendingAssignments.length > 0 && (
+            {(pendingAssignments.length > 0 || pendingCorrections.length > 0) && showAcolhimento && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
                 <Link to="/demandas">
                   <UserPlus className="h-4 w-4" />
-                  Ver minhas atribuições
+                  Ver Acolhimento
+                </Link>
+              </Button>
+            )}
+            {(vivenciaAssignments.length > 0 || vivenciaCorrections.length > 0) && showVivencias && (
+              <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#7B2CBF]" asChild>
+                <Link to="/modulo-vivencias/demandas">
+                  <UserPlus className="h-4 w-4" />
+                  Ver Vivências
                 </Link>
               </Button>
             )}

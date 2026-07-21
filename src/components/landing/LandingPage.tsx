@@ -63,6 +63,7 @@ const highlights = [
 
 const modules = [
   { icon: HandHeart, title: "Módulo Acolhimento", text: "Receba solicitações, distribua para profissionais e acompanhe cada caso com rastreabilidade completa." },
+  { icon: GraduationCap, title: "Módulo Vivências", text: "Solicitações de vivências e palestras por série, turma e período, com atribuição a múltiplos profissionais." },
   { icon: Calendar, title: "Agenda Integrada", text: "Visualize atendimentos por dia, semana e mês com calendário unificado para toda a equipe." },
   { icon: BarChart3, title: "Indicadores em Tempo Real", text: "Dashboards executivos por escola, região, profissional e queixa para apoiar a gestão." },
 ] as const;
@@ -198,13 +199,12 @@ export function LandingPage() {
                   Solicitar Acolhimento
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <a
-                  href="#equipe"
+                <Link
+                  to="/vivencias"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] border border-[#0F52BA]/20 bg-white/80 px-7 py-4 text-base font-semibold text-[#0F52BA] backdrop-blur-sm transition-all duration-300 hover:border-[#0F52BA]/40 hover:bg-[#EAF2FF] sm:w-auto"
                 >
-                  <Users className="h-4 w-4" />
-                  Conhecer a equipe
-                </a>
+                  Solicitar Vivência / Palestra
+                </Link>
               </div>
             </div>
 

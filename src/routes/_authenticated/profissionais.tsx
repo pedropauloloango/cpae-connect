@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +41,8 @@ interface Pro {
   email: string | null;
   telefone: string | null;
   status: ProfessionalStatus;
+  atende_acolhimento: boolean;
+  atende_vivencias: boolean;
 }
 
 function formDataToRecord(form: FormData): Record<string, string> {
@@ -60,14 +63,17 @@ function professionalFromForm(vals: Record<string, string>, status?: Professiona
     cargo: vals.cargo?.trim() || null,
     especialidade: vals.especialidade?.trim() || null,
     regiao_atuacao: vals.regiao_atuacao?.trim() || null,
+    atende_acolhimento: vals.atende_acolhimento === "true",
+    atende_vivencias: vals.atende_vivencias === "true",
     ...(status ? { status } : {}),
   };
 }
 
 function invalidateProfessionals(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["professionals"] });
-  qc.invalidateQueries({ queryKey: ["professionals-active"] });
-  qc.invalidateQueries({ queryKey: ["professionals-agenda"] });
+  qc.invalidateQueries({ queryKey: ["professionals-active-acolhimento"] });
+  qc.invalidateQueries({ queryKey: ["professionals-active-vivencias"] });
+  qc.invalidateQueries({ queryKey: ["professionals-agenda-acolhimento"] });
   qc.invalidateQueries({ queryKey: ["config-professionals-unlinked"] });
 }
 
@@ -201,6 +207,10 @@ function Profissionais() {
                   especialidade: editingPro.especialidade ?? "",
                   regiao_atuacao: editingPro.regiao_atuacao ?? "",
                 }}
+                moduleDefaults={{
+                  acolhimento: editingPro.atende_acolhimento,
+                  vivencias: editingPro.atende_vivencias,
+                }}
                 status={editStatus}
                 onStatusChange={setEditStatus}
               />
@@ -247,6 +257,7 @@ function Profissionais() {
                   <th className="px-4 py-3">Cargo</th>
                   <th className="px-4 py-3">Especialidade</th>
                   <th className="px-4 py-3">Região</th>
+                  <th className="px-4 py-3">Módulos</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
@@ -254,7 +265,7 @@ function Profissionais() {
               <tbody className="divide-y">
                 {list.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       Nenhum profissional.
                     </td>
                   </tr>
@@ -266,6 +277,12 @@ function Profissionais() {
                     <td className="px-4 py-3 text-muted-foreground">{p.cargo ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.especialidade ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.regiao_atuacao ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {p.atende_acolhimento && <Badge variant="secondary">Acolhimento</Badge>}
+                        {p.atende_vivencias && <Badge variant="secondary">Vivências</Badge>}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant="outline">{professionalStatusLabels[p.status]}</Badge>
                     </td>
@@ -313,6 +330,10 @@ function Profissionais() {
                     <div className="mt-1 text-xs text-muted-foreground">
                       {p.cargo ?? "—"} • {p.regiao_atuacao ?? "—"}
                     </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {p.atende_acolhimento && <Badge variant="secondary">Acolhimento</Badge>}
+                      {p.atende_vivencias && <Badge variant="secondary">Vivências</Badge>}
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button
@@ -348,13 +369,18 @@ function Profissionais() {
 
 function ProfessionalFormFields({
   defaults = {},
+  moduleDefaults = { acolhimento: true, vivencias: true },
   status,
   onStatusChange,
 }: {
   defaults?: Partial<Record<string, string>>;
+  moduleDefaults?: { acolhimento: boolean; vivencias: boolean };
   status?: ProfessionalStatus;
   onStatusChange?: (status: ProfessionalStatus) => void;
 }) {
+  const [acolhimento, setAcolhimento] = useState(moduleDefaults.acolhimento);
+  const [vivencias, setVivencias] = useState(moduleDefaults.vivencias);
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5 sm:col-span-2">
@@ -388,6 +414,30 @@ function ProfessionalFormFields({
       <div className="space-y-1.5 sm:col-span-2">
         <Label>Região de atuação</Label>
         <Input name="regiao_atuacao" defaultValue={defaults.regiao_atuacao} />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Módulos de atuação *</Label>
+        <p className="text-xs text-muted-foreground">Selecione pelo menos um módulo.</p>
+        <input type="hidden" name="atende_acolhimento" value={String(acolhimento)} />
+        <input type="hidden" name="atende_vivencias" value={String(vivencias)} />
+        <div className="flex flex-wrap gap-5 rounded-md border p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={acolhimento}
+              disabled={acolhimento && !vivencias}
+              onCheckedChange={(checked) => setAcolhimento(checked === true)}
+            />
+            Acolhimento
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={vivencias}
+              disabled={vivencias && !acolhimento}
+              onCheckedChange={(checked) => setVivencias(checked === true)}
+            />
+            Vivências
+          </label>
+        </div>
       </div>
       {status !== undefined && onStatusChange && (
         <div className="space-y-1.5 sm:col-span-2">

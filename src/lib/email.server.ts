@@ -5,8 +5,17 @@ type SendEmailParams = {
   text?: string;
 };
 
+function parseFromAddress(from: string): { email: string; name?: string } {
+  const match = from.match(/^(.*?)\s*<([^>]+)>\s*$/);
+  if (match) {
+    const name = match[1].replace(/^["']|["']$/g, "").trim();
+    return { email: match[2].trim(), name: name || undefined };
+  }
+  return { email: from.trim() };
+}
+
 export function getEmailConfig() {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const apiToken = process.env.MAILERSEND_API_TOKEN?.trim();
   const from = process.env.EMAIL_FROM?.trim();
   const appUrl = process.env.APP_URL?.trim().replace(/\/$/, "") ?? "";
   const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS ?? "")
@@ -14,18 +23,18 @@ export function getEmailConfig() {
     .map((e) => e.trim())
     .filter(Boolean);
 
-  return { apiKey, from, appUrl, adminEmails };
+  return { apiToken, from, appUrl, adminEmails };
 }
 
 export function isEmailConfigured(): boolean {
-  const { apiKey, from } = getEmailConfig();
-  return Boolean(apiKey && from);
+  const { apiToken, from } = getEmailConfig();
+  return Boolean(apiToken && from);
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<void> {
-  const { apiKey, from } = getEmailConfig();
-  if (!apiKey || !from) {
-    console.warn("[email] RESEND_API_KEY ou EMAIL_FROM não configurados — e-mail não enviado.");
+  const { apiToken, from } = getEmailConfig();
+  if (!apiToken || !from) {
+    console.warn("[email] MAILERSEND_API_TOKEN ou EMAIL_FROM não configurados — e-mail não enviado.");
     return;
   }
 
@@ -33,18 +42,24 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
   const recipients = [...new Set(to.map((e) => e.trim().toLowerCase()).filter(Boolean))];
   if (recipients.length === 0) return;
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const fromParsed = parseFromAddress(from);
+
+  const response = await fetch("https://api.mailersend.com/v1/email", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiToken}`,
       "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify({
-      from,
-      to: recipients,
+      from: {
+        email: fromParsed.email,
+        ...(fromParsed.name ? { name: fromParsed.name } : {}),
+      },
+      to: recipients.map((email) => ({ email })),
       subject: params.subject,
       html: params.html,
-      text: params.text,
+      ...(params.text ? { text: params.text } : {}),
     }),
   });
 

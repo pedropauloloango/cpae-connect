@@ -12,8 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Search, UserCheck, UserX, Shield, Briefcase } from "lucide-react";
+import { Search, UserCheck, UserX, Shield, Briefcase, Mail } from "lucide-react";
 import { accountStatusLabels, accountStatusTone, appRoleLabels } from "@/lib/labels";
 import type { AppRole } from "@/lib/auth";
 
@@ -30,6 +31,7 @@ function UsuariosConfig() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [role, setRole] = useState<AppRole>("profissional");
   const [professionalId, setProfessionalId] = useState<string>("");
+  const [receiveNotificationEmails, setReceiveNotificationEmails] = useState(false);
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ["config-users"],
@@ -66,21 +68,50 @@ function UsuariosConfig() {
       newRole,
       proId,
       approve,
+      receiveEmails,
+      previousRole,
+      previousStatus,
     }: {
       userId: string;
       newRole: AppRole;
       proId: string | null;
       approve: boolean;
+      receiveEmails: boolean;
+      previousRole: AppRole | null;
+      previousStatus: UserRow["account_status"];
     }) => {
       if (approve && newRole === "profissional" && !proId) {
         throw new Error("Selecione o cadastro de profissional para vincular.");
       }
 
+      const isSelf = userId === currentUser?.id;
+      const roleUnchanged = previousRole === newRole && previousStatus === "aprovado" && approve;
+
+      // Preferência de e-mail (e status) — sempre via profiles
       const { error: profileErr } = await supabase
         .from("profiles")
-        .update({ account_status: approve ? "aprovado" : "rejeitado" })
+        .update({
+          account_status: approve ? "aprovado" : "rejeitado",
+          receive_notification_emails: approve ? receiveEmails : false,
+        })
         .eq("id", userId);
-      if (profileErr) throw profileErr;
+      if (profileErr) {
+        if (
+          profileErr.message.includes("receive_notification_emails") ||
+          profileErr.code === "PGRST204"
+        ) {
+          throw new Error(
+            "Coluna receive_notification_emails não existe. Execute scripts/fix-profile-notification-emails.sql no Supabase.",
+          );
+        }
+        throw profileErr;
+      }
+
+      // Não mexer em user_roles ao editar a si mesmo (DELETE remove o admin e o INSERT falha no RLS)
+      // nem quando só a preferência de e-mail mudou.
+      if (isSelf || roleUnchanged) {
+        return;
+      }
 
       const { error: delRolesErr } = await supabase.from("user_roles").delete().eq("user_id", userId);
       if (delRolesErr) throw delRolesErr;
@@ -102,7 +133,7 @@ function UsuariosConfig() {
       }
     },
     onSuccess: () => {
-      toast.success("Permissões atualizadas.");
+      toast.success("Cadastro atualizado.");
       qc.invalidateQueries({ queryKey: ["config-users"] });
       qc.invalidateQueries({ queryKey: ["professionals"] });
       setEditing(null);
@@ -114,6 +145,7 @@ function UsuariosConfig() {
     setEditing(row);
     setRole(row.roles[0] ?? "profissional");
     setProfessionalId(row.professional?.id ?? "");
+    setReceiveNotificationEmails(row.receive_notification_emails);
   };
 
   const filtered = users.filter((u) => {
@@ -220,6 +252,7 @@ function UsuariosConfig() {
                   <th className="px-4 py-3">Usuário</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Permissão</th>
+                  <th className="px-4 py-3">E-mail alerta</th>
                   <th className="px-4 py-3">Profissional vinculado</th>
                   <th className="px-4 py-3">Cadastro</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -227,11 +260,11 @@ function UsuariosConfig() {
               </thead>
               <tbody className="divide-y">
                 {isLoading && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                       {users.length === 0
                         ? "Nenhum usuário cadastrado."
                         : pendingCount > 0 && filter !== "pendente"
@@ -260,6 +293,16 @@ function UsuariosConfig() {
                             {appRoleLabels[r]}
                           </Badge>
                         ))
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.receive_notification_emails ? (
+                        <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-800">
+                          <Mail className="h-3 w-3" />
+                          Ativo
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{u.professional?.nome ?? "—"}</td>
@@ -312,7 +355,11 @@ function UsuariosConfig() {
 
               <div className="space-y-1.5">
                 <Label>Permissão</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
+                <Select
+                  value={role}
+                  onValueChange={(v) => setRole(v as AppRole)}
+                  disabled={editing.id === currentUser?.id}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -346,26 +393,66 @@ function UsuariosConfig() {
                 </div>
               )}
 
+              <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+                <div className="space-y-1">
+                  <Label htmlFor="receive-notification-emails" className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5" />
+                    Receber e-mail de notificação
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Envia alerta para o e-mail deste usuário quando houver nova solicitação de
+                    Acolhimento ou Vivências.
+                  </p>
+                </div>
+                <Switch
+                  id="receive-notification-emails"
+                  checked={receiveNotificationEmails}
+                  onCheckedChange={setReceiveNotificationEmails}
+                  disabled={!editing.email}
+                />
+              </div>
+              {!editing.email && (
+                <p className="text-xs text-amber-700">
+                  Este usuário não tem e-mail cadastrado — não é possível ativar a notificação.
+                </p>
+              )}
+
               <div className="flex flex-col gap-2 pt-2 sm:flex-row">
                 <Button
                   className="flex-1"
                   onClick={() =>
                     saveMut.mutate({
                       userId: editing.id,
-                      newRole: role,
-                      proId: role === "profissional" ? professionalId || null : null,
+                      newRole: editing.id === currentUser?.id ? (editing.roles[0] ?? role) : role,
+                      proId:
+                        (editing.id === currentUser?.id ? (editing.roles[0] ?? role) : role) === "profissional"
+                          ? professionalId || editing.professional?.id || null
+                          : null,
                       approve: true,
+                      receiveEmails: receiveNotificationEmails,
+                      previousRole: editing.roles[0] ?? null,
+                      previousStatus: editing.account_status,
                     })
                   }
-                  disabled={saveMut.isPending || editing.id === currentUser?.id}
+                  disabled={saveMut.isPending}
                 >
                   <UserCheck className="mr-2 h-4 w-4" />
-                  Aprovar
+                  {editing.account_status === "aprovado" ? "Salvar" : "Aprovar"}
                 </Button>
                 <Button
                   variant="outline"
                   className="flex-1 text-destructive hover:bg-destructive/10"
-                  onClick={() => saveMut.mutate({ userId: editing.id, newRole: role, proId: null, approve: false })}
+                  onClick={() =>
+                    saveMut.mutate({
+                      userId: editing.id,
+                      newRole: role,
+                      proId: null,
+                      approve: false,
+                      receiveEmails: false,
+                      previousRole: editing.roles[0] ?? null,
+                      previousStatus: editing.account_status,
+                    })
+                  }
                   disabled={saveMut.isPending || editing.id === currentUser?.id}
                 >
                   <UserX className="mr-2 h-4 w-4" />
@@ -373,7 +460,9 @@ function UsuariosConfig() {
                 </Button>
               </div>
               {editing.id === currentUser?.id && (
-                <p className="text-xs text-muted-foreground">Você não pode alterar suas próprias permissões.</p>
+                <p className="text-xs text-muted-foreground">
+                  Você pode alterar a preferência de e-mail da sua conta, mas não a própria permissão nem rejeitar a si mesmo.
+                </p>
               )}
             </div>
           )}

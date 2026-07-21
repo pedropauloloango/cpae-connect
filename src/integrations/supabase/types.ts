@@ -69,6 +69,7 @@ export type Database = {
           tipo: Database["public"]["Enums"]["meeting_type"]
           titulo: string
           updated_at: string
+          vivencia_request_id: string | null
         }
         Insert: {
           created_at?: string
@@ -86,6 +87,7 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["meeting_type"]
           titulo: string
           updated_at?: string
+          vivencia_request_id?: string | null
         }
         Update: {
           created_at?: string
@@ -103,6 +105,7 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["meeting_type"]
           titulo?: string
           updated_at?: string
+          vivencia_request_id?: string | null
         }
         Relationships: [
           {
@@ -124,6 +127,13 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: false
+            referencedRelation: "vivencia_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -351,6 +361,8 @@ export type Database = {
       }
       professionals: {
         Row: {
+          atende_acolhimento: boolean
+          atende_vivencias: boolean
           cargo: string | null
           cpf: string | null
           created_at: string
@@ -367,6 +379,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          atende_acolhimento?: boolean
+          atende_vivencias?: boolean
           cargo?: string | null
           cpf?: string | null
           created_at?: string
@@ -383,6 +397,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          atende_acolhimento?: boolean
+          atende_vivencias?: boolean
           cargo?: string | null
           cpf?: string | null
           created_at?: string
@@ -409,6 +425,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          receive_notification_emails: boolean
           updated_at: string
         }
         Insert: {
@@ -419,6 +436,7 @@ export type Database = {
           full_name?: string
           id: string
           phone?: string | null
+          receive_notification_emails?: boolean
           updated_at?: string
         }
         Update: {
@@ -429,6 +447,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          receive_notification_emails?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -661,11 +680,288 @@ export type Database = {
         }
         Relationships: []
       }
+      vivencia_reports: {
+        Row: {
+          ano: string | null
+          coordenacao: string | null
+          created_at: string
+          created_by: string | null
+          data_vivencia: string | null
+          direcao: string | null
+          id: string
+          quantitativo_alunos: number | null
+          relato_atendimento: string
+          review_comment: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["report_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          tecnicos_cpae: string | null
+          tema: string | null
+          turma: string | null
+          turno: string | null
+          unidade_escolar: string | null
+          updated_at: string
+          vivencia_request_id: string
+        }
+        Insert: {
+          ano?: string | null
+          coordenacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vivencia?: string | null
+          direcao?: string | null
+          id?: string
+          quantitativo_alunos?: number | null
+          relato_atendimento?: string
+          review_comment?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tecnicos_cpae?: string | null
+          tema?: string | null
+          turma?: string | null
+          turno?: string | null
+          unidade_escolar?: string | null
+          updated_at?: string
+          vivencia_request_id: string
+        }
+        Update: {
+          ano?: string | null
+          coordenacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_vivencia?: string | null
+          direcao?: string | null
+          id?: string
+          quantitativo_alunos?: number | null
+          relato_atendimento?: string
+          review_comment?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tecnicos_cpae?: string | null
+          tema?: string | null
+          turma?: string | null
+          turno?: string | null
+          unidade_escolar?: string | null
+          updated_at?: string
+          vivencia_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_reports_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: true
+            referencedRelation: "vivencia_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vivencia_activity_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          vivencia_request_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          vivencia_request_id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          vivencia_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_activity_logs_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: false
+            referencedRelation: "vivencia_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vivencia_request_assignees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          professional_id: string
+          vivencia_request_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          professional_id: string
+          vivencia_request_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          professional_id?: string
+          vivencia_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_request_assignees_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vivencia_request_assignees_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: false
+            referencedRelation: "vivencia_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vivencia_request_groups: {
+        Row: {
+          aluno_serie: string
+          aluno_turma: string
+          created_at: string
+          data_preferivel: string | null
+          id: string
+          periodo: string
+          sort_order: number
+          temas: string[]
+          vivencia_request_id: string
+        }
+        Insert: {
+          aluno_serie: string
+          aluno_turma: string
+          created_at?: string
+          data_preferivel?: string | null
+          id?: string
+          periodo: string
+          sort_order?: number
+          temas?: string[]
+          vivencia_request_id: string
+        }
+        Update: {
+          aluno_serie?: string
+          aluno_turma?: string
+          created_at?: string
+          data_preferivel?: string | null
+          id?: string
+          periodo?: string
+          sort_order?: number
+          temas?: string[]
+          vivencia_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_request_groups_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: false
+            referencedRelation: "vivencia_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vivencia_requests: {
+        Row: {
+          created_at: string
+          data_preferivel_palestra: string | null
+          data_preferivel_vivencia: string | null
+          deleted_at: string | null
+          id: string
+          numero: string
+          palestra_tema: string | null
+          regiao_escola: string | null
+          school_id: string | null
+          school_nome_snapshot: string | null
+          solicitante_cargo: string | null
+          solicitante_email: string | null
+          solicitante_nome: string | null
+          solicitante_telefone: string | null
+          status: Database["public"]["Enums"]["request_status"]
+          tipo_escola: Database["public"]["Enums"]["school_tipo"] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_preferivel_palestra?: string | null
+          data_preferivel_vivencia?: string | null
+          deleted_at?: string | null
+          id?: string
+          numero?: string
+          palestra_tema?: string | null
+          regiao_escola?: string | null
+          school_id?: string | null
+          school_nome_snapshot?: string | null
+          solicitante_cargo?: string | null
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_preferivel_palestra?: string | null
+          data_preferivel_vivencia?: string | null
+          deleted_at?: string | null
+          id?: string
+          numero?: string
+          palestra_tema?: string | null
+          regiao_escola?: string | null
+          school_id?: string | null
+          school_nome_snapshot?: string | null
+          solicitante_cargo?: string | null
+          solicitante_email?: string | null
+          solicitante_nome?: string | null
+          solicitante_telefone?: string | null
+          status?: Database["public"]["Enums"]["request_status"]
+          tipo_escola?: Database["public"]["Enums"]["school_tipo"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_requests_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_palestra_occupied_dates: {
+        Args: { p_regiao: string }
+        Returns: { data_preferivel: string }[]
+      }
+      get_vivencia_occupied_dates: {
+        Args: { p_periodo: string; p_regiao: string }
+        Returns: { data_preferivel: string }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -674,6 +970,10 @@ export type Database = {
         Returns: boolean
       }
       submit_acolhimento_request: {
+        Args: { payload: Json }
+        Returns: { id: string; numero: string }[]
+      }
+      submit_vivencia_request: {
         Args: { payload: Json }
         Returns: { id: string; numero: string }[]
       }
