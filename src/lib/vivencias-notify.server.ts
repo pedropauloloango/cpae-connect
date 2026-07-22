@@ -41,7 +41,7 @@ export async function sendVivenciaCreatedEmails(
   });
 
   const adminContent = buildAdminVivenciaEmail(data, appUrl);
-  const solicitanteContent = buildSolicitanteVivenciaEmail(data);
+  const solicitanteContent = buildSolicitanteVivenciaEmail(data, appUrl);
   const solicitante = data.solicitante_email.trim();
 
   const tasks: Array<{ kind: "admin" | "solicitante"; promise: Promise<void> }> = [];

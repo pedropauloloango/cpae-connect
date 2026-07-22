@@ -49,7 +49,7 @@ export async function sendAcolhimentoCreatedEmails(
   });
 
   const adminContent = buildAdminAcolhimentoEmail(data, appUrl);
-  const solicitanteContent = buildSolicitanteAcolhimentoEmail(data);
+  const solicitanteContent = buildSolicitanteAcolhimentoEmail(data, appUrl);
   const solicitante = data.solicitante_email.trim();
 
   const tasks: Array<{ kind: "admin" | "solicitante"; promise: Promise<void> }> = [];

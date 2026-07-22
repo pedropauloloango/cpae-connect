@@ -9,6 +9,7 @@ import {
   alunoSexoLabels,
 } from "@/lib/acolhimento-options";
 import { complaintTypeLabels, schoolTipoLabels } from "@/lib/labels";
+import { buildEmailSignatureHtml, buildEmailSignatureText } from "@/lib/email-signature";
 
 export type AcolhimentoEmailPayload = {
   requestId: string;
@@ -98,10 +99,17 @@ function renderRowsText(rows: Array<{ label: string; value: string }>): string {
   return rows.map((row) => `${row.label}: ${row.value}`).join("\n");
 }
 
-function emailShell(title: string, intro: string, rows: Array<{ label: string; value: string }>, footer?: string): { html: string; text: string } {
+function emailShell(
+  title: string,
+  intro: string,
+  rows: Array<{ label: string; value: string }>,
+  appUrl: string,
+  footer?: string,
+): { html: string; text: string } {
   const footerHtml = footer
     ? `<p style="margin:24px 0 0;font-size:13px;color:#64748b;">${escapeHtml(footer)}</p>`
     : "";
+  const signatureHtml = buildEmailSignatureHtml(appUrl);
 
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
@@ -111,10 +119,11 @@ function emailShell(title: string, intro: string, rows: Array<{ label: string; v
         ${renderRowsHtml(rows)}
       </table>
       ${footerHtml}
+      ${signatureHtml}
     </div>
   `.trim();
 
-  const text = `${title}\n\n${intro}\n\n${renderRowsText(rows)}${footer ? `\n\n${footer}` : ""}`;
+  const text = `${title}\n\n${intro}\n\n${renderRowsText(rows)}${footer ? `\n\n${footer}` : ""}${buildEmailSignatureText()}`;
 
   return { html, text };
 }
@@ -130,17 +139,19 @@ export function buildAdminAcolhimentoEmail(data: AcolhimentoEmailPayload, appUrl
     "Nova solicitação de acolhimento",
     `Uma nova solicitação foi registrada pelo formulário público. Protocolo ${data.numero}.`,
     rows,
+    appUrl,
     footer,
   );
 }
 
-export function buildSolicitanteAcolhimentoEmail(data: AcolhimentoEmailPayload) {
+export function buildSolicitanteAcolhimentoEmail(data: AcolhimentoEmailPayload, appUrl: string) {
   const rows = buildDetailRows(data);
 
   return emailShell(
     "Solicitação de acolhimento registrada",
     `Olá, ${data.solicitante_nome}. Sua solicitação foi recebida pela CPAE. Guarde o protocolo abaixo para acompanhamento.`,
     rows,
+    appUrl,
     "A equipe da CPAE analisará o pedido e entrará em contato conforme necessário.",
   );
 }

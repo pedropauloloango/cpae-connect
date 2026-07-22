@@ -5,6 +5,7 @@ import {
 } from "@/lib/acolhimento-options";
 import { schoolTipoLabels } from "@/lib/labels";
 import { palestraTemaLabel, vivenciaTemaLabel } from "@/lib/vivencias-options";
+import { buildEmailSignatureHtml, buildEmailSignatureText } from "@/lib/email-signature";
 
 export type VivenciaEmailGroup = {
   aluno_serie: string;
@@ -98,11 +99,13 @@ function emailShell(
   title: string,
   intro: string,
   rows: Array<{ label: string; value: string }>,
+  appUrl: string,
   footer?: string,
 ): { html: string; text: string } {
   const footerHtml = footer
     ? `<p style="margin:24px 0 0;font-size:13px;color:#64748b;">${escapeHtml(footer)}</p>`
     : "";
+  const signatureHtml = buildEmailSignatureHtml(appUrl);
 
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
@@ -112,10 +115,11 @@ function emailShell(
         ${renderRowsHtml(rows)}
       </table>
       ${footerHtml}
+      ${signatureHtml}
     </div>
   `.trim();
 
-  const text = `${title}\n\n${intro}\n\n${renderRowsText(rows)}${footer ? `\n\n${footer}` : ""}`;
+  const text = `${title}\n\n${intro}\n\n${renderRowsText(rows)}${footer ? `\n\n${footer}` : ""}${buildEmailSignatureText()}`;
 
   return { html, text };
 }
@@ -131,17 +135,19 @@ export function buildAdminVivenciaEmail(data: VivenciaEmailPayload, appUrl: stri
     "Nova solicitação de vivências / palestras",
     `Uma nova solicitação foi registrada pelo formulário público. Protocolo ${data.numero}.`,
     rows,
+    appUrl,
     footer,
   );
 }
 
-export function buildSolicitanteVivenciaEmail(data: VivenciaEmailPayload) {
+export function buildSolicitanteVivenciaEmail(data: VivenciaEmailPayload, appUrl: string) {
   const rows = buildDetailRows(data);
 
   return emailShell(
     "Solicitação de vivências registrada",
     `Olá, ${data.solicitante_nome}. Sua solicitação foi recebida pela CPAE. Guarde o protocolo abaixo para acompanhamento.`,
     rows,
+    appUrl,
     "A equipe da CPAE analisará o pedido e entrará em contato conforme necessário.",
   );
 }
