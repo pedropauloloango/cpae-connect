@@ -5,22 +5,34 @@ type SendEmailParams = {
   text?: string;
 };
 
+function stripEnvQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function parseFromAddress(from: string): { email: string; name?: string } {
-  const match = from.match(/^(.*?)\s*<([^>]+)>\s*$/);
+  const cleaned = stripEnvQuotes(from);
+  const match = cleaned.match(/^(.*?)\s*<([^>]+)>\s*$/);
   if (match) {
     const name = match[1].replace(/^["']|["']$/g, "").trim();
     return { email: match[2].trim(), name: name || undefined };
   }
-  return { email: from.trim() };
+  return { email: cleaned.trim() };
 }
 
 export function getEmailConfig() {
-  const apiToken = process.env.MAILERSEND_API_TOKEN?.trim();
-  const from = process.env.EMAIL_FROM?.trim();
-  const appUrl = process.env.APP_URL?.trim().replace(/\/$/, "") ?? "";
+  const apiToken = stripEnvQuotes(process.env.MAILERSEND_API_TOKEN ?? "");
+  const from = stripEnvQuotes(process.env.EMAIL_FROM ?? "");
+  const appUrl = stripEnvQuotes(process.env.APP_URL ?? "").replace(/\/$/, "");
   const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS ?? "")
     .split(",")
-    .map((e) => e.trim())
+    .map((e) => stripEnvQuotes(e))
     .filter(Boolean);
 
   return { apiToken, from, appUrl, adminEmails };
@@ -43,6 +55,9 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
   if (recipients.length === 0) return;
 
   const fromParsed = parseFromAddress(from);
+  if (!fromParsed.email.includes("@")) {
+    throw new Error(`[email] EMAIL_FROM inválido: ${from}`);
+  }
 
   const response = await fetch("https://api.mailersend.com/v1/email", {
     method: "POST",

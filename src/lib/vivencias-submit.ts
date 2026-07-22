@@ -93,24 +93,26 @@ export async function submitVivenciaRequest(
     throw new Error("Não foi possível registrar a solicitação. Tente novamente.");
   }
 
-  void notifyVivenciaCreated({
-    data: {
-      requestId: req.id,
-      numero: req.numero,
-      school_nome: data.school_nome.trim(),
-      tipo_escola: data.tipo_escola,
-      regiao_escola: data.regiao_escola || null,
-      solicitante_email: data.solicitante_email.trim(),
-      solicitante_nome: solicitanteNome,
-      solicitante_cargo: data.solicitante_cargo,
-      solicitante_telefone: data.solicitante_telefone.trim(),
-      groups,
-      palestra_tema: data.palestra_tema || null,
-      data_preferivel_palestra: data.data_preferivel_palestra || null,
-    },
-  }).catch((err) => {
+  try {
+    await notifyVivenciaCreated({
+      data: {
+        requestId: req.id,
+        numero: req.numero,
+        school_nome: data.school_nome.trim(),
+        tipo_escola: data.tipo_escola,
+        regiao_escola: data.regiao_escola || null,
+        solicitante_email: data.solicitante_email.trim(),
+        solicitante_nome: solicitanteNome,
+        solicitante_cargo: data.solicitante_cargo,
+        solicitante_telefone: data.solicitante_telefone.trim(),
+        groups,
+        palestra_tema: data.palestra_tema || null,
+        data_preferivel_palestra: data.data_preferivel_palestra || null,
+      },
+    });
+  } catch (err) {
     console.error("notifyVivenciaCreated error", err);
-  });
+  }
 
   return { numero: req.numero, id: req.id };
 }

@@ -30,7 +30,7 @@ export async function sendAcolhimentoCreatedEmails(data: AcolhimentoEmailPayload
     );
   } else {
     console.warn(
-      "[acolhimento-notify] Nenhum usuário com 'Receber e-mail de notificação' ativado.",
+      "[acolhimento-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
     );
   }
 

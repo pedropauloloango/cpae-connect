@@ -30,7 +30,7 @@ export async function sendVivenciaCreatedEmails(data: VivenciaEmailPayload): Pro
     );
   } else {
     console.warn(
-      "[vivencias-notify] Nenhum usuário com 'Receber e-mail de notificação' ativado.",
+      "[vivencias-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
     );
   }
 

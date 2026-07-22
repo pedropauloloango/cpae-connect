@@ -110,35 +110,37 @@ export async function submitAcolhimentoRequest(
     throw new Error("Não foi possível registrar a solicitação. Tente novamente.");
   }
 
-  void notifyAcolhimentoCreated({
-    data: {
-      requestId: req.id,
-      numero: req.numero,
-      school_nome: data.school_nome.trim(),
-      tipo_escola: data.tipo_escola,
-      regiao_escola: data.regiao_escola || null,
-      solicitante_email: data.solicitante_email.trim(),
-      solicitante_nome: solicitanteNome,
-      solicitante_cargo: data.solicitante_cargo,
-      solicitante_telefone: data.solicitante_telefone.trim(),
-      modalidade_acolhimento: data.modalidade_acolhimento,
-      aluno_nome: alunoNome,
-      aluno_nascimento: data.aluno_nascimento,
-      aluno_sexo: data.aluno_sexo,
-      educacao_especial: data.educacao_especial === "sim",
-      aluno_serie: serieLabel,
-      aluno_turma: data.aluno_turma,
-      aluno_turma_ano: turmaAno,
-      periodo: data.periodo,
-      comunicou_abuso: data.comunicou_abuso,
-      situacao_observada: data.situacao_observada,
-      acolhido_anteriormente: data.acolhido_anteriormente === "sim",
-      autorizacao_ata: data.autorizacao_ata,
-      tipo_queixa,
-    },
-  }).catch((err) => {
+  try {
+    await notifyAcolhimentoCreated({
+      data: {
+        requestId: req.id,
+        numero: req.numero,
+        school_nome: data.school_nome.trim(),
+        tipo_escola: data.tipo_escola,
+        regiao_escola: data.regiao_escola || null,
+        solicitante_email: data.solicitante_email.trim(),
+        solicitante_nome: solicitanteNome,
+        solicitante_cargo: data.solicitante_cargo,
+        solicitante_telefone: data.solicitante_telefone.trim(),
+        modalidade_acolhimento: data.modalidade_acolhimento,
+        aluno_nome: alunoNome,
+        aluno_nascimento: data.aluno_nascimento,
+        aluno_sexo: data.aluno_sexo,
+        educacao_especial: data.educacao_especial === "sim",
+        aluno_serie: serieLabel,
+        aluno_turma: data.aluno_turma,
+        aluno_turma_ano: turmaAno,
+        periodo: data.periodo,
+        comunicou_abuso: data.comunicou_abuso,
+        situacao_observada: data.situacao_observada,
+        acolhido_anteriormente: data.acolhido_anteriormente === "sim",
+        autorizacao_ata: data.autorizacao_ata,
+        tipo_queixa,
+      },
+    });
+  } catch (err) {
     console.error("notifyAcolhimentoCreated error", err);
-  });
+  }
 
   return { numero: req.numero, id: req.id };
 }
