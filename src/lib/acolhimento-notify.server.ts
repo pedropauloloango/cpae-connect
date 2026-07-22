@@ -16,28 +16,33 @@ export async function sendAcolhimentoCreatedEmails(data: AcolhimentoEmailPayload
   const notifyEmails = await fetchNotificationEmails();
   const adminContent = buildAdminAcolhimentoEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteAcolhimentoEmail(data);
+  const solicitante = data.solicitante_email.trim().toLowerCase();
 
   const tasks: Promise<void>[] = [];
 
-  if (notifyEmails.length > 0) {
+  // Um envio por destinatário (mais confiável no MailerSend do que lote único)
+  for (const email of notifyEmails) {
+    if (email === solicitante) continue; // evita duplicar se admin = solicitante
     tasks.push(
       sendEmail({
-        to: notifyEmails,
+        to: email,
         subject: `Nova solicitação de acolhimento — ${data.numero} — ${data.aluno_nome}`,
         html: adminContent.html,
         text: adminContent.text,
       }),
     );
-  } else {
+  }
+
+  if (notifyEmails.length === 0) {
     console.warn(
       "[acolhimento-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
     );
   }
 
-  if (data.solicitante_email.trim()) {
+  if (solicitante) {
     tasks.push(
       sendEmail({
-        to: data.solicitante_email.trim(),
+        to: solicitante,
         subject: `Solicitação de ACOLHIMENTO registrada — Protocolo ${data.numero}`,
         html: solicitanteContent.html,
         text: solicitanteContent.text,

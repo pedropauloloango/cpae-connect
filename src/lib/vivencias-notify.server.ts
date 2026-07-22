@@ -16,28 +16,32 @@ export async function sendVivenciaCreatedEmails(data: VivenciaEmailPayload): Pro
   const notifyEmails = await fetchNotificationEmails();
   const adminContent = buildAdminVivenciaEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteVivenciaEmail(data);
+  const solicitante = data.solicitante_email.trim().toLowerCase();
 
   const tasks: Promise<void>[] = [];
 
-  if (notifyEmails.length > 0) {
+  for (const email of notifyEmails) {
+    if (email === solicitante) continue;
     tasks.push(
       sendEmail({
-        to: notifyEmails,
+        to: email,
         subject: `Nova solicitação de vivências — ${data.numero} — ${data.school_nome}`,
         html: adminContent.html,
         text: adminContent.text,
       }),
     );
-  } else {
+  }
+
+  if (notifyEmails.length === 0) {
     console.warn(
       "[vivencias-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
     );
   }
 
-  if (data.solicitante_email.trim()) {
+  if (solicitante) {
     tasks.push(
       sendEmail({
-        to: data.solicitante_email.trim(),
+        to: solicitante,
         subject: `Solicitação de VIVÊNCIA registrada — Protocolo ${data.numero}`,
         html: solicitanteContent.html,
         text: solicitanteContent.text,
