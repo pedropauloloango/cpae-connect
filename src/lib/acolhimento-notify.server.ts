@@ -34,8 +34,19 @@ export async function sendAcolhimentoCreatedEmails(
   }
 
   const { appUrl } = getEmailConfig();
-  const notifyEmails = await fetchNotificationEmails("acolhimento");
+  // Preferência: e-mails já resolvidos no RPC do submit (mesmo banco / SECURITY DEFINER)
+  const fromSubmit = (data.alertEmails ?? [])
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const fromDb = fromSubmit.length > 0 ? [] : await fetchNotificationEmails("acolhimento");
+  const notifyEmails = [...new Set(fromSubmit.length > 0 ? fromSubmit : fromDb)];
   result.adminRecipients = notifyEmails;
+
+  console.info("[acolhimento-notify] alert recipients", {
+    fromSubmit,
+    fromDb,
+    notifyEmails,
+  });
 
   const adminContent = buildAdminAcolhimentoEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteAcolhimentoEmail(data);

@@ -93,6 +93,10 @@ export async function submitVivenciaRequest(
     throw new Error("Não foi possível registrar a solicitação. Tente novamente.");
   }
 
+  const alertEmails = Array.isArray(req.alert_emails)
+    ? req.alert_emails.filter((e: unknown): e is string => typeof e === "string" && e.includes("@"))
+    : [];
+
   // E-mail em background: não atrasa o protocolo
   void notifyVivenciaCreated({
     data: {
@@ -108,6 +112,7 @@ export async function submitVivenciaRequest(
       groups,
       palestra_tema: data.palestra_tema || null,
       data_preferivel_palestra: data.data_preferivel_palestra || null,
+      alertEmails,
     },
   })
     .then((notifyResult) => {

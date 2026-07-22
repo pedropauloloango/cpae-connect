@@ -981,11 +981,11 @@ export type Database = {
       }
       submit_acolhimento_request: {
         Args: { payload: Json }
-        Returns: { id: string; numero: string }[]
+        Returns: { id: string; numero: string; alert_emails: string[] }[]
       }
       submit_vivencia_request: {
         Args: { payload: Json }
-        Returns: { id: string; numero: string }[]
+        Returns: { id: string; numero: string; alert_emails: string[] }[]
       }
     }
     Enums: {

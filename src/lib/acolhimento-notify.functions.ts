@@ -26,6 +26,7 @@ const notificationSchema = z.object({
   acolhido_anteriormente: z.boolean(),
   autorizacao_ata: z.string().min(1),
   tipo_queixa: z.string().min(1),
+  alertEmails: z.array(z.string().email()).optional().default([]),
 });
 
 /** Envia e-mails de confirmação ao solicitante e notificação aos opt-in de Acolhimento. */

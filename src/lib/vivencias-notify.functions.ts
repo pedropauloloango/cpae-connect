@@ -23,6 +23,7 @@ const notificationSchema = z.object({
   groups: z.array(groupSchema).min(1),
   palestra_tema: z.string().nullable().optional(),
   data_preferivel_palestra: z.string().nullable().optional(),
+  alertEmails: z.array(z.string().email()).optional().default([]),
 });
 
 /** Envia e-mails de confirmação ao solicitante e notificação aos opt-in de Vivências. */

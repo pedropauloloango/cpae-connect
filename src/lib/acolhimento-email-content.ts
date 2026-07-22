@@ -34,6 +34,8 @@ export type AcolhimentoEmailPayload = {
   acolhido_anteriormente: boolean;
   autorizacao_ata: string;
   tipo_queixa: string;
+  /** E-mails com alerta Acolhimento ativos (vindos do RPC de submit). */
+  alertEmails?: string[];
 };
 
 function escapeHtml(value: string): string {

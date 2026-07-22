@@ -110,6 +110,10 @@ export async function submitAcolhimentoRequest(
     throw new Error("Não foi possível registrar a solicitação. Tente novamente.");
   }
 
+  const alertEmails = Array.isArray(req.alert_emails)
+    ? req.alert_emails.filter((e: unknown): e is string => typeof e === "string" && e.includes("@"))
+    : [];
+
   // E-mail em background: não atrasa o protocolo (MailerSend pode levar vários segundos)
   void notifyAcolhimentoCreated({
     data: {
@@ -136,6 +140,7 @@ export async function submitAcolhimentoRequest(
       acolhido_anteriormente: data.acolhido_anteriormente === "sim",
       autorizacao_ata: data.autorizacao_ata,
       tipo_queixa,
+      alertEmails,
     },
   })
     .then((notifyResult) => {

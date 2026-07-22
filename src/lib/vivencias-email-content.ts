@@ -27,6 +27,8 @@ export type VivenciaEmailPayload = {
   groups: VivenciaEmailGroup[];
   palestra_tema?: string | null;
   data_preferivel_palestra?: string | null;
+  /** E-mails com alerta Vivências ativos (vindos do RPC de submit). */
+  alertEmails?: string[];
 };
 
 function escapeHtml(value: string): string {

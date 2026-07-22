@@ -27,8 +27,18 @@ export async function sendVivenciaCreatedEmails(
   }
 
   const { appUrl } = getEmailConfig();
-  const notifyEmails = await fetchNotificationEmails("vivencias");
+  const fromSubmit = (data.alertEmails ?? [])
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const fromDb = fromSubmit.length > 0 ? [] : await fetchNotificationEmails("vivencias");
+  const notifyEmails = [...new Set(fromSubmit.length > 0 ? fromSubmit : fromDb)];
   result.adminRecipients = notifyEmails;
+
+  console.info("[vivencias-notify] alert recipients", {
+    fromSubmit,
+    fromDb,
+    notifyEmails,
+  });
 
   const adminContent = buildAdminVivenciaEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteVivenciaEmail(data);
