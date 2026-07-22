@@ -81,16 +81,14 @@ async function fetchEmailsViaTableScan(
 }
 
 /**
- * Destinatários de alerta por módulo.
- * 1) RPC no banco (mais confiável)
- * 2) Fallback: scan em profiles
- * 3) Fallback: ADMIN_NOTIFICATION_EMAILS
+ * Destinatários de alerta por módulo — somente usuários no banco com
+ * "E-mail alerta Acolhimento" ou "E-mail alerta Vivências" = true.
  */
 export async function fetchNotificationEmails(
   module: NotificationModule,
 ): Promise<string[]> {
-  const { adminEmails } = getEmailConfig();
-  const envEmails = adminEmails.map((e) => normalizeEmail(e)).filter((e): e is string => Boolean(e));
+  // Mantém leitura do config (APP_URL etc.), mas NÃO usa ADMIN_NOTIFICATION_EMAILS.
+  getEmailConfig();
 
   const viaRpc = await fetchEmailsViaRpc(module);
   if (viaRpc.error) {
@@ -108,12 +106,6 @@ export async function fetchNotificationEmails(
     }
   }
 
-  const merged = [...new Set([...fromDb, ...envEmails])];
-  console.info(`[notify] Destinatários ${module}: ${merged.length}`, {
-    fromDb,
-    fromEnv: envEmails,
-    merged,
-  });
-
-  return merged;
+  console.info(`[notify] Destinatários ${module}: ${fromDb.length}`, fromDb);
+  return fromDb;
 }
