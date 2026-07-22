@@ -1,5 +1,3 @@
-import { getEmailConfig } from "@/lib/email.server";
-
 export type NotificationModule = "acolhimento" | "vivencias";
 
 function normalizeEmail(value: string | null | undefined): string | null {
@@ -8,104 +6,79 @@ function normalizeEmail(value: string | null | undefined): string | null {
   return email;
 }
 
-async function fetchEmailsViaRpc(
-  module: NotificationModule,
-): Promise<{ emails: string[]; error?: string }> {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.rpc("get_notification_recipient_emails", {
-      p_module: module,
-    });
+/** Consulta simples e direta nas flags do perfil. */
+async function fetchEmailsFromProfiles(module: NotificationModule): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (error) {
-      return { emails: [], error: error.message };
-    }
+  const flag = module === "acolhimento" ? "receive_acolhimento_emails" : "receive_vivencias_emails";
 
-    const emails = (data ?? [])
-      .map((row: { email?: string } | string) =>
-        normalizeEmail(typeof row === "string" ? row : row.email),
-      )
-      .filter((e): e is string => Boolean(e));
+  // Query mínima: só e-mail onde a flag do módulo é true
+  const query =
+    module === "acolhimento"
+      ? supabaseAdmin.from("profiles").select("email").eq("receive_acolhimento_emails", true)
+      : supabaseAdmin.from("profiles").select("email").eq("receive_vivencias_emails", true);
 
-    return { emails: [...new Set(emails)] };
-  } catch (err) {
-    return { emails: [], error: err instanceof Error ? err.message : String(err) };
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(`[notify] Erro ao ler profiles.${flag}:`, error.message, error.code);
+    throw error;
   }
+
+  const emails = (data ?? [])
+    .map((row) => normalizeEmail(row.email))
+    .filter((e): e is string => Boolean(e));
+
+  console.info(`[notify] profiles.${flag}=true →`, emails);
+  return [...new Set(emails)];
 }
 
-async function fetchEmailsViaTableScan(
-  module: NotificationModule,
-): Promise<{ emails: string[]; error?: string }> {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+async function fetchEmailsViaRpc(module: NotificationModule): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.rpc("get_notification_recipient_emails", {
+    p_module: module,
+  });
 
-    const { data: profiles, error } = await supabaseAdmin
-      .from("profiles")
-      .select(
-        "id, email, account_status, receive_acolhimento_emails, receive_vivencias_emails, receive_notification_emails",
-      );
-
-    if (error) {
-      return { emails: [], error: error.message };
-    }
-
-    const emails: string[] = [];
-
-    for (const p of profiles ?? []) {
-      if (p.account_status === "rejeitado") continue;
-
-      const legacy = Boolean(p.receive_notification_emails);
-      const opted =
-        module === "acolhimento"
-          ? Boolean(p.receive_acolhimento_emails) || legacy
-          : Boolean(p.receive_vivencias_emails) || legacy;
-
-      if (!opted) continue;
-
-      let email = normalizeEmail(p.email);
-      if (!email) {
-        try {
-          const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(p.id);
-          email = normalizeEmail(authUser.user?.email);
-        } catch {
-          /* ignore */
-        }
-      }
-      if (email) emails.push(email);
-    }
-
-    return { emails: [...new Set(emails)] };
-  } catch (err) {
-    return { emails: [], error: err instanceof Error ? err.message : String(err) };
+  if (error) {
+    console.warn(`[notify] RPC indisponível (${module}):`, error.message);
+    return [];
   }
+
+  const emails = (data ?? [])
+    .map((row: { email?: string } | string) =>
+      normalizeEmail(typeof row === "string" ? row : row.email),
+    )
+    .filter((e): e is string => Boolean(e));
+
+  console.info(`[notify] RPC ${module} →`, emails);
+  return [...new Set(emails)];
 }
 
 /**
- * Destinatários de alerta por módulo — somente usuários no banco com
- * "E-mail alerta Acolhimento" ou "E-mail alerta Vivências" = true.
+ * Destinatários de alerta: somente usuários com
+ * E-mail alerta Acolhimento / Vivências = true no banco.
  */
 export async function fetchNotificationEmails(
   module: NotificationModule,
 ): Promise<string[]> {
-  // Mantém leitura do config (APP_URL etc.), mas NÃO usa ADMIN_NOTIFICATION_EMAILS.
-  getEmailConfig();
+  console.info(`[notify] Resolvendo destinatários (${module})`, {
+    supabaseHost: process.env.SUPABASE_URL?.replace(/^https?:\/\//, "").split("/")[0] ?? "(missing)",
+  });
 
-  const viaRpc = await fetchEmailsViaRpc(module);
-  if (viaRpc.error) {
-    console.warn(`[notify] RPC get_notification_recipient_emails falhou (${module}):`, viaRpc.error);
+  // 1) Preferência: query direta (mais simples e previsível)
+  try {
+    const fromProfiles = await fetchEmailsFromProfiles(module);
+    if (fromProfiles.length > 0) return fromProfiles;
+  } catch (err) {
+    console.warn(`[notify] Fallback para RPC após falha no select (${module})`, err);
   }
 
-  let fromDb = viaRpc.emails;
+  // 2) Fallback: função SQL
+  const fromRpc = await fetchEmailsViaRpc(module);
+  if (fromRpc.length > 0) return fromRpc;
 
-  if (fromDb.length === 0) {
-    const viaTable = await fetchEmailsViaTableScan(module);
-    if (viaTable.error) {
-      console.warn(`[notify] Scan profiles falhou (${module}):`, viaTable.error);
-    } else {
-      fromDb = viaTable.emails;
-    }
-  }
-
-  console.info(`[notify] Destinatários ${module}: ${fromDb.length}`, fromDb);
-  return fromDb;
+  console.warn(
+    `[notify] Nenhum destinatário para ${module}. Confira profiles.receive_${module}_emails = true.`,
+  );
+  return [];
 }
