@@ -20,8 +20,8 @@ export function buildEmailSignatureHtml(appUrl: string): string {
       <img
         src="${logoUrl}"
         alt="DALEAL Tecnologia"
-        width="280"
-        style="display:inline-block;width:280px;max-width:70%;height:auto;opacity:0.92;border:0;outline:none;text-decoration:none;"
+        width="420"
+        style="display:inline-block;width:420px;max-width:90%;height:auto;opacity:0.92;border:0;outline:none;text-decoration:none;"
       />
     </div>
   `.trim();
