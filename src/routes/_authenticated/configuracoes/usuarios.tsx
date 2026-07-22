@@ -31,7 +31,8 @@ function UsuariosConfig() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [role, setRole] = useState<AppRole>("profissional");
   const [professionalId, setProfessionalId] = useState<string>("");
-  const [receiveNotificationEmails, setReceiveNotificationEmails] = useState(false);
+  const [receiveAcolhimentoEmails, setReceiveAcolhimentoEmails] = useState(false);
+  const [receiveVivenciasEmails, setReceiveVivenciasEmails] = useState(false);
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ["config-users"],
@@ -68,7 +69,8 @@ function UsuariosConfig() {
       newRole,
       proId,
       approve,
-      receiveEmails,
+      receiveAcolhimento,
+      receiveVivencias,
       previousRole,
       previousStatus,
     }: {
@@ -76,7 +78,8 @@ function UsuariosConfig() {
       newRole: AppRole;
       proId: string | null;
       approve: boolean;
-      receiveEmails: boolean;
+      receiveAcolhimento: boolean;
+      receiveVivencias: boolean;
       previousRole: AppRole | null;
       previousStatus: UserRow["account_status"];
     }) => {
@@ -87,28 +90,27 @@ function UsuariosConfig() {
       const isSelf = userId === currentUser?.id;
       const roleUnchanged = previousRole === newRole && previousStatus === "aprovado" && approve;
 
-      // Preferência de e-mail (e status) — sempre via profiles
       const { error: profileErr } = await supabase
         .from("profiles")
         .update({
           account_status: approve ? "aprovado" : "rejeitado",
-          receive_notification_emails: approve ? receiveEmails : false,
+          receive_acolhimento_emails: approve ? receiveAcolhimento : false,
+          receive_vivencias_emails: approve ? receiveVivencias : false,
         })
         .eq("id", userId);
       if (profileErr) {
         if (
-          profileErr.message.includes("receive_notification_emails") ||
+          profileErr.message.includes("receive_acolhimento_emails") ||
+          profileErr.message.includes("receive_vivencias_emails") ||
           profileErr.code === "PGRST204"
         ) {
           throw new Error(
-            "Coluna receive_notification_emails não existe. Execute scripts/fix-profile-notification-emails.sql no Supabase.",
+            "Colunas de e-mail por módulo ausentes. Execute scripts/fix-module-notification-emails.sql no Supabase.",
           );
         }
         throw profileErr;
       }
 
-      // Não mexer em user_roles ao editar a si mesmo (DELETE remove o admin e o INSERT falha no RLS)
-      // nem quando só a preferência de e-mail mudou.
       if (isSelf || roleUnchanged) {
         return;
       }
@@ -145,7 +147,8 @@ function UsuariosConfig() {
     setEditing(row);
     setRole(row.roles[0] ?? "profissional");
     setProfessionalId(row.professional?.id ?? "");
-    setReceiveNotificationEmails(row.receive_notification_emails);
+    setReceiveAcolhimentoEmails(row.receive_acolhimento_emails);
+    setReceiveVivenciasEmails(row.receive_vivencias_emails);
   };
 
   const filtered = users.filter((u) => {
@@ -252,7 +255,8 @@ function UsuariosConfig() {
                   <th className="px-4 py-3">Usuário</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Permissão</th>
-                  <th className="px-4 py-3">E-mail alerta</th>
+                  <th className="px-4 py-3">Alerta Acolhimento</th>
+                  <th className="px-4 py-3">Alerta Vivências</th>
                   <th className="px-4 py-3">Profissional vinculado</th>
                   <th className="px-4 py-3">Cadastro</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -260,11 +264,11 @@ function UsuariosConfig() {
               </thead>
               <tbody className="divide-y">
                 {isLoading && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       {users.length === 0
                         ? "Nenhum usuário cadastrado."
                         : pendingCount > 0 && filter !== "pendente"
@@ -296,7 +300,17 @@ function UsuariosConfig() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {u.receive_notification_emails ? (
+                      {u.receive_acolhimento_emails ? (
+                        <Badge variant="outline" className="gap-1 border-sky-200 bg-sky-50 text-sky-800">
+                          <Mail className="h-3 w-3" />
+                          Ativo
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.receive_vivencias_emails ? (
                         <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-800">
                           <Mail className="h-3 w-3" />
                           Ativo
@@ -395,19 +409,36 @@ function UsuariosConfig() {
 
               <div className="flex items-start justify-between gap-3 rounded-md border p-3">
                 <div className="space-y-1">
-                  <Label htmlFor="receive-notification-emails" className="flex items-center gap-2">
+                  <Label htmlFor="receive-acolhimento-emails" className="flex items-center gap-2">
                     <Mail className="h-3.5 w-3.5" />
-                    Receber e-mail de notificação
+                    E-mail alerta Acolhimento
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Envia alerta para o e-mail deste usuário quando houver nova solicitação de
-                    Acolhimento ou Vivências.
+                    Recebe alerta quando houver nova solicitação de Acolhimento.
                   </p>
                 </div>
                 <Switch
-                  id="receive-notification-emails"
-                  checked={receiveNotificationEmails}
-                  onCheckedChange={setReceiveNotificationEmails}
+                  id="receive-acolhimento-emails"
+                  checked={receiveAcolhimentoEmails}
+                  onCheckedChange={setReceiveAcolhimentoEmails}
+                  disabled={!editing.email}
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+                <div className="space-y-1">
+                  <Label htmlFor="receive-vivencias-emails" className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5" />
+                    E-mail alerta Vivências
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Recebe alerta quando houver nova solicitação de Vivências / palestras.
+                  </p>
+                </div>
+                <Switch
+                  id="receive-vivencias-emails"
+                  checked={receiveVivenciasEmails}
+                  onCheckedChange={setReceiveVivenciasEmails}
                   disabled={!editing.email}
                 />
               </div>
@@ -429,7 +460,8 @@ function UsuariosConfig() {
                           ? professionalId || editing.professional?.id || null
                           : null,
                       approve: true,
-                      receiveEmails: receiveNotificationEmails,
+                      receiveAcolhimento: receiveAcolhimentoEmails,
+                      receiveVivencias: receiveVivenciasEmails,
                       previousRole: editing.roles[0] ?? null,
                       previousStatus: editing.account_status,
                     })
@@ -448,7 +480,8 @@ function UsuariosConfig() {
                       newRole: role,
                       proId: null,
                       approve: false,
-                      receiveEmails: false,
+                      receiveAcolhimento: false,
+                      receiveVivencias: false,
                       previousRole: editing.roles[0] ?? null,
                       previousStatus: editing.account_status,
                     })

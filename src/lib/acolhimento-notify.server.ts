@@ -13,16 +13,14 @@ export async function sendAcolhimentoCreatedEmails(data: AcolhimentoEmailPayload
   }
 
   const { appUrl } = getEmailConfig();
-  const notifyEmails = await fetchNotificationEmails();
+  const notifyEmails = await fetchNotificationEmails("acolhimento");
   const adminContent = buildAdminAcolhimentoEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteAcolhimentoEmail(data);
-  const solicitante = data.solicitante_email.trim().toLowerCase();
+  const solicitante = data.solicitante_email.trim();
 
   const tasks: Promise<void>[] = [];
 
-  // Um envio por destinatário (mais confiável no MailerSend do que lote único)
   for (const email of notifyEmails) {
-    if (email === solicitante) continue; // evita duplicar se admin = solicitante
     tasks.push(
       sendEmail({
         to: email,
@@ -35,7 +33,7 @@ export async function sendAcolhimentoCreatedEmails(data: AcolhimentoEmailPayload
 
   if (notifyEmails.length === 0) {
     console.warn(
-      "[acolhimento-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
+      "[acolhimento-notify] Nenhum destinatário com 'E-mail alerta Acolhimento' ativo.",
     );
   }
 

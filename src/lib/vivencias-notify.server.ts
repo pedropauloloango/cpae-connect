@@ -13,15 +13,14 @@ export async function sendVivenciaCreatedEmails(data: VivenciaEmailPayload): Pro
   }
 
   const { appUrl } = getEmailConfig();
-  const notifyEmails = await fetchNotificationEmails();
+  const notifyEmails = await fetchNotificationEmails("vivencias");
   const adminContent = buildAdminVivenciaEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteVivenciaEmail(data);
-  const solicitante = data.solicitante_email.trim().toLowerCase();
+  const solicitante = data.solicitante_email.trim();
 
   const tasks: Promise<void>[] = [];
 
   for (const email of notifyEmails) {
-    if (email === solicitante) continue;
     tasks.push(
       sendEmail({
         to: email,
@@ -34,7 +33,7 @@ export async function sendVivenciaCreatedEmails(data: VivenciaEmailPayload): Pro
 
   if (notifyEmails.length === 0) {
     console.warn(
-      "[vivencias-notify] Nenhum destinatário de alerta (opt-in / ADMIN_NOTIFICATION_EMAILS).",
+      "[vivencias-notify] Nenhum destinatário com 'E-mail alerta Vivências' ativo.",
     );
   }
 

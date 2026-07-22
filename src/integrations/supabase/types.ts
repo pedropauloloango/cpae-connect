@@ -425,7 +425,9 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          receive_acolhimento_emails: boolean
           receive_notification_emails: boolean
+          receive_vivencias_emails: boolean
           updated_at: string
         }
         Insert: {
@@ -436,7 +438,9 @@ export type Database = {
           full_name?: string
           id: string
           phone?: string | null
+          receive_acolhimento_emails?: boolean
           receive_notification_emails?: boolean
+          receive_vivencias_emails?: boolean
           updated_at?: string
         }
         Update: {
@@ -447,7 +451,9 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          receive_acolhimento_emails?: boolean
           receive_notification_emails?: boolean
+          receive_vivencias_emails?: boolean
           updated_at?: string
         }
         Relationships: []
