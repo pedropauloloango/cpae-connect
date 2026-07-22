@@ -28,10 +28,10 @@ const notificationSchema = z.object({
   tipo_queixa: z.string().min(1),
 });
 
-/** Envia e-mails de confirmação ao solicitante e notificação aos administradores. */
+/** Envia e-mails de confirmação ao solicitante e notificação aos opt-in de Acolhimento. */
 export const notifyAcolhimentoCreated = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => notificationSchema.parse(d))
   .handler(async ({ data }) => {
-    await sendAcolhimentoCreatedEmails(data);
-    return { ok: true as const };
+    const result = await sendAcolhimentoCreatedEmails(data);
+    return result;
   });

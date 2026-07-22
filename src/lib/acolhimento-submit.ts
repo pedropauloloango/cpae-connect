@@ -111,7 +111,7 @@ export async function submitAcolhimentoRequest(
   }
 
   try {
-    await notifyAcolhimentoCreated({
+    const notifyResult = await notifyAcolhimentoCreated({
       data: {
         requestId: req.id,
         numero: req.numero,
@@ -138,6 +138,7 @@ export async function submitAcolhimentoRequest(
         tipo_queixa,
       },
     });
+    console.info("notifyAcolhimentoCreated result", notifyResult);
   } catch (err) {
     console.error("notifyAcolhimentoCreated error", err);
   }

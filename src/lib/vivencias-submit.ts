@@ -94,7 +94,7 @@ export async function submitVivenciaRequest(
   }
 
   try {
-    await notifyVivenciaCreated({
+    const notifyResult = await notifyVivenciaCreated({
       data: {
         requestId: req.id,
         numero: req.numero,
@@ -110,6 +110,7 @@ export async function submitVivenciaRequest(
         data_preferivel_palestra: data.data_preferivel_palestra || null,
       },
     });
+    console.info("notifyVivenciaCreated result", notifyResult);
   } catch (err) {
     console.error("notifyVivenciaCreated error", err);
   }

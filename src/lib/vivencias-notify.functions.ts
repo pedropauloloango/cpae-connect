@@ -25,10 +25,10 @@ const notificationSchema = z.object({
   data_preferivel_palestra: z.string().nullable().optional(),
 });
 
-/** Envia e-mails de confirmação ao solicitante e notificação aos opt-in. */
+/** Envia e-mails de confirmação ao solicitante e notificação aos opt-in de Vivências. */
 export const notifyVivenciaCreated = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => notificationSchema.parse(d))
   .handler(async ({ data }) => {
-    await sendVivenciaCreatedEmails(data);
-    return { ok: true as const };
+    const result = await sendVivenciaCreatedEmails(data);
+    return result;
   });

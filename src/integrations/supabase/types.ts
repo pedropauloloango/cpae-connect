@@ -960,6 +960,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_notification_recipient_emails: {
+        Args: { p_module: string }
+        Returns: { email: string }[]
+      }
       get_palestra_occupied_dates: {
         Args: { p_regiao: string }
         Returns: { data_preferivel: string }[]
