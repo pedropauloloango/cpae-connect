@@ -1,6 +1,10 @@
 -- Faz o submit público devolver os e-mails com alerta ativo (mesma conexão do insert).
 -- Execute no SQL Editor do Supabase.
 
+-- Precisa DROP: o retorno mudou de (id, numero) para (id, numero, alert_emails)
+DROP FUNCTION IF EXISTS public.submit_acolhimento_request(JSONB);
+DROP FUNCTION IF EXISTS public.submit_vivencia_request(JSONB);
+
 -- ========== ACOLHIMENTO ==========
 CREATE OR REPLACE FUNCTION public.submit_acolhimento_request(payload JSONB)
 RETURNS TABLE (id UUID, numero TEXT, alert_emails TEXT[])
