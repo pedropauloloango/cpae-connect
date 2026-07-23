@@ -114,7 +114,7 @@ export async function submitAcolhimentoRequest(
     ? req.alert_emails.filter((e: unknown): e is string => typeof e === "string" && e.includes("@"))
     : [];
 
-  // E-mail em background: não atrasa o protocolo (MailerSend pode levar vários segundos)
+  // E-mail em background: não atrasa o protocolo (SMTP pode levar alguns segundos)
   void notifyAcolhimentoCreated({
     data: {
       requestId: req.id,

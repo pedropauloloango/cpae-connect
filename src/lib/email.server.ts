@@ -1,3 +1,5 @@
+import nodemailer from "nodemailer";
+
 type SendEmailParams = {
   to: string | string[];
   subject: string;
@@ -27,26 +29,26 @@ function parseFromAddress(from: string): { email: string; name?: string } {
 }
 
 export function getEmailConfig() {
-  const apiToken = stripEnvQuotes(process.env.MAILERSEND_API_TOKEN ?? "");
+  const user = stripEnvQuotes(process.env.GMAIL_USER ?? "");
+  // Aceita espaços na senha de app (Google mostra como "xxxx xxxx xxxx xxxx")
+  const pass = stripEnvQuotes(process.env.GMAIL_APP_PASSWORD ?? "").replace(/\s+/g, "");
   const from = stripEnvQuotes(process.env.EMAIL_FROM ?? "");
   const appUrl = stripEnvQuotes(process.env.APP_URL ?? "").replace(/\/$/, "");
-  const adminEmails = (process.env.ADMIN_NOTIFICATION_EMAILS ?? "")
-    .split(",")
-    .map((e) => stripEnvQuotes(e))
-    .filter(Boolean);
 
-  return { apiToken, from, appUrl, adminEmails };
+  return { user, pass, from, appUrl };
 }
 
 export function isEmailConfigured(): boolean {
-  const { apiToken, from } = getEmailConfig();
-  return Boolean(apiToken && from);
+  const { user, pass, from } = getEmailConfig();
+  return Boolean(user && pass && from);
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<void> {
-  const { apiToken, from } = getEmailConfig();
-  if (!apiToken || !from) {
-    console.warn("[email] MAILERSEND_API_TOKEN ou EMAIL_FROM não configurados — e-mail não enviado.");
+  const { user, pass, from } = getEmailConfig();
+  if (!user || !pass || !from) {
+    console.warn(
+      "[email] GMAIL_USER, GMAIL_APP_PASSWORD ou EMAIL_FROM não configurados — e-mail não enviado.",
+    );
     return;
   }
 
@@ -59,27 +61,27 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     throw new Error(`[email] EMAIL_FROM inválido: ${from}`);
   }
 
-  const response = await fetch("https://api.mailersend.com/v1/email", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      from: {
-        email: fromParsed.email,
-        ...(fromParsed.name ? { name: fromParsed.name } : {}),
-      },
-      to: recipients.map((email) => ({ email })),
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: fromParsed.name
+        ? { name: fromParsed.name, address: fromParsed.email }
+        : fromParsed.email,
+      to: recipients,
       subject: params.subject,
       html: params.html,
       ...(params.text ? { text: params.text } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Falha ao enviar e-mail (${response.status}): ${body || response.statusText}`);
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Falha ao enviar e-mail via Gmail SMTP: ${message}`);
+  } finally {
+    transporter.close();
   }
 }
