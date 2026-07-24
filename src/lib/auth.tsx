@@ -8,7 +8,15 @@ import {
   type ProfessionalModules,
 } from "@/lib/professional-modules";
 
-export type AppRole = "admin" | "profissional";
+export type AppRole = "admin" | "profissional" | "super_admin";
+
+export function hasAdminAccess(roles: readonly AppRole[]): boolean {
+  return roles.some((r) => r === "admin" || r === "super_admin");
+}
+
+export function isSuperAdminRole(roles: readonly AppRole[]): boolean {
+  return roles.includes("super_admin");
+}
 
 interface AuthState {
   user: User | null;
@@ -16,6 +24,7 @@ interface AuthState {
   roles: AppRole[];
   loading: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   /** Módulos habilitados no cadastro do profissional (admin tem os dois). */
   modules: ProfessionalModules;
   canAccessAcolhimento: boolean;
@@ -62,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextRoles = (roleRows ?? []).map((r: { role: AppRole }) => r.role);
     setRoles(nextRoles);
 
-    if (nextRoles.includes("admin")) {
+    if (hasAdminAccess(nextRoles)) {
       setModules(DEFAULT_ADMIN_MODULES);
       return;
     }
@@ -82,7 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setModules(EMPTY_MODULES);
   };
 
-  const isAdmin = roles.includes("admin");
+  const isAdmin = hasAdminAccess(roles);
+  const isSuperAdmin = isSuperAdminRole(roles);
   const canAccessAcolhimento = isAdmin || modules.atendeAcolhimento;
   const canAccessVivencias = isAdmin || modules.atendeVivencias;
 
@@ -92,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     roles,
     loading,
     isAdmin,
+    isSuperAdmin,
     modules,
     canAccessAcolhimento,
     canAccessVivencias,

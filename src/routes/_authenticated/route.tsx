@@ -17,7 +17,7 @@ async function resolveAccountStatus(
   ]);
 
   const roleList = roles ?? [];
-  const isAdmin = roleList.some((r) => r.role === "admin");
+  const isAdmin = roleList.some((r) => r.role === "admin" || r.role === "super_admin");
 
   // Admin com papel ativo nunca fica preso em "aguardando aprovação"
   if (isAdmin) {

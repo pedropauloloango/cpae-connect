@@ -8,7 +8,7 @@ export type AdminUserRow = {
   receive_acolhimento_emails: boolean;
   receive_vivencias_emails: boolean;
   created_at: string;
-  roles: ("admin" | "profissional")[];
+  roles: ("admin" | "profissional" | "super_admin")[];
   professional: { id: string; nome: string } | null;
 };
 
@@ -46,10 +46,10 @@ export async function fetchUsersAdmin(): Promise<AdminUserRow[]> {
   if (rErr) throw rErr;
   if (proErr) throw proErr;
 
-  const rolesByUser = new Map<string, ("admin" | "profissional")[]>();
+  const rolesByUser = new Map<string, ("admin" | "profissional" | "super_admin")[]>();
   (roles ?? []).forEach((r) => {
     const list = rolesByUser.get(r.user_id) ?? [];
-    list.push(r.role);
+    list.push(r.role as "admin" | "profissional" | "super_admin");
     rolesByUser.set(r.user_id, list);
   });
 

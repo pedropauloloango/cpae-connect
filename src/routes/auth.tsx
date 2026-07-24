@@ -91,7 +91,7 @@ function AuthPage() {
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
 
-    const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+    const isAdmin = (roles ?? []).some((r) => r.role === "admin" || r.role === "super_admin");
     let status = profile?.account_status ?? "pendente";
 
     if (isAdmin) {

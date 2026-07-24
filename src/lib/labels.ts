@@ -134,6 +134,7 @@ export const accountStatusTone: Record<string, string> = {
 };
 
 export const appRoleLabels: Record<string, string> = {
+  super_admin: "Super Administrador",
   admin: "Administrador",
   profissional: "Profissional",
 };

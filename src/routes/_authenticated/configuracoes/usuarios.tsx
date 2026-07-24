@@ -11,12 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Search, UserCheck, UserX, Shield, Briefcase, Mail } from "lucide-react";
+import { Search, UserCheck, UserX, Shield, Briefcase, Mail, Trash2, Loader2 } from "lucide-react";
 import { accountStatusLabels, accountStatusTone, appRoleLabels } from "@/lib/labels";
 import type { AppRole } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth";
+import { deleteUserAdmin } from "@/lib/users-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/usuarios")({ component: UsuariosConfig });
 
@@ -24,7 +36,7 @@ type UserRow = AdminUserRow;
 
 function UsuariosConfig() {
   const qc = useQueryClient();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, roles: currentRoles, isSuperAdmin } = useAuth();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("todos");
   const [filterTouched, setFilterTouched] = useState(false);
@@ -33,6 +45,7 @@ function UsuariosConfig() {
   const [professionalId, setProfessionalId] = useState<string>("");
   const [receiveAcolhimentoEmails, setReceiveAcolhimentoEmails] = useState(false);
   const [receiveVivenciasEmails, setReceiveVivenciasEmails] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ["config-users"],
@@ -88,6 +101,14 @@ function UsuariosConfig() {
       }
 
       const isSelf = userId === currentUser?.id;
+      const targetIsSuperAdmin = previousRole === "super_admin";
+      if (targetIsSuperAdmin && !isSuperAdminRole(currentRoles) && (!approve || newRole !== "super_admin")) {
+        throw new Error("Não é permitido alterar ou rejeitar o Super Administrador.");
+      }
+      if (newRole === "super_admin" && !isSuperAdminRole(currentRoles)) {
+        throw new Error("Apenas o Super Administrador pode atribuir esse papel.");
+      }
+
       const roleUnchanged = previousRole === newRole && previousStatus === "aprovado" && approve;
 
       const { error: profileErr } = await supabase
@@ -141,6 +162,20 @@ function UsuariosConfig() {
       setEditing(null);
     },
     onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (userId: string) => {
+      await deleteUserAdmin({ data: { userId } });
+    },
+    onSuccess: () => {
+      toast.success("Usuário excluído.");
+      qc.invalidateQueries({ queryKey: ["config-users"] });
+      qc.invalidateQueries({ queryKey: ["professionals"] });
+      setDeleteTarget(null);
+      setEditing(null);
+    },
+    onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
   });
 
   const openEdit = (row: UserRow) => {
@@ -362,6 +397,14 @@ function UsuariosConfig() {
           </DialogHeader>
           {editing && (
             <div className="space-y-4">
+              {(() => {
+                const targetIsSuperAdmin = isSuperAdminRole(editing.roles);
+                const canManageTarget = isSuperAdmin || !targetIsSuperAdmin;
+                const isSelf = editing.id === currentUser?.id;
+                const roleLocked = isSelf || !canManageTarget;
+
+                return (
+                  <>
               <div className="rounded-md bg-muted/50 p-3 text-sm">
                 <div className="font-medium">{editing.full_name || "Sem nome"}</div>
                 <div className="text-muted-foreground">{editing.email}</div>
@@ -372,12 +415,17 @@ function UsuariosConfig() {
                 <Select
                   value={role}
                   onValueChange={(v) => setRole(v as AppRole)}
-                  disabled={editing.id === currentUser?.id}
+                  disabled={roleLocked}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    {(isSuperAdmin || role === "super_admin") && (
+                      <SelectItem value="super_admin" disabled={!isSuperAdmin}>
+                        <span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5" /> Super Administrador</span>
+                      </SelectItem>
+                    )}
                     <SelectItem value="admin">
                       <span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5" /> Administrador</span>
                     </SelectItem>
@@ -391,7 +439,7 @@ function UsuariosConfig() {
               {role === "profissional" && (
                 <div className="space-y-1.5">
                   <Label>Vincular ao cadastro de profissional *</Label>
-                  <Select value={professionalId} onValueChange={setProfessionalId}>
+                  <Select value={professionalId} onValueChange={setProfessionalId} disabled={!canManageTarget}>
                     <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
                     <SelectContent>
                       {availablePros.map((p) => (
@@ -421,7 +469,7 @@ function UsuariosConfig() {
                   id="receive-acolhimento-emails"
                   checked={receiveAcolhimentoEmails}
                   onCheckedChange={setReceiveAcolhimentoEmails}
-                  disabled={!editing.email}
+                  disabled={!editing.email || (!canManageTarget && !isSelf)}
                 />
               </div>
 
@@ -439,7 +487,7 @@ function UsuariosConfig() {
                   id="receive-vivencias-emails"
                   checked={receiveVivenciasEmails}
                   onCheckedChange={setReceiveVivenciasEmails}
-                  disabled={!editing.email}
+                  disabled={!editing.email || (!canManageTarget && !isSelf)}
                 />
               </div>
               {!editing.email && (
@@ -454,9 +502,9 @@ function UsuariosConfig() {
                   onClick={() =>
                     saveMut.mutate({
                       userId: editing.id,
-                      newRole: editing.id === currentUser?.id ? (editing.roles[0] ?? role) : role,
+                      newRole: roleLocked ? (editing.roles[0] ?? role) : role,
                       proId:
-                        (editing.id === currentUser?.id ? (editing.roles[0] ?? role) : role) === "profissional"
+                        (roleLocked ? (editing.roles[0] ?? role) : role) === "profissional"
                           ? professionalId || editing.professional?.id || null
                           : null,
                       approve: true,
@@ -466,7 +514,7 @@ function UsuariosConfig() {
                       previousStatus: editing.account_status,
                     })
                   }
-                  disabled={saveMut.isPending}
+                  disabled={saveMut.isPending || (!canManageTarget && !isSelf)}
                 >
                   <UserCheck className="mr-2 h-4 w-4" />
                   {editing.account_status === "aprovado" ? "Salvar" : "Aprovar"}
@@ -486,21 +534,71 @@ function UsuariosConfig() {
                       previousStatus: editing.account_status,
                     })
                   }
-                  disabled={saveMut.isPending || editing.id === currentUser?.id}
+                  disabled={saveMut.isPending || deleteMut.isPending || isSelf || !canManageTarget}
                 >
                   <UserX className="mr-2 h-4 w-4" />
                   Rejeitar
                 </Button>
               </div>
-              {editing.id === currentUser?.id && (
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full"
+                onClick={() => setDeleteTarget(editing)}
+                disabled={
+                  saveMut.isPending ||
+                  deleteMut.isPending ||
+                  isSelf ||
+                  !canManageTarget
+                }
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir usuário
+              </Button>
+              {isSelf && (
                 <p className="text-xs text-muted-foreground">
-                  Você pode alterar a preferência de e-mail da sua conta, mas não a própria permissão nem rejeitar a si mesmo.
+                  Você pode alterar a preferência de e-mail da sua conta, mas não a própria permissão nem rejeitar ou excluir a si mesmo.
                 </p>
               )}
+              {targetIsSuperAdmin && !isSuperAdmin && (
+                <p className="text-xs text-amber-700">
+                  Este usuário é Super Administrador e não pode ser alterado, rejeitado ou excluído por outros administradores.
+                </p>
+              )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleteMut.isPending && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O usuário <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>
+              {deleteTarget?.email ? ` (${deleteTarget.email})` : ""} será removido permanentemente do sistema
+              (login, perfil e permissões). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteMut.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

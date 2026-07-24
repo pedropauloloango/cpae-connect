@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeaderProvider, usePageHeaderContext } from "@/components/layout/page-header-context";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { isVivenciasModuleActive } from "@/lib/active-module";
 
 interface NavItem {
   to: string;
@@ -83,10 +84,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 function AppShellLayout({ children }: { children: ReactNode }) {
   const { meta } = usePageHeaderContext();
   const [open, setOpen] = useState(false);
-  const { isAdmin, user, signOut, canAccessAcolhimento, canAccessVivencias } = useAuth();
+  const { isAdmin, isSuperAdmin, user, signOut, canAccessAcolhimento, canAccessVivencias } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isVivencias = pathname.startsWith("/modulo-vivencias");
+  const isVivencias = isVivenciasModuleActive(pathname);
 
   const items = (isVivencias ? VIV_NAV : ACO_NAV).filter((i) => !i.admin || isAdmin);
   const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
@@ -372,7 +373,7 @@ function AppShellLayout({ children }: { children: ReactNode }) {
               <div className="hidden min-w-0 md:block">
                 <div className="truncate text-sm font-semibold text-[#0F172A]">{userName}</div>
                 <div className="text-[11px] text-[#64748B]">
-                  {isAdmin ? "Coordenador" : "Profissional"}
+                  {isAdmin ? (isSuperAdmin ? "Super Admin" : "Coordenador") : "Profissional"}
                 </div>
               </div>
               <Button

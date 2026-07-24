@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { professionalStatusLabels } from "@/lib/labels";
 import type { Database } from "@/integrations/supabase/types";
@@ -29,6 +29,8 @@ import type { Database } from "@/integrations/supabase/types";
 export const Route = createFileRoute("/_authenticated/profissionais")({ component: Profissionais });
 
 type ProfessionalStatus = Database["public"]["Enums"]["professional_status"];
+type ModuleFilter = "todos" | "acolhimento" | "vivencias" | "ambos";
+type StatusFilter = "todos" | ProfessionalStatus;
 
 interface Pro {
   id: string;
@@ -83,6 +85,10 @@ function Profissionais() {
   const [editingPro, setEditingPro] = useState<Pro | null>(null);
   const [editStatus, setEditStatus] = useState<ProfessionalStatus>("ativo");
   const [deleteTarget, setDeleteTarget] = useState<Pro | null>(null);
+  const [filterNome, setFilterNome] = useState("");
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("todos");
+  const [filterModulo, setFilterModulo] = useState<ModuleFilter>("todos");
+  const [filterCargo, setFilterCargo] = useState<string>("todos");
 
   const { data: list = [] } = useQuery({
     queryKey: ["professionals"],
@@ -92,6 +98,31 @@ function Profissionais() {
       return data as Pro[];
     },
   });
+
+  const cargos = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          list
+            .map((p) => p.cargo?.trim())
+            .filter((c): c is string => Boolean(c)),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [list],
+  );
+
+  const filtered = useMemo(() => {
+    const q = filterNome.trim().toLowerCase();
+    return list.filter((p) => {
+      if (q && !p.nome.toLowerCase().includes(q)) return false;
+      if (filterStatus !== "todos" && p.status !== filterStatus) return false;
+      if (filterCargo !== "todos" && (p.cargo?.trim() ?? "") !== filterCargo) return false;
+      if (filterModulo === "acolhimento" && !p.atende_acolhimento) return false;
+      if (filterModulo === "vivencias" && !p.atende_vivencias) return false;
+      if (filterModulo === "ambos" && !(p.atende_acolhimento && p.atende_vivencias)) return false;
+      return true;
+    });
+  }, [list, filterNome, filterStatus, filterModulo, filterCargo]);
 
   const createMut = useMutation({
     mutationFn: async (vals: Record<string, string>) => {
@@ -246,6 +277,58 @@ function Profissionais() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Card className="mb-4">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filterNome}
+              onChange={(e) => setFilterNome(e.target.value)}
+              placeholder="Filtrar por nome…"
+              className="pl-9"
+              aria-label="Filtrar por nome"
+            />
+          </div>
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
+            <SelectTrigger aria-label="Filtrar por status">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os status</SelectItem>
+              {Object.entries(professionalStatusLabels).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterModulo} onValueChange={(v) => setFilterModulo(v as ModuleFilter)}>
+            <SelectTrigger aria-label="Filtrar por módulo">
+              <SelectValue placeholder="Módulo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os módulos</SelectItem>
+              <SelectItem value="acolhimento">Acolhimento</SelectItem>
+              <SelectItem value="vivencias">Vivências</SelectItem>
+              <SelectItem value="ambos">Acolhimento e Vivências</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCargo} onValueChange={setFilterCargo}>
+            <SelectTrigger aria-label="Filtrar por cargo">
+              <SelectValue placeholder="Cargo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os cargos</SelectItem>
+              {cargos.map((cargo) => (
+                <SelectItem key={cargo} value={cargo}>
+                  {cargo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-0">
           <div className="hidden md:block">
@@ -263,14 +346,14 @@ function Profissionais() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {list.length === 0 && (
+                {filtered.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                      Nenhum profissional.
+                      {list.length === 0 ? "Nenhum profissional." : "Nenhum profissional com estes filtros."}
                     </td>
                   </tr>
                 )}
-                {list.map((p) => (
+                {filtered.map((p) => (
                   <tr key={p.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium">{p.nome}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.matricula ?? "—"}</td>
@@ -316,10 +399,12 @@ function Profissionais() {
             </table>
           </div>
           <div className="divide-y md:hidden">
-            {list.length === 0 && (
-              <div className="p-6 text-center text-sm text-muted-foreground">Nenhum profissional.</div>
+            {filtered.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                {list.length === 0 ? "Nenhum profissional." : "Nenhum profissional com estes filtros."}
+              </div>
             )}
-            {list.map((p) => (
+            {filtered.map((p) => (
               <div key={p.id} className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">

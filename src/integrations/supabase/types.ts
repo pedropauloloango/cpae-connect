@@ -990,7 +990,7 @@ export type Database = {
     }
     Enums: {
       account_status: "pendente" | "aprovado" | "rejeitado"
-      app_role: "admin" | "profissional"
+      app_role: "admin" | "profissional" | "super_admin"
       closure_result:
         | "concluido"
         | "concluido_com_encaminhamento"
@@ -1172,7 +1172,7 @@ export const Constants = {
   public: {
     Enums: {
       account_status: ["pendente", "aprovado", "rejeitado"],
-      app_role: ["admin", "profissional"],
+      app_role: ["admin", "profissional", "super_admin"],
       closure_result: [
         "concluido",
         "concluido_com_encaminhamento",
