@@ -17,6 +17,7 @@ export type VivenciaGroupSubmission = {
   periodo: PeriodoEscolar;
   temas: VivenciaTema[];
   data_vivencia?: string | null;
+  hora_inicio?: string | null;
 };
 
 export type VivenciaSubmission = {
@@ -31,6 +32,7 @@ export type VivenciaSubmission = {
   groups: VivenciaGroupSubmission[];
   palestra_tema?: PalestraTema | null;
   data_preferivel_palestra?: string | null;
+  hora_inicio_palestra?: string | null;
 };
 
 function normalizePersonName(value: string): string {
@@ -64,6 +66,7 @@ export async function submitVivenciaRequest(
       periodo: g.periodo,
       temas: g.temas,
       data_preferivel: g.data_vivencia || null,
+      hora_inicio: g.hora_inicio || null,
     };
   });
 
@@ -79,6 +82,7 @@ export async function submitVivenciaRequest(
     groups,
     palestra_tema: data.palestra_tema || null,
     data_preferivel_palestra: data.data_preferivel_palestra || null,
+    hora_inicio_palestra: data.hora_inicio_palestra || null,
   };
 
   const { data: rows, error } = await supabase.rpc("submit_vivencia_request", { payload });
@@ -112,6 +116,7 @@ export async function submitVivenciaRequest(
       groups,
       palestra_tema: data.palestra_tema || null,
       data_preferivel_palestra: data.data_preferivel_palestra || null,
+      hora_inicio_palestra: data.hora_inicio_palestra || null,
       alertEmails,
     },
   })

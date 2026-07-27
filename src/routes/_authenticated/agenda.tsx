@@ -170,6 +170,7 @@ function Agenda() {
           )
         `)
         .is("vivencia_request_id", null)
+        .or("modulo.is.null,modulo.eq.acolhimento")
         .order("inicio");
 
       // Profissional vê apenas os próprios agendamentos

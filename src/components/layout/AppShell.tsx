@@ -15,6 +15,7 @@ import {
   UserCog,
   Sparkles,
   HeartHandshake,
+  ClipboardCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ const ACO_NAV: NavItem[] = [
 const VIV_NAV: NavItem[] = [
   { to: "/modulo-vivencias/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/modulo-vivencias/demandas", label: "Demandas", icon: Inbox },
+  { to: "/modulo-vivencias/visitas-tecnicas", label: "Visita técnica", icon: ClipboardCheck },
   { to: "/modulo-vivencias/agenda", label: "Agenda", icon: Calendar },
   { to: "/escolas", label: "Escolas", icon: School, admin: true },
   { to: "/profissionais", label: "Profissionais", icon: Users, admin: true },

@@ -25,6 +25,7 @@ import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/
 import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
 import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
 import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
+import { Route as AuthenticatedModuloVivenciasVisitasTecnicasRouteImport } from './routes/_authenticated/modulo-vivencias/visitas-tecnicas'
 import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
 import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
 import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
@@ -118,6 +119,12 @@ const AuthenticatedDemandasIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDemandasRoute,
   } as any)
+const AuthenticatedModuloVivenciasVisitasTecnicasRoute =
+  AuthenticatedModuloVivenciasVisitasTecnicasRouteImport.update({
+    id: '/visitas-tecnicas',
+    path: '/visitas-tecnicas',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
 const AuthenticatedModuloVivenciasDemandasRoute =
   AuthenticatedModuloVivenciasDemandasRouteImport.update({
     id: '/demandas',
@@ -179,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
+  '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/demandas/': typeof AuthenticatedDemandasIndexRoute
   '/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
@@ -200,6 +208,7 @@ export interface FileRoutesByTo {
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
+  '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/demandas': typeof AuthenticatedDemandasIndexRoute
   '/modulo-vivencias': typeof AuthenticatedModuloVivenciasIndexRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
@@ -226,6 +235,7 @@ export interface FileRoutesById {
   '/_authenticated/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/_authenticated/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/_authenticated/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
+  '/_authenticated/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/_authenticated/demandas/': typeof AuthenticatedDemandasIndexRoute
   '/_authenticated/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
   '/_authenticated/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
     | '/modulo-vivencias/demandas'
+    | '/modulo-vivencias/visitas-tecnicas'
     | '/demandas/'
     | '/modulo-vivencias/'
     | '/modulo-vivencias/demandas/$id'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/demandas/$id'
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
+    | '/modulo-vivencias/visitas-tecnicas'
     | '/demandas'
     | '/modulo-vivencias'
     | '/modulo-vivencias/demandas/$id'
@@ -298,6 +310,7 @@ export interface FileRouteTypes {
     | '/_authenticated/modulo-vivencias/agenda'
     | '/_authenticated/modulo-vivencias/dashboard'
     | '/_authenticated/modulo-vivencias/demandas'
+    | '/_authenticated/modulo-vivencias/visitas-tecnicas'
     | '/_authenticated/demandas/'
     | '/_authenticated/modulo-vivencias/'
     | '/_authenticated/modulo-vivencias/demandas/$id'
@@ -426,6 +439,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDemandasIndexRouteImport
       parentRoute: typeof AuthenticatedDemandasRoute
     }
+    '/_authenticated/modulo-vivencias/visitas-tecnicas': {
+      id: '/_authenticated/modulo-vivencias/visitas-tecnicas'
+      path: '/visitas-tecnicas'
+      fullPath: '/modulo-vivencias/visitas-tecnicas'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasVisitasTecnicasRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
     '/_authenticated/modulo-vivencias/demandas': {
       id: '/_authenticated/modulo-vivencias/demandas'
       path: '/demandas'
@@ -515,6 +535,7 @@ interface AuthenticatedModuloVivenciasRouteRouteChildren {
   AuthenticatedModuloVivenciasAgendaRoute: typeof AuthenticatedModuloVivenciasAgendaRoute
   AuthenticatedModuloVivenciasDashboardRoute: typeof AuthenticatedModuloVivenciasDashboardRoute
   AuthenticatedModuloVivenciasDemandasRoute: typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
+  AuthenticatedModuloVivenciasVisitasTecnicasRoute: typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   AuthenticatedModuloVivenciasIndexRoute: typeof AuthenticatedModuloVivenciasIndexRoute
 }
 
@@ -526,6 +547,8 @@ const AuthenticatedModuloVivenciasRouteRouteChildren: AuthenticatedModuloVivenci
       AuthenticatedModuloVivenciasDashboardRoute,
     AuthenticatedModuloVivenciasDemandasRoute:
       AuthenticatedModuloVivenciasDemandasRouteWithChildren,
+    AuthenticatedModuloVivenciasVisitasTecnicasRoute:
+      AuthenticatedModuloVivenciasVisitasTecnicasRoute,
     AuthenticatedModuloVivenciasIndexRoute:
       AuthenticatedModuloVivenciasIndexRoute,
   }

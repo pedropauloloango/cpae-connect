@@ -36,6 +36,8 @@ import {
   type VivenciaActivityLogRow,
 } from "@/lib/vivencia-activity-log-descriptions";
 import { VivenciaRelatorioTab } from "@/components/vivencias/VivenciaRelatorioTab";
+import { VisitStartTimeSelect } from "@/components/vivencias/VisitStartTimeSelect";
+import { buildHoraInicio, parseHoraInicio } from "@/lib/vivencia-schedule";
 import { ClosureTabIndicator } from "@/components/requests/ClosureTabIndicator";
 import {
   PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
@@ -413,6 +415,7 @@ type GroupRow = {
   periodo: string;
   temas: string[] | null;
   data_preferivel: string | null;
+  hora_inicio: string | null;
   sort_order: number;
 };
 
@@ -427,8 +430,17 @@ type InformacoesReq = {
   solicitante_telefone?: string | null;
   palestra_tema?: string | null;
   data_preferivel_palestra?: string | null;
+  hora_inicio_palestra?: string | null;
   groups: GroupRow[];
 };
+
+const TURMA_BLOCK_TONES = [
+  { block: "border-violet-200 bg-violet-50/70", badge: "bg-violet-600 text-white" },
+  { block: "border-sky-200 bg-sky-50/70", badge: "bg-sky-600 text-white" },
+  { block: "border-emerald-200 bg-emerald-50/70", badge: "bg-emerald-700 text-white" },
+  { block: "border-amber-200 bg-amber-50/70", badge: "bg-amber-600 text-white" },
+  { block: "border-rose-200 bg-rose-50/70", badge: "bg-rose-600 text-white" },
+] as const;
 
 function InformacoesTab({
   requestId,
@@ -462,15 +474,46 @@ function InformacoesTab({
           <CardHeader>
             <CardTitle className="text-base">{section.title}</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            {section.items.map((item, idx) => (
-              <FormAnswerField
-                key={`${section.title}-${idx}`}
-                item={item}
-                hideNumber={item.number === 0}
-              />
-            ))}
-          </CardContent>
+          {section.groups?.length ? (
+            <CardContent className="space-y-4">
+              {section.groups.map((group, groupIdx) => {
+                const tone = TURMA_BLOCK_TONES[groupIdx % TURMA_BLOCK_TONES.length];
+                return (
+                  <div
+                    key={group.title}
+                    className={`space-y-3 rounded-xl border p-3 ${tone.block}`}
+                  >
+                    <div
+                      className={`inline-flex rounded-md px-2.5 py-1 text-sm font-semibold ${tone.badge}`}
+                    >
+                      {group.title}
+                    </div>
+                    {group.rows.map((row, rowIdx) => (
+                      <div key={rowIdx} className="grid gap-3 sm:grid-cols-3">
+                        {row.map((item, idx) => (
+                          <FormAnswerField
+                            key={`${group.title}-${rowIdx}-${idx}`}
+                            item={item}
+                            hideNumber
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </CardContent>
+          ) : (
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              {section.items.map((item, idx) => (
+                <FormAnswerField
+                  key={`${section.title}-${idx}`}
+                  item={item}
+                  hideNumber={item.number === 0}
+                />
+              ))}
+            </CardContent>
+          )}
         </Card>
       ))}
     </div>
@@ -484,6 +527,7 @@ type EditableGroup = {
   periodo: string;
   temas: string[];
   data_preferivel: string;
+  hora_inicio: string;
 };
 
 /**
@@ -562,10 +606,18 @@ function VivenciaEditForm({
       periodo: g.periodo ?? "",
       temas: g.temas ?? [],
       data_preferivel: g.data_preferivel ?? "",
+      hora_inicio: (() => {
+        const { hour, minute } = parseHoraInicio(g.hora_inicio);
+        return hour && minute ? buildHoraInicio(hour, minute) : "";
+      })(),
     })),
   );
   const [palestraTema, setPalestraTema] = useState(req.palestra_tema ?? "");
   const [dataPalestra, setDataPalestra] = useState(req.data_preferivel_palestra ?? "");
+  const [horaInicioPalestra, setHoraInicioPalestra] = useState(() => {
+    const { hour, minute } = parseHoraInicio(req.hora_inicio_palestra);
+    return hour && minute ? buildHoraInicio(hour, minute) : "";
+  });
 
   const updateGroup = (id: string, patch: Partial<EditableGroup>) =>
     setGroups((current) => current.map((g) => (g.id === id ? { ...g, ...patch } : g)));
@@ -591,6 +643,7 @@ function VivenciaEditForm({
             periodo: g.periodo,
             temas: g.temas,
             data_preferivel: g.data_preferivel || null,
+            hora_inicio: g.hora_inicio || null,
           })
           .eq("id", g.id);
         if (error) throw error;
@@ -601,6 +654,7 @@ function VivenciaEditForm({
         .update({
           palestra_tema: palestraTema || null,
           data_preferivel_palestra: dataPalestra || null,
+          hora_inicio_palestra: horaInicioPalestra || null,
         })
         .eq("id", requestId);
       if (reqError) throw reqError;
@@ -614,9 +668,11 @@ function VivenciaEditForm({
             id: g.id,
             temas: g.temas,
             data_preferivel: g.data_preferivel || null,
+            hora_inicio: g.hora_inicio || null,
           })),
           palestra_tema: palestraTema || null,
           data_preferivel_palestra: dataPalestra || null,
+          hora_inicio_palestra: horaInicioPalestra || null,
         },
       });
     },
@@ -713,6 +769,14 @@ function VivenciaEditForm({
                       onChange={(e) => updateGroup(g.id, { data_preferivel: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label>Horário de início</Label>
+                    <p className="text-xs text-muted-foreground">Duração fixa de 1 hora na agenda.</p>
+                    <VisitStartTimeSelect
+                      value={g.hora_inicio}
+                      onChange={(hora_inicio) => updateGroup(g.id, { hora_inicio })}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -747,6 +811,11 @@ function VivenciaEditForm({
               value={dataPalestra}
               onChange={(e) => setDataPalestra(e.target.value)}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Horário de início — Palestra</Label>
+            <p className="text-xs text-muted-foreground">Duração fixa de 1 hora na agenda.</p>
+            <VisitStartTimeSelect value={horaInicioPalestra} onChange={setHoraInicioPalestra} />
           </div>
         </CardContent>
       </Card>

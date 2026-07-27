@@ -8,6 +8,7 @@ const groupSchema = z.object({
   periodo: z.string().min(1),
   temas: z.array(z.string()),
   data_preferivel: z.string().nullable().optional(),
+  hora_inicio: z.string().nullable().optional(),
 });
 
 const notificationSchema = z.object({
@@ -20,9 +21,10 @@ const notificationSchema = z.object({
   solicitante_nome: z.string().min(1),
   solicitante_cargo: z.string().min(1),
   solicitante_telefone: z.string().min(1),
-  groups: z.array(groupSchema).min(1),
+  groups: z.array(groupSchema).default([]),
   palestra_tema: z.string().nullable().optional(),
   data_preferivel_palestra: z.string().nullable().optional(),
+  hora_inicio_palestra: z.string().nullable().optional(),
   alertEmails: z.array(z.string().email()).optional().default([]),
 });
 

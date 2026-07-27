@@ -6,6 +6,7 @@ import {
 import { schoolTipoLabels } from "@/lib/labels";
 import { palestraTemaLabel, vivenciaTemaLabel } from "@/lib/vivencias-options";
 import { buildEmailSignatureHtml, buildEmailSignatureText } from "@/lib/email-signature";
+import { formatHoraInicio } from "@/lib/vivencia-schedule";
 
 export type VivenciaEmailGroup = {
   aluno_serie: string;
@@ -13,6 +14,7 @@ export type VivenciaEmailGroup = {
   periodo: string;
   temas: string[];
   data_preferivel?: string | null;
+  hora_inicio?: string | null;
 };
 
 export type VivenciaEmailPayload = {
@@ -28,6 +30,7 @@ export type VivenciaEmailPayload = {
   groups: VivenciaEmailGroup[];
   palestra_tema?: string | null;
   data_preferivel_palestra?: string | null;
+  hora_inicio_palestra?: string | null;
   /** E-mails com alerta Vivências ativos (vindos do RPC de submit). */
   alertEmails?: string[];
 };
@@ -68,15 +71,22 @@ function buildDetailRows(data: VivenciaEmailPayload): Array<{ label: string; val
   data.groups.forEach((g, index) => {
     const n = index + 1;
     const temas = g.temas.map((t) => vivenciaTemaLabel(t)).join("; ") || "—";
+    const hora = formatHoraInicio(g.hora_inicio);
+    const horario = hora !== "—" ? ` · horário ${hora} (1h)` : "";
     rows.push({
       label: `Turma ${n}`,
-      value: `${g.aluno_serie} — turma ${g.aluno_turma} · ${periodoLabels[g.periodo] ?? g.periodo} · ${temas} · data ${formatDate(g.data_preferivel)}`,
+      value: `${g.aluno_serie} — turma ${g.aluno_turma} · ${periodoLabels[g.periodo] ?? g.periodo} · ${temas} · data ${formatDate(g.data_preferivel)}${horario}`,
     });
   });
 
   if (data.palestra_tema) {
     rows.push({ label: "Palestra", value: palestraTemaLabel(data.palestra_tema) });
     rows.push({ label: "Data preferível (palestra)", value: formatDate(data.data_preferivel_palestra) });
+    const horaPalestra = formatHoraInicio(data.hora_inicio_palestra);
+    rows.push({
+      label: "Horário de início (palestra)",
+      value: horaPalestra === "—" ? "—" : `${horaPalestra} (duração 1h)`,
+    });
   }
 
   return rows;

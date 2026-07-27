@@ -6,6 +6,7 @@ import {
   alunoSerieLabels,
 } from "@/lib/acolhimento-options";
 import { palestraTemaLabel, vivenciaTemaLabel } from "@/lib/vivencias-options";
+import { formatHoraInicio } from "@/lib/vivencia-schedule";
 
 export type VivenciaFormAnswer = {
   number: number;
@@ -13,9 +14,16 @@ export type VivenciaFormAnswer = {
   answer: string;
 };
 
+export type VivenciaFormGroupBlock = {
+  title: string;
+  rows: VivenciaFormAnswer[][];
+};
+
 export type VivenciaFormSection = {
   title: string;
   items: VivenciaFormAnswer[];
+  /** Blocos por turma (layout em linhas de 3 colunas). */
+  groups?: VivenciaFormGroupBlock[];
 };
 
 export type VivenciaGroupView = {
@@ -24,6 +32,7 @@ export type VivenciaGroupView = {
   periodo: string;
   temas: string[] | null;
   data_preferivel?: string | null;
+  hora_inicio?: string | null;
 };
 
 type VivenciaRequestView = {
@@ -37,6 +46,7 @@ type VivenciaRequestView = {
   solicitante_telefone?: string | null;
   palestra_tema?: string | null;
   data_preferivel_palestra?: string | null;
+  hora_inicio_palestra?: string | null;
   groups?: VivenciaGroupView[] | null;
 };
 
@@ -84,33 +94,54 @@ export function buildVivenciaFormSections(req: VivenciaRequestView): VivenciaFor
   if (groups.length) {
     sections.push({
       title: "Vivências para alunos",
-      items: groups.flatMap((g, i) => [
-        {
-          number: 0,
-          question: `Turma ${i + 1} — Série`,
-          answer: formatSerie(g.aluno_serie),
-        },
-        {
-          number: 0,
-          question: `Turma ${i + 1} — Turma`,
-          answer: g.aluno_turma || "—",
-        },
-        {
-          number: 0,
-          question: `Turma ${i + 1} — Período`,
-          answer: periodoLabels[g.periodo] ?? g.periodo ?? "—",
-        },
-        {
-          number: 0,
-          question: `Turma ${i + 1} — Temas`,
-          answer: g.temas?.length ? g.temas.map((t) => vivenciaTemaLabel(t)).join("; ") : "—",
-        },
-        {
-          number: 0,
-          question: `Turma ${i + 1} — Data preferível da Vivência`,
-          answer: formatDate(g.data_preferivel),
-        },
-      ]),
+      items: [],
+      groups: groups.map((g, i) => {
+        const n = i + 1;
+        return {
+          title: `Turma ${n}`,
+          rows: [
+            [
+              {
+                number: 0,
+                question: `Turma ${n} — Série`,
+                answer: formatSerie(g.aluno_serie),
+              },
+              {
+                number: 0,
+                question: `Turma ${n} — Turma`,
+                answer: g.aluno_turma || "—",
+              },
+              {
+                number: 0,
+                question: `Turma ${n} — Período`,
+                answer: periodoLabels[g.periodo] ?? g.periodo ?? "—",
+              },
+            ],
+            [
+              {
+                number: 0,
+                question: `Turma ${n} — Temas`,
+                answer: g.temas?.length
+                  ? g.temas.map((t) => vivenciaTemaLabel(t)).join("; ")
+                  : "—",
+              },
+              {
+                number: 0,
+                question: `Turma ${n} — Data preferível da Vivência`,
+                answer: formatDate(g.data_preferivel),
+              },
+              {
+                number: 0,
+                question: `Turma ${n} — Horário de início`,
+                answer:
+                  formatHoraInicio(g.hora_inicio) === "—"
+                    ? "—"
+                    : `${formatHoraInicio(g.hora_inicio)} (duração 1h)`,
+              },
+            ],
+          ],
+        };
+      }),
     });
   }
 
@@ -122,6 +153,14 @@ export function buildVivenciaFormSections(req: VivenciaRequestView): VivenciaFor
         number: 0,
         question: "Data preferível — Palestra",
         answer: formatDate(req.data_preferivel_palestra),
+      },
+      {
+        number: 0,
+        question: "Horário de início — Palestra",
+        answer:
+          formatHoraInicio(req.hora_inicio_palestra) === "—"
+            ? "—"
+            : `${formatHoraInicio(req.hora_inicio_palestra)} (duração 1h)`,
       },
     ],
   });

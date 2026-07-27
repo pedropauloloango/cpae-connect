@@ -59,6 +59,7 @@ export type Database = {
           fim: string
           id: string
           inicio: string
+          modulo: string | null
           numero: Database["public"]["Enums"]["meeting_number"] | null
           observacoes: string | null
           professional_id: string | null
@@ -77,6 +78,7 @@ export type Database = {
           fim: string
           id?: string
           inicio: string
+          modulo?: string | null
           numero?: Database["public"]["Enums"]["meeting_number"] | null
           observacoes?: string | null
           professional_id?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           fim?: string
           id?: string
           inicio?: string
+          modulo?: string | null
           numero?: Database["public"]["Enums"]["meeting_number"] | null
           observacoes?: string | null
           professional_id?: string | null
@@ -849,6 +852,7 @@ export type Database = {
           aluno_turma: string
           created_at: string
           data_preferivel: string | null
+          hora_inicio: string | null
           id: string
           periodo: string
           sort_order: number
@@ -860,6 +864,7 @@ export type Database = {
           aluno_turma: string
           created_at?: string
           data_preferivel?: string | null
+          hora_inicio?: string | null
           id?: string
           periodo: string
           sort_order?: number
@@ -871,6 +876,7 @@ export type Database = {
           aluno_turma?: string
           created_at?: string
           data_preferivel?: string | null
+          hora_inicio?: string | null
           id?: string
           periodo?: string
           sort_order?: number
@@ -893,6 +899,7 @@ export type Database = {
           data_preferivel_palestra: string | null
           data_preferivel_vivencia: string | null
           deleted_at: string | null
+          hora_inicio_palestra: string | null
           id: string
           numero: string
           palestra_tema: string | null
@@ -912,6 +919,7 @@ export type Database = {
           data_preferivel_palestra?: string | null
           data_preferivel_vivencia?: string | null
           deleted_at?: string | null
+          hora_inicio_palestra?: string | null
           id?: string
           numero?: string
           palestra_tema?: string | null
@@ -931,6 +939,7 @@ export type Database = {
           data_preferivel_palestra?: string | null
           data_preferivel_vivencia?: string | null
           deleted_at?: string | null
+          hora_inicio_palestra?: string | null
           id?: string
           numero?: string
           palestra_tema?: string | null

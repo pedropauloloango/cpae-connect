@@ -32,12 +32,11 @@ import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schoo
 import { schoolTipoLabels } from "@/lib/labels";
 import { SchoolSearchSelect } from "@/components/schools/SchoolSearchSelect";
 import { VivenciaDatePicker } from "@/components/vivencias/VivenciaDatePicker";
+import { VisitStartTimeSelect } from "@/components/vivencias/VisitStartTimeSelect";
 import type { PublicSchoolOption } from "@/lib/public-schools";
 import {
   alunoSerieOptions,
-  alunoSerieValues,
   alunoTurmaOptions,
-  alunoTurmaValues,
   normalizeRegiaoFromSchool,
   periodoOptions,
   regiaoEscolaLabel,
@@ -70,14 +69,36 @@ export const Route = createFileRoute("/vivencias")({
 });
 
 const groupSchema = z.object({
-  aluno_serie: z.enum(alunoSerieValues, { required_error: "Selecione a série" }),
-  aluno_turma: z.enum(alunoTurmaValues, { required_error: "Selecione a turma" }),
-  periodo: z.enum(["matutino", "vespertino", "integral", "noturno"], {
-    required_error: "Selecione o período",
-  }),
-  temas: z.array(z.string()).min(1, "Selecione ao menos um tema"),
+  aluno_serie: z.string().optional(),
+  aluno_turma: z.string().optional(),
+  periodo: z.string().optional(),
+  temas: z.array(z.string()).default([]),
   data_vivencia: z.string().optional(),
+  hora_inicio: z.string().optional(),
 });
+
+function isGroupEmpty(g: {
+  aluno_serie?: string;
+  aluno_turma?: string;
+  periodo?: string;
+  temas?: string[];
+}): boolean {
+  return !g.aluno_serie && !g.aluno_turma && !g.periodo && (g.temas?.length ?? 0) === 0;
+}
+
+function isGroupComplete(g: {
+  aluno_serie?: string;
+  aluno_turma?: string;
+  periodo?: string;
+  temas?: string[];
+}): boolean {
+  return Boolean(
+    g.aluno_serie &&
+      g.aluno_turma &&
+      g.periodo &&
+      (g.temas?.length ?? 0) > 0,
+  );
+}
 
 const schema = z
   .object({
@@ -94,17 +115,54 @@ const schema = z
     groups: z.array(groupSchema),
     palestra_tema: z.string().optional(),
     data_preferivel_palestra: z.string().optional(),
+    hora_inicio_palestra: z.string().optional(),
   })
   .superRefine((val, ctx) => {
-    const hasGroups = val.groups.length > 0;
-    const hasPalestra = Boolean(val.palestra_tema);
-    if (!hasGroups && !hasPalestra) {
+    const hasPalestra = Boolean(val.palestra_tema?.trim());
+    const completeGroups = val.groups.filter(isGroupComplete);
+
+    if (!hasPalestra && completeGroups.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Adicione ao menos um grupo de vivência ou selecione uma palestra",
+        message:
+          "Adicione ao menos um grupo de vivência completo ou selecione uma palestra",
         path: ["groups"],
       });
     }
+
+    // Com palestra: grupos vazios são ignorados; grupos iniciados precisam estar completos.
+    // Sem palestra: todos os grupos listados precisam estar completos.
+    val.groups.forEach((g, i) => {
+      if (hasPalestra && isGroupEmpty(g)) return;
+      if (!g.aluno_serie) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione a série",
+          path: ["groups", i, "aluno_serie"],
+        });
+      }
+      if (!g.aluno_turma) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione a turma",
+          path: ["groups", i, "aluno_turma"],
+        });
+      }
+      if (!g.periodo) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione o período",
+          path: ["groups", i, "periodo"],
+        });
+      }
+      if ((g.temas?.length ?? 0) === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione ao menos um tema",
+          path: ["groups", i, "temas"],
+        });
+      }
+    });
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -128,6 +186,7 @@ function emptyGroup() {
     periodo: undefined as unknown as PeriodoEscolar,
     temas: [] as string[],
     data_vivencia: "",
+    hora_inicio: "",
   };
 }
 
@@ -303,6 +362,7 @@ function VivenciasPublico() {
       groups: [emptyGroup()],
       palestra_tema: "",
       data_preferivel_palestra: "",
+      hora_inicio_palestra: "",
     },
   });
 
@@ -317,9 +377,8 @@ function VivenciasPublico() {
   const regiaoKnown = regiaoEscolaOptions.some((o) => o.value === regiaoValue);
 
   const watchedGroups = form.watch("groups");
-  const allGroupsComplete = watchedGroups.every(
-    (g) => g.aluno_serie && g.aluno_turma && g.periodo && (g.temas?.length ?? 0) > 0,
-  );
+  const watchedPalestra = form.watch("palestra_tema");
+  const hasPalestra = Boolean(watchedPalestra?.trim());
 
   const handleSchoolSelect = (school: PublicSchoolOption) => {
     form.setValue("school_id", school.id, { shouldValidate: true });
@@ -329,8 +388,9 @@ function VivenciasPublico() {
   };
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      submitVivenciaRequest({
+    mutationFn: (values: FormValues) => {
+      const completeGroups = values.groups.filter(isGroupComplete);
+      return submitVivenciaRequest({
         school_id: values.school_id,
         school_nome: values.school_nome,
         tipo_escola: values.tipo_escola,
@@ -339,16 +399,19 @@ function VivenciasPublico() {
         solicitante_nome: values.solicitante_nome,
         solicitante_cargo: values.solicitante_cargo as SolicitanteCargo,
         solicitante_telefone: values.solicitante_telefone,
-        groups: values.groups.map((g) => ({
+        groups: completeGroups.map((g) => ({
           aluno_serie: g.aluno_serie as AlunoSerie,
           aluno_turma: g.aluno_turma as AlunoTurma,
           periodo: g.periodo as PeriodoEscolar,
           temas: g.temas as VivenciaTema[],
           data_vivencia: g.data_vivencia || null,
+          hora_inicio: g.hora_inicio || null,
         })),
         palestra_tema: (values.palestra_tema || null) as PalestraTema | null,
         data_preferivel_palestra: values.data_preferivel_palestra || null,
-      }),
+        hora_inicio_palestra: values.hora_inicio_palestra || null,
+      });
+    },
     onSuccess: (data) => {
       setSuccessNumero(data.numero);
       toast.success("Solicitação registrada!");
@@ -510,7 +573,7 @@ function VivenciasPublico() {
 
           <FormSection
             title="Vivências para alunos"
-            description="Inclua uma ou mais séries/turmas/períodos, cada uma com seus temas"
+            description="Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas, se desejar."
             icon={Users}
           >
             {form.formState.errors.groups?.root?.message && (
@@ -534,6 +597,8 @@ function VivenciasPublico() {
                   )
                   .filter((d): d is string => Boolean(d));
 
+                const groupRequiredMark = hasPalestra ? "" : " *";
+
                 return (
                   <div
                     key={field.id}
@@ -544,7 +609,7 @@ function VivenciasPublico() {
                         Turma {index + 1}
                         {fields.length > 1 ? ` de ${fields.length}` : ""}
                       </h3>
-                      {fields.length > 1 && (
+                      {(fields.length > 1 || hasPalestra) && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -559,7 +624,7 @@ function VivenciasPublico() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-3">
-                      <Field label="Série *" error={groupErrors?.aluno_serie?.message}>
+                      <Field label={`Série${groupRequiredMark}`} error={groupErrors?.aluno_serie?.message}>
                         <Controller
                           control={form.control}
                           name={`groups.${index}.aluno_serie`}
@@ -580,7 +645,7 @@ function VivenciasPublico() {
                         />
                       </Field>
 
-                      <Field label="Turma *" error={groupErrors?.aluno_turma?.message}>
+                      <Field label={`Turma${groupRequiredMark}`} error={groupErrors?.aluno_turma?.message}>
                         <Controller
                           control={form.control}
                           name={`groups.${index}.aluno_turma`}
@@ -601,7 +666,7 @@ function VivenciasPublico() {
                         />
                       </Field>
 
-                      <Field label="Período *" error={groupErrors?.periodo?.message}>
+                      <Field label={`Período${groupRequiredMark}`} error={groupErrors?.periodo?.message}>
                         <Controller
                           control={form.control}
                           name={`groups.${index}.periodo`}
@@ -623,41 +688,54 @@ function VivenciasPublico() {
                       </Field>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Temas de vivências *"
-                          error={groupErrors?.temas?.message}
-                        >
-                          <p className="mb-2 text-xs text-[#64748B]">Marque todas que se aplicam a esta turma.</p>
-                          <TemasMultiSelect
-                            selected={temas}
-                            onToggle={(value, checked) => toggleTema(index, value, checked)}
-                            onRemove={(value) => toggleTema(index, value, false)}
-                            hasError={Boolean(groupErrors?.temas?.message)}
+                    <div className="space-y-4">
+                      <Field
+                        label={`Temas de vivências${groupRequiredMark}`}
+                        error={groupErrors?.temas?.message}
+                      >
+                        <p className="mb-2 text-xs text-[#64748B]">Marque todas que se aplicam a esta turma.</p>
+                        <TemasMultiSelect
+                          selected={temas}
+                          onToggle={(value, checked) => toggleTema(index, value, checked)}
+                          onRemove={(value) => toggleTema(index, value, false)}
+                          hasError={Boolean(groupErrors?.temas?.message)}
+                        />
+                      </Field>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Data preferível da Vivência">
+                          <p className="mb-2 text-xs text-[#64748B]">
+                            Dias úteis em verde; laranja = já há solicitação na mesma região e período. Sujeita à
+                            confirmação da equipe.
+                          </p>
+                          <Controller
+                            control={form.control}
+                            name={`groups.${index}.data_vivencia`}
+                            render={({ field: f }) => (
+                              <VivenciaDatePicker
+                                value={f.value}
+                                onChange={f.onChange}
+                                regiao={regiaoValue}
+                                periodo={periodo}
+                                extraOccupiedDates={extraOccupiedDates}
+                              />
+                            )}
+                          />
+                        </Field>
+
+                        <Field label="Horário de início">
+                          <p className="mb-2 text-xs text-[#64748B]">
+                            Hora (07–21) e minuto (00/15/30/45). Na agenda a duração será sempre de 1 hora.
+                          </p>
+                          <Controller
+                            control={form.control}
+                            name={`groups.${index}.hora_inicio`}
+                            render={({ field: f }) => (
+                              <VisitStartTimeSelect value={f.value ?? ""} onChange={f.onChange} />
+                            )}
                           />
                         </Field>
                       </div>
-
-                      <Field label="Data preferível da Vivência">
-                        <p className="mb-2 text-xs text-[#64748B]">
-                          Dias úteis em verde; laranja = já há solicitação na mesma região e período. Sujeita à
-                          confirmação da equipe.
-                        </p>
-                        <Controller
-                          control={form.control}
-                          name={`groups.${index}.data_vivencia`}
-                          render={({ field: f }) => (
-                            <VivenciaDatePicker
-                              value={f.value}
-                              onChange={f.onChange}
-                              regiao={regiaoValue}
-                              periodo={periodo}
-                              extraOccupiedDates={extraOccupiedDates}
-                            />
-                          )}
-                        />
-                      </Field>
                     </div>
                   </div>
                 );
@@ -668,20 +746,33 @@ function VivenciasPublico() {
               type="button"
               variant="outline"
               className="w-full rounded-[14px] border-dashed border-[#0F52BA]/40 text-[#0F52BA] hover:bg-[#EAF2FF] disabled:cursor-not-allowed"
-              disabled={!allGroupsComplete}
+              disabled={watchedGroups.length > 0 && !watchedGroups.every(isGroupComplete)}
               onClick={() => append(emptyGroup())}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Adicionar outra série / turma / período
+              {fields.length === 0
+                ? "Adicionar série / turma / período"
+                : "Adicionar outra série / turma / período"}
             </Button>
-            {!allGroupsComplete && (
+            {watchedGroups.length > 0 && !watchedGroups.every(isGroupComplete) && (
               <p className="text-center text-xs text-[#64748B]">
-                Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra.
+                {hasPalestra
+                  ? "Deixe a turma em branco (ou remova) se for só palestra, ou complete série, turma, período e tema."
+                  : "Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra."}
+              </p>
+            )}
+            {fields.length === 0 && hasPalestra && (
+              <p className="text-center text-xs text-[#64748B]">
+                Solicitação apenas de palestra — vivências para alunos não são obrigatórias.
               </p>
             )}
           </FormSection>
 
-          <FormSection title="Palestras" description="Opcional — marque apenas uma, se desejar" icon={Mic2}>
+          <FormSection
+            title="Palestras"
+            description="Opcional se já houver vivências — ou escolha uma palestra para solicitar só palestra"
+            icon={Mic2}
+          >
             <Field label="Palestra desejada">
               <Controller
                 control={form.control}
@@ -689,7 +780,10 @@ function VivenciasPublico() {
                 render={({ field }) => (
                   <RadioGroup
                     value={field.value || ""}
-                    onValueChange={(v) => field.onChange(v === field.value ? "" : v)}
+                    onValueChange={(v) => {
+                      field.onChange(v === field.value ? "" : v);
+                      void form.trigger("groups");
+                    }}
                     className="grid gap-2"
                   >
                     {palestraTemaOptions.map((o) => (
@@ -707,7 +801,10 @@ function VivenciasPublico() {
                   variant="ghost"
                   size="sm"
                   className="mt-2 text-[#64748B]"
-                  onClick={() => form.setValue("palestra_tema", "")}
+                  onClick={() => {
+                    form.setValue("palestra_tema", "", { shouldValidate: true });
+                    void form.trigger("groups");
+                  }}
                 >
                   Limpar seleção de palestra
                 </Button>
@@ -717,11 +814,11 @@ function VivenciasPublico() {
 
           <FormSection
             title="Data preferível da Palestra"
-            description="Sugestão de data para a equipe confirmar"
+            description="Sugestão de data e horário para a equipe confirmar (duração de 1 hora)"
             icon={CalendarDays}
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Palestra">
+              <Field label="Data">
                 <p className="mb-2 text-xs text-[#64748B]">
                   Dias úteis em verde; laranja = já há vivência ou palestra na mesma região. Sujeita à
                   confirmação da equipe.
@@ -739,6 +836,18 @@ function VivenciasPublico() {
                         .map((g) => g.data_vivencia)
                         .filter((d): d is string => Boolean(d))}
                     />
+                  )}
+                />
+              </Field>
+              <Field label="Horário de início">
+                <p className="mb-2 text-xs text-[#64748B]">
+                  Hora (07–21) e minuto (00/15/30/45). Na agenda a duração será sempre de 1 hora.
+                </p>
+                <Controller
+                  control={form.control}
+                  name="hora_inicio_palestra"
+                  render={({ field: f }) => (
+                    <VisitStartTimeSelect value={f.value ?? ""} onChange={f.onChange} />
                   )}
                 />
               </Field>
