@@ -228,14 +228,16 @@ function NotificationSection({ title, children }: { title: string; children: Rea
 }
 
 export function NotificationBell() {
-  const { isAdmin, roles, canAccessAcolhimento, canAccessVivencias } = useAuth();
+  const { isAdmin, canAccessAcolhimento, canAccessVivencias } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const inVivenciasModule = isVivenciasModuleActive(pathname);
-  const isProfessional = roles.includes("profissional");
 
-  // Só mostra notificações do módulo em que o usuário está (inclui rotas compartilhadas)
-  const showAcolhimento = !inVivenciasModule && (isAdmin || canAccessAcolhimento);
-  const showVivencias = inVivenciasModule && (isAdmin || canAccessVivencias);
+  // Mostra pendências de todos os módulos aos quais o usuário tem acesso
+  // (evita perder atribuição/relatório por estar no shell do outro módulo).
+  const showAcolhimento = isAdmin || canAccessAcolhimento;
+  const showVivencias = isAdmin || canAccessVivencias;
+  const showProAcolhimento = !isAdmin && canAccessAcolhimento;
+  const showProVivencias = !isAdmin && canAccessVivencias;
 
   const { data: pendingApprovals = [], isLoading: loadingApprovals } = useQuery({
     queryKey: PENDING_APPROVALS_QUERY_KEY,
@@ -254,14 +256,14 @@ export function NotificationBell() {
   const { data: pendingCorrections = [], isLoading: loadingCorrections } = useQuery({
     queryKey: PENDING_CORRECTIONS_QUERY_KEY,
     queryFn: fetchPendingProfessionalCorrections,
-    enabled: isProfessional && !isAdmin && showAcolhimento,
+    enabled: showProAcolhimento,
     refetchInterval: 60_000,
   });
 
   const { data: pendingAssignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: PENDING_ASSIGNMENTS_QUERY_KEY,
     queryFn: fetchProfessionalAssignments,
-    enabled: isProfessional && !isAdmin && showAcolhimento,
+    enabled: showProAcolhimento,
     refetchInterval: 60_000,
   });
 
@@ -282,46 +284,39 @@ export function NotificationBell() {
   const { data: vivenciaCorrections = [], isLoading: loadingVivCorrections } = useQuery({
     queryKey: PENDING_VIVENCIA_CORRECTIONS_QUERY_KEY,
     queryFn: fetchPendingVivenciaCorrections,
-    enabled: isProfessional && !isAdmin && showVivencias,
+    enabled: showProVivencias,
     refetchInterval: 60_000,
   });
 
   const { data: vivenciaAssignments = [], isLoading: loadingVivAssignments } = useQuery({
     queryKey: PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
     queryFn: fetchProfessionalVivenciaAssignments,
-    enabled: isProfessional && !isAdmin && showVivencias,
+    enabled: showProVivencias,
     refetchInterval: 60_000,
   });
 
-  if (!isAdmin && !isProfessional) return null;
   if (!showAcolhimento && !showVivencias) return null;
 
-  const adminCount = showAcolhimento
-    ? receivedRequests.length + pendingApprovals.length
-    : vivenciaReceived.length + vivenciaApprovals.length;
-  const professionalCount = showAcolhimento
-    ? pendingAssignments.length + pendingCorrections.length
-    : vivenciaAssignments.length + vivenciaCorrections.length;
+  const adminCount =
+    (showAcolhimento ? receivedRequests.length + pendingApprovals.length : 0) +
+    (showVivencias ? vivenciaReceived.length + vivenciaApprovals.length : 0);
+  const professionalCount =
+    (showProAcolhimento ? pendingAssignments.length + pendingCorrections.length : 0) +
+    (showProVivencias ? vivenciaAssignments.length + vivenciaCorrections.length : 0);
   const count = isAdmin ? adminCount : professionalCount;
   const isLoading = isAdmin
-    ? showAcolhimento
-      ? loadingApprovals || loadingReceived
-      : loadingVivReceived || loadingVivApprovals
-    : showAcolhimento
-      ? loadingCorrections || loadingAssignments
-      : loadingVivCorrections || loadingVivAssignments;
+    ? (showAcolhimento && (loadingApprovals || loadingReceived)) ||
+      (showVivencias && (loadingVivReceived || loadingVivApprovals))
+    : (showProAcolhimento && (loadingCorrections || loadingAssignments)) ||
+      (showProVivencias && (loadingVivCorrections || loadingVivAssignments));
 
   const emptyMessage = isAdmin
-    ? "Nenhuma notificação pendente neste módulo."
-    : "Nenhuma atribuição ou relatório pendente neste módulo.";
+    ? "Nenhuma notificação pendente."
+    : "Nenhuma atribuição ou relatório pendente.";
 
-  const headerDescription = inVivenciasModule
-    ? isAdmin
-      ? "Solicitações e relatórios de Vivências aguardando análise"
-      : "Atribuições e relatórios de Vivências pendentes"
-    : isAdmin
-      ? "Solicitações e relatórios de Acolhimento aguardando análise"
-      : "Atribuições e relatórios de Acolhimento pendentes";
+  const headerDescription = isAdmin
+    ? "Solicitações e relatórios aguardando análise (Acolhimento e Vivências)"
+    : "Atribuições e relatórios pendentes dos seus módulos";
 
   return (
     <Popover>
@@ -346,9 +341,7 @@ export function NotificationBell() {
 
       <PopoverContent align="end" className="w-[min(100vw-2rem,360px)] rounded-2xl p-0">
         <div className="border-b px-4 py-3">
-          <div className="text-sm font-bold text-[#0F172A]">
-            Notificações — {inVivenciasModule ? "Vivências" : "Acolhimento"}
-          </div>
+          <div className="text-sm font-bold text-[#0F172A]">Notificações</div>
           <p className="text-xs text-[#64748B]">{headerDescription}</p>
         </div>
 
@@ -367,14 +360,14 @@ export function NotificationBell() {
           {!isLoading && isAdmin && showAcolhimento && (
             <>
               {receivedRequests.length > 0 && (
-                <NotificationSection title="Solicitações recebidas">
+                <NotificationSection title="Acolhimento — Solicitações recebidas">
                   {receivedRequests.map((request) => (
                     <ReceivedRequestNotificationItem key={request.id} request={request} />
                   ))}
                 </NotificationSection>
               )}
               {pendingApprovals.length > 0 && (
-                <NotificationSection title="Aguardando aprovação">
+                <NotificationSection title="Acolhimento — Aguardando aprovação">
                   {pendingApprovals.map((item) => (
                     <ClosureNotificationItem key={item.id} item={item} />
                   ))}
@@ -386,14 +379,14 @@ export function NotificationBell() {
           {!isLoading && isAdmin && showVivencias && (
             <>
               {vivenciaReceived.length > 0 && (
-                <NotificationSection title="Solicitações recebidas">
+                <NotificationSection title="Vivências — Solicitações recebidas">
                   {vivenciaReceived.map((request) => (
                     <VivenciaReceivedItem key={request.id} request={request} />
                   ))}
                 </NotificationSection>
               )}
               {vivenciaApprovals.length > 0 && (
-                <NotificationSection title="Aguardando aprovação">
+                <NotificationSection title="Vivências — Aguardando aprovação">
                   {vivenciaApprovals.map((item) => (
                     <VivenciaReportItem key={item.id} item={item} />
                   ))}
@@ -402,17 +395,17 @@ export function NotificationBell() {
             </>
           )}
 
-          {!isLoading && !isAdmin && showAcolhimento && (
+          {!isLoading && showProAcolhimento && (
             <>
               {pendingAssignments.length > 0 && (
-                <NotificationSection title="Novas atribuições">
+                <NotificationSection title="Acolhimento — Novas atribuições">
                   {pendingAssignments.map((request) => (
                     <AssignmentNotificationItem key={request.id} request={request} />
                   ))}
                 </NotificationSection>
               )}
               {pendingCorrections.length > 0 && (
-                <NotificationSection title="Relatórios para correção">
+                <NotificationSection title="Acolhimento — Relatórios para correção">
                   {pendingCorrections.map((item) => (
                     <ClosureNotificationItem
                       key={item.id}
@@ -429,17 +422,17 @@ export function NotificationBell() {
             </>
           )}
 
-          {!isLoading && !isAdmin && showVivencias && (
+          {!isLoading && showProVivencias && (
             <>
               {vivenciaAssignments.length > 0 && (
-                <NotificationSection title="Novas atribuições">
+                <NotificationSection title="Vivências — Novas atribuições">
                   {vivenciaAssignments.map((request) => (
                     <VivenciaAssignmentItem key={request.id} request={request} />
                   ))}
                 </NotificationSection>
               )}
               {vivenciaCorrections.length > 0 && (
-                <NotificationSection title="Relatórios para correção">
+                <NotificationSection title="Vivências — Relatórios para correção">
                   {vivenciaCorrections.map((item) => (
                     <VivenciaReportItem
                       key={item.id}
@@ -457,59 +450,54 @@ export function NotificationBell() {
           )}
         </div>
 
-        {isAdmin && count > 0 && showAcolhimento && (
+        {isAdmin && count > 0 && (
           <div className="space-y-1 border-t p-2">
-            {receivedRequests.length > 0 && (
+            {showAcolhimento && receivedRequests.length > 0 && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
                 <Link to="/demandas">
                   <Inbox className="h-4 w-4" />
-                  Ver demandas
+                  Demandas — Acolhimento
                 </Link>
               </Button>
             )}
-            {pendingApprovals.length > 0 && (
+            {showAcolhimento && pendingApprovals.length > 0 && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
                 <Link to="/aprovacoes">
                   <CheckSquare className="h-4 w-4" />
-                  Ver aprovações
+                  Aprovações — Acolhimento
                 </Link>
               </Button>
             )}
-          </div>
-        )}
-
-        {isAdmin && count > 0 && showVivencias && (
-          <div className="space-y-1 border-t p-2">
-            {(vivenciaReceived.length > 0 || vivenciaApprovals.length > 0) && (
+            {showVivencias && (vivenciaReceived.length > 0 || vivenciaApprovals.length > 0) && (
               <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-emerald-700" asChild>
                 <Link to="/modulo-vivencias/demandas">
                   <Inbox className="h-4 w-4" />
-                  Ver demandas
+                  Demandas — Vivências
                 </Link>
               </Button>
             )}
           </div>
         )}
 
-        {!isAdmin && isProfessional && count > 0 && showAcolhimento && (
+        {!isAdmin && count > 0 && (
           <div className="space-y-1 border-t p-2">
-            <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
-              <Link to="/demandas">
-                <UserPlus className="h-4 w-4" />
-                Ver demandas
-              </Link>
-            </Button>
-          </div>
-        )}
-
-        {!isAdmin && isProfessional && count > 0 && showVivencias && (
-          <div className="space-y-1 border-t p-2">
-            <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-emerald-700" asChild>
-              <Link to="/modulo-vivencias/demandas">
-                <UserPlus className="h-4 w-4" />
-                Ver demandas
-              </Link>
-            </Button>
+            {showProAcolhimento && (pendingAssignments.length > 0 || pendingCorrections.length > 0) && (
+              <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-[#0F52BA]" asChild>
+                <Link to="/demandas">
+                  <UserPlus className="h-4 w-4" />
+                  Demandas — Acolhimento
+                </Link>
+              </Button>
+            )}
+            {showProVivencias &&
+              (vivenciaAssignments.length > 0 || vivenciaCorrections.length > 0) && (
+                <Button variant="ghost" className="w-full justify-center gap-2 rounded-xl text-emerald-700" asChild>
+                  <Link to="/modulo-vivencias/demandas">
+                    <UserPlus className="h-4 w-4" />
+                    Demandas — Vivências
+                  </Link>
+                </Button>
+              )}
           </div>
         )}
       </PopoverContent>

@@ -889,19 +889,22 @@ function AtribuicaoMulti({
       );
       if (error) throw error;
 
-      if (status === "recebida") {
-        await supabase
+      // Pendência do profissional depende do status "distribuida"
+      if (status === "recebida" || status === "distribuida") {
+        const { error: statusError } = await supabase
           .from("vivencia_requests")
           .update({ status: "distribuida" })
           .eq("id", requestId);
+        if (statusError) throw statusError;
       }
 
-      await supabase.from("vivencia_activity_logs").insert({
+      const { error: logError } = await supabase.from("vivencia_activity_logs").insert({
         vivencia_request_id: requestId,
         actor_id: user?.id,
         action: "atribuicao",
         details: { professional_ids: professionalIds },
       });
+      if (logError) console.error("vivencia atribuicao log", logError);
     },
     onSuccess: () => {
       toast.success(

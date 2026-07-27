@@ -22,7 +22,9 @@ import { toast } from "sonner";
 import { Loader2, Send, Check, X, MessageSquare } from "lucide-react";
 import {
   PENDING_VIVENCIA_APPROVALS_QUERY_KEY,
+  PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
   PENDING_VIVENCIA_CORRECTIONS_QUERY_KEY,
+  PENDING_VIVENCIA_RECEIVED_QUERY_KEY,
 } from "@/lib/pending-vivencias";
 
 export type VivenciaReportRow = {
@@ -182,6 +184,8 @@ export function VivenciaRelatorioTab({
     qc.invalidateQueries({ queryKey: ["vivencias-demandas"] });
     qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_APPROVALS_QUERY_KEY });
     qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_CORRECTIONS_QUERY_KEY });
+    qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY });
+    qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_RECEIVED_QUERY_KEY });
   };
 
   const lockedByRequest = isRequestLockedForMeetingEdits(requestStatus);
@@ -249,18 +253,20 @@ export function VivenciaRelatorioTab({
         }
 
         if (andSend) {
-          await supabase
+          const { error: statusError } = await supabase
             .from("vivencia_requests")
             .update({ status: "aguardando_aprovacao" })
             .eq("id", requestId);
+          if (statusError) throw statusError;
         }
 
-        await supabase.from("vivencia_activity_logs").insert({
+        const { error: logError } = await supabase.from("vivencia_activity_logs").insert({
           vivencia_request_id: requestId,
           actor_id: user?.id,
           action: andSend ? "relatorio_enviado_aprovacao" : "relatorio_salvo",
           details: { report_id: created.id },
         });
+        if (logError) console.error("vivencia report log", logError);
         return;
       }
 
@@ -281,18 +287,20 @@ export function VivenciaRelatorioTab({
       if (error) throw error;
 
       if (andSend) {
-        await supabase
+        const { error: statusError } = await supabase
           .from("vivencia_requests")
           .update({ status: "aguardando_aprovacao" })
           .eq("id", requestId);
+        if (statusError) throw statusError;
       }
 
-      await supabase.from("vivencia_activity_logs").insert({
+      const { error: logError } = await supabase.from("vivencia_activity_logs").insert({
         vivencia_request_id: requestId,
         actor_id: user?.id,
         action: andSend ? "relatorio_enviado_aprovacao" : "relatorio_salvo",
         details: { report_id: report.id },
       });
+      if (logError) console.error("vivencia report log", logError);
     },
     onSuccess: (_d, andSend) => {
       toast.success(andSend ? "Relatório enviado para validação." : "Relatório salvo como rascunho.");
