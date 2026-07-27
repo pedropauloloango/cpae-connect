@@ -8,7 +8,6 @@ import {
   Inbox,
   Clock,
   CheckCircle2,
-  Calendar,
   TrendingUp,
   AlertCircle,
   Users,
@@ -41,7 +40,6 @@ interface Counters {
   recebida: number;
   em_andamento: number;
   concluida: number;
-  preferencias_mes: number;
   relatorios_aguardando: number;
   total_escolas: number;
   total_profissionais: number;
@@ -88,18 +86,12 @@ function VivenciasDashboard() {
         recebida: 0,
         em_andamento: 0,
         concluida: 0,
-        preferencias_mes: 0,
         relatorios_aguardando: 0,
         total_escolas: 0,
         total_profissionais: 0,
       };
 
       if (!isAdmin && (!myProfId || professionalScopeEmpty)) return empty;
-
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const monthStartIso = monthStart.toISOString().slice(0, 10);
 
       let qRecebida = supabase
         .from("vivencia_requests")
@@ -124,24 +116,6 @@ function VivenciasDashboard() {
       }
 
       const [r1, r2, r3] = await Promise.all([qRecebida, qAndamento, qConcluida]);
-
-      let preferencias_mes = 0;
-      let qGroups = supabase
-        .from("vivencia_request_groups")
-        .select("id, vivencia_request_id")
-        .gte("data_preferivel", monthStartIso);
-      if (!isAdmin) qGroups = qGroups.in("vivencia_request_id", myRequestIds);
-      const { data: groupsMonth } = await qGroups;
-      preferencias_mes = groupsMonth?.length ?? 0;
-
-      let qPalestra = supabase
-        .from("vivencia_requests")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null)
-        .gte("data_preferivel_palestra", monthStartIso);
-      if (!isAdmin) qPalestra = qPalestra.in("id", myRequestIds);
-      const { count: palestraCount } = await qPalestra;
-      preferencias_mes += palestraCount ?? 0;
 
       let relatorios_aguardando = 0;
       if (isAdmin) {
@@ -179,7 +153,6 @@ function VivenciasDashboard() {
         recebida: r1.count ?? 0,
         em_andamento: r2.count ?? 0,
         concluida: r3.count ?? 0,
-        preferencias_mes,
         relatorios_aguardando,
         total_escolas,
         total_profissionais,
@@ -192,11 +165,26 @@ function VivenciasDashboard() {
     enabled: !authLoading && scopeReady,
     queryFn: async () => {
       if (!isAdmin && myRequestIds.length === 0) return [];
-      let qb = supabase.from("vivencia_request_groups").select("periodo, vivencia_request_id");
-      if (!isAdmin) qb = qb.in("vivencia_request_id", myRequestIds);
-      const { data } = await qb;
+
+      let activeQ = supabase
+        .from("vivencia_requests")
+        .select("id")
+        .is("deleted_at", null);
+      if (!isAdmin) activeQ = activeQ.in("id", myRequestIds);
+      const { data: activeReqs, error: activeError } = await activeQ;
+      if (activeError) throw activeError;
+      const activeIds = (activeReqs ?? []).map((r) => r.id);
+      if (activeIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from("vivencia_request_groups")
+        .select("periodo")
+        .in("vivencia_request_id", activeIds);
+      if (error) throw error;
+
       const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { periodo: string }) => {
+      (data ?? []).forEach((r: { periodo: string | null }) => {
+        if (!r.periodo?.trim()) return;
         counts.set(r.periodo, (counts.get(r.periodo) ?? 0) + 1);
       });
       return Array.from(counts.entries()).map(([k, v]) => ({
@@ -337,7 +325,7 @@ function VivenciasDashboard() {
       />
 
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-4 xl:grid-cols-7" : "lg:grid-cols-3 xl:grid-cols-5"}`}
+        className={`grid gap-3 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-2 xl:grid-cols-4"}`}
       >
         <Kpi
           label="Solicitações Recebidas"
@@ -359,13 +347,6 @@ function VivenciasDashboard() {
           sub="Finalizadas"
           icon={CheckCircle2}
           iconBg="bg-green-50 text-green-600"
-        />
-        <Kpi
-          label="Datas no Mês"
-          value={counters?.preferencias_mes ?? 0}
-          sub="Preferências do mês"
-          icon={Calendar}
-          iconBg="bg-teal-50 text-teal-700"
         />
         <Kpi
           label={isAdmin ? "Relatórios p/ validar" : "Meus relatórios"}
