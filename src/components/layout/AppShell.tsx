@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState, useLayoutEffect, type ReactNode } from "react";
+import { useState, useLayoutEffect, useEffect, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Inbox,
@@ -16,12 +16,15 @@ import {
   Sparkles,
   HeartHandshake,
   ClipboardCheck,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeaderProvider, usePageHeaderContext } from "@/components/layout/page-header-context";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { isVivenciasModuleActive } from "@/lib/active-module";
 
 interface NavItem {
@@ -90,6 +93,8 @@ function AppShellLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isVivencias = isVivenciasModuleActive(pathname);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const items = (isVivencias ? VIV_NAV : ACO_NAV).filter((i) => !i.admin || isAdmin);
   const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
@@ -102,13 +107,42 @@ function AppShellLayout({ children }: { children: ReactNode }) {
       ? "/modulo-vivencias/dashboard"
       : "/dashboard";
 
-  const userName = displayName(user?.email, user?.user_metadata);
+  const userName = displayName(user?.email, user?.user_metadata as Record<string, unknown> | undefined);
   const userInitials = userName
     .split(" ")
     .slice(0, 2)
     .map((p) => p[0])
     .join("")
     .toUpperCase();
+
+  useEffect(() => {
+    if (!user?.id) {
+      setMustChangePassword(false);
+      setChangePasswordOpen(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        if (error.message?.includes("must_change_password") || error.code === "PGRST204") return;
+        console.error("must_change_password check", error);
+        return;
+      }
+      if (data?.must_change_password) {
+        setMustChangePassword(true);
+        setChangePasswordOpen(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -380,6 +414,26 @@ function AppShellLayout({ children }: { children: ReactNode }) {
               </div>
               <Button
                 type="button"
+                onClick={() => {
+                  setMustChangePassword(false);
+                  setChangePasswordOpen(true);
+                }}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-9 shrink-0 gap-1.5 rounded-xl px-2.5 sm:px-3",
+                  isVivencias
+                    ? "text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-900"
+                    : "text-[#0F52BA] hover:bg-[#0F52BA]/10 hover:text-[#0A3D8C]",
+                )}
+                aria-label="Alterar senha"
+                title="Alterar senha"
+              >
+                <KeyRound className="h-4 w-4" />
+                <span className="hidden lg:inline">Senha</span>
+              </Button>
+              <Button
+                type="button"
                 onClick={handleSignOut}
                 variant="ghost"
                 size="sm"
@@ -418,6 +472,19 @@ function AppShellLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+
+      {user?.id && (
+        <ChangePasswordDialog
+          open={changePasswordOpen}
+          onOpenChange={(open) => {
+            if (!open && mustChangePassword) return;
+            setChangePasswordOpen(open);
+          }}
+          required={mustChangePassword}
+          userId={user.id}
+          onSuccess={() => setMustChangePassword(false)}
+        />
+      )}
     </div>
   );
 }

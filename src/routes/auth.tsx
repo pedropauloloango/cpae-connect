@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { checkGoogleAuthEnabled } from "@/lib/auth-google.functions";
+import { requestPasswordReset } from "@/lib/auth-password-reset.functions";
 import { homePathForModules, resolveUserModulesAccess } from "@/lib/professional-modules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,9 @@ function AuthPage() {
   const [signupFormKey, setSignupFormKey] = useState(0);
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -137,6 +141,31 @@ function AuthPage() {
     setRegisteredEmail(email);
     setVerifyModalOpen(true);
   };
+
+  const submitForgotPassword = async () => {
+    const email = forgotEmail.trim();
+    if (!email) {
+      toast.error("Informe o e-mail cadastrado.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const result = await requestPasswordReset({ data: { email } });
+      toast.success("Solicitação enviada", {
+        description: result.message,
+      });
+      setForgotOpen(false);
+      setForgotEmail("");
+      setTab("signin");
+    } catch (e) {
+      toast.error("Não foi possível redefinir a senha", {
+        description: e instanceof Error ? e.message : "Tente novamente em instantes.",
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const google = async () => {
     setLoading(true);
     try {
@@ -206,7 +235,6 @@ function AuthPage() {
               </TabsList>
 
               <TabsContent value="signin" className="mt-4">
-                {" "}
                 <form
                   className="space-y-3"
                   onSubmit={(e) => {
@@ -220,7 +248,22 @@ function AuthPage() {
                     <Input id="si-email" name="email" type="email" required autoComplete="email" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="si-pass">Senha</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="si-pass">Senha</Label>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary hover:underline"
+                        onClick={() => {
+                          const emailInput = document.getElementById(
+                            "si-email",
+                          ) as HTMLInputElement | null;
+                          setForgotEmail(emailInput?.value?.trim() ?? "");
+                          setForgotOpen(true);
+                        }}
+                      >
+                        Esqueci a senha
+                      </button>
+                    </div>
                     <Input
                       id="si-pass"
                       name="password"
@@ -249,7 +292,6 @@ function AuthPage() {
                     );
                   }}
                 >
-                  {" "}
                   <div className="space-y-1.5">
                     <Label htmlFor="su-name">Nome completo</Label>
                     <Input id="su-name" name="name" required />
@@ -328,6 +370,58 @@ function AuthPage() {
                 Entendi
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={forgotOpen}
+          onOpenChange={(open) => {
+            setForgotOpen(open);
+            if (!open) setForgotEmail("");
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Esqueci a senha</DialogTitle>
+              <DialogDescription>
+                Informe o e-mail cadastrado. Enviaremos uma senha temporária para você entrar e
+                redefinir o acesso.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              className="space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitForgotPassword();
+              }}
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="forgot-email">E-mail</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="seu.email@exemplo.com"
+                />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setForgotOpen(false)}
+                  disabled={forgotLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={forgotLoading}>
+                  {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Enviar nova senha
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

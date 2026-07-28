@@ -427,6 +427,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          must_change_password: boolean
           phone: string | null
           receive_acolhimento_emails: boolean
           receive_notification_emails: boolean
@@ -440,6 +441,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id: string
+          must_change_password?: boolean
           phone?: string | null
           receive_acolhimento_emails?: boolean
           receive_notification_emails?: boolean
@@ -453,6 +455,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          must_change_password?: boolean
           phone?: string | null
           receive_acolhimento_emails?: boolean
           receive_notification_emails?: boolean
