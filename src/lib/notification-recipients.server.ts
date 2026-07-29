@@ -6,19 +6,36 @@ function normalizeEmail(value: string | null | undefined): string | null {
   return email;
 }
 
-/** Consulta simples e direta nas flags do perfil. */
+const ADMIN_ROLES = ["admin", "super_admin"] as const;
+
+/** Consulta direta: flag do módulo = true e papel admin/super_admin. */
 async function fetchEmailsFromProfiles(module: NotificationModule): Promise<string[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const flag = module === "acolhimento" ? "receive_acolhimento_emails" : "receive_vivencias_emails";
 
-  // Query mínima: só e-mail onde a flag do módulo é true
-  const query =
-    module === "acolhimento"
-      ? supabaseAdmin.from("profiles").select("email").eq("receive_acolhimento_emails", true)
-      : supabaseAdmin.from("profiles").select("email").eq("receive_vivencias_emails", true);
+  const { data: roles, error: rolesErr } = await supabaseAdmin
+    .from("user_roles")
+    .select("user_id, role")
+    .in("role", [...ADMIN_ROLES]);
 
-  const { data, error } = await query;
+  if (rolesErr) {
+    console.error("[notify] Erro ao ler user_roles:", rolesErr.message, rolesErr.code);
+    throw rolesErr;
+  }
+
+  const adminIds = [...new Set((roles ?? []).map((r) => r.user_id).filter(Boolean))];
+  if (adminIds.length === 0) {
+    console.info(`[notify] Nenhum admin/super_admin encontrado (${module})`);
+    return [];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email")
+    .eq(flag, true)
+    .in("id", adminIds)
+    .neq("account_status", "rejeitado");
 
   if (error) {
     console.error(`[notify] Erro ao ler profiles.${flag}:`, error.message, error.code);
@@ -29,7 +46,7 @@ async function fetchEmailsFromProfiles(module: NotificationModule): Promise<stri
     .map((row) => normalizeEmail(row.email))
     .filter((e): e is string => Boolean(e));
 
-  console.info(`[notify] profiles.${flag}=true →`, emails);
+  console.info(`[notify] profiles.${flag}=true (admins) →`, emails);
   return [...new Set(emails)];
 }
 
@@ -55,8 +72,9 @@ async function fetchEmailsViaRpc(module: NotificationModule): Promise<string[]> 
 }
 
 /**
- * Destinatários de alerta: somente usuários com
+ * Destinatários de alerta: somente Administradores / Super Admins com
  * E-mail alerta Acolhimento / Vivências = true no banco.
+ * Sempre resolve no servidor (não confia em listas vindas do formulário público).
  */
 export async function fetchNotificationEmails(
   module: NotificationModule,
@@ -65,20 +83,17 @@ export async function fetchNotificationEmails(
     supabaseHost: process.env.SUPABASE_URL?.replace(/^https?:\/\//, "").split("/")[0] ?? "(missing)",
   });
 
-  // 1) Preferência: query direta (mais simples e previsível)
   try {
-    const fromProfiles = await fetchEmailsFromProfiles(module);
-    if (fromProfiles.length > 0) return fromProfiles;
+    return await fetchEmailsFromProfiles(module);
   } catch (err) {
     console.warn(`[notify] Fallback para RPC após falha no select (${module})`, err);
   }
 
-  // 2) Fallback: função SQL
   const fromRpc = await fetchEmailsViaRpc(module);
   if (fromRpc.length > 0) return fromRpc;
 
   console.warn(
-    `[notify] Nenhum destinatário para ${module}. Confira profiles.receive_${module}_emails = true.`,
+    `[notify] Nenhum destinatário para ${module}. Confira profiles.receive_${module}_emails = true em um admin.`,
   );
   return [];
 }

@@ -111,14 +111,16 @@ function UsuariosConfig() {
 
       const roleUnchanged = previousRole === newRole && previousStatus === "aprovado" && approve;
 
-      const { error: profileErr } = await supabase
+      const { data: updatedProfile, error: profileErr } = await supabase
         .from("profiles")
         .update({
           account_status: approve ? "aprovado" : "rejeitado",
           receive_acolhimento_emails: approve ? receiveAcolhimento : false,
           receive_vivencias_emails: approve ? receiveVivencias : false,
         })
-        .eq("id", userId);
+        .eq("id", userId)
+        .select("id, receive_acolhimento_emails, receive_vivencias_emails")
+        .maybeSingle();
       if (profileErr) {
         if (
           profileErr.message.includes("receive_acolhimento_emails") ||
@@ -130,6 +132,11 @@ function UsuariosConfig() {
           );
         }
         throw profileErr;
+      }
+      if (!updatedProfile) {
+        throw new Error(
+          "Não foi possível salvar as preferências de e-mail (sem permissão ou usuário inexistente).",
+        );
       }
 
       if (isSelf || roleUnchanged) {
@@ -414,7 +421,14 @@ function UsuariosConfig() {
                 <Label>Permissão</Label>
                 <Select
                   value={role}
-                  onValueChange={(v) => setRole(v as AppRole)}
+                  onValueChange={(v) => {
+                    const next = v as AppRole;
+                    setRole(next);
+                    if (next === "profissional") {
+                      setReceiveAcolhimentoEmails(false);
+                      setReceiveVivenciasEmails(false);
+                    }
+                  }}
                   disabled={roleLocked}
                 >
                   <SelectTrigger>
@@ -455,65 +469,71 @@ function UsuariosConfig() {
                 </div>
               )}
 
-              <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                <div className="space-y-1">
-                  <Label htmlFor="receive-acolhimento-emails" className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5" />
-                    E-mail alerta Acolhimento
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Recebe alerta quando houver nova solicitação de Acolhimento.
-                  </p>
-                </div>
-                <Switch
-                  id="receive-acolhimento-emails"
-                  checked={receiveAcolhimentoEmails}
-                  onCheckedChange={setReceiveAcolhimentoEmails}
-                  disabled={!editing.email || (!canManageTarget && !isSelf)}
-                />
-              </div>
+              {(role === "admin" || role === "super_admin") && (
+                <>
+                  <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="receive-acolhimento-emails" className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5" />
+                        E-mail alerta Acolhimento
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Recebe alerta quando houver nova solicitação de Acolhimento.
+                      </p>
+                    </div>
+                    <Switch
+                      id="receive-acolhimento-emails"
+                      checked={receiveAcolhimentoEmails}
+                      onCheckedChange={setReceiveAcolhimentoEmails}
+                      disabled={!editing.email || (!canManageTarget && !isSelf)}
+                    />
+                  </div>
 
-              <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                <div className="space-y-1">
-                  <Label htmlFor="receive-vivencias-emails" className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5" />
-                    E-mail alerta Vivências
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Recebe alerta quando houver nova solicitação de Vivências / palestras.
-                  </p>
-                </div>
-                <Switch
-                  id="receive-vivencias-emails"
-                  checked={receiveVivenciasEmails}
-                  onCheckedChange={setReceiveVivenciasEmails}
-                  disabled={!editing.email || (!canManageTarget && !isSelf)}
-                />
-              </div>
-              {!editing.email && (
-                <p className="text-xs text-amber-700">
-                  Este usuário não tem e-mail cadastrado — não é possível ativar a notificação.
-                </p>
+                  <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="receive-vivencias-emails" className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5" />
+                        E-mail alerta Vivências
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Recebe alerta quando houver nova solicitação de Vivências / palestras.
+                      </p>
+                    </div>
+                    <Switch
+                      id="receive-vivencias-emails"
+                      checked={receiveVivenciasEmails}
+                      onCheckedChange={setReceiveVivenciasEmails}
+                      disabled={!editing.email || (!canManageTarget && !isSelf)}
+                    />
+                  </div>
+                  {!editing.email && (
+                    <p className="text-xs text-amber-700">
+                      Este usuário não tem e-mail cadastrado — não é possível ativar a notificação.
+                    </p>
+                  )}
+                </>
               )}
 
               <div className="flex flex-col gap-2 pt-2 sm:flex-row">
                 <Button
                   className="flex-1"
-                  onClick={() =>
+                  onClick={() => {
+                    const effectiveRole = roleLocked ? (editing.roles[0] ?? role) : role;
+                    const isAdminRole = effectiveRole === "admin" || effectiveRole === "super_admin";
                     saveMut.mutate({
                       userId: editing.id,
-                      newRole: roleLocked ? (editing.roles[0] ?? role) : role,
+                      newRole: effectiveRole,
                       proId:
-                        (roleLocked ? (editing.roles[0] ?? role) : role) === "profissional"
+                        effectiveRole === "profissional"
                           ? professionalId || editing.professional?.id || null
                           : null,
                       approve: true,
-                      receiveAcolhimento: receiveAcolhimentoEmails,
-                      receiveVivencias: receiveVivenciasEmails,
+                      receiveAcolhimento: isAdminRole ? receiveAcolhimentoEmails : false,
+                      receiveVivencias: isAdminRole ? receiveVivenciasEmails : false,
                       previousRole: editing.roles[0] ?? null,
                       previousStatus: editing.account_status,
-                    })
-                  }
+                    });
+                  }}
                   disabled={saveMut.isPending || (!canManageTarget && !isSelf)}
                 >
                   <UserCheck className="mr-2 h-4 w-4" />

@@ -20,12 +20,18 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeaderProvider, usePageHeaderContext } from "@/components/layout/page-header-context";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { isVivenciasModuleActive } from "@/lib/active-module";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   to: string;
@@ -395,60 +401,49 @@ function AppShellLayout({ children }: { children: ReactNode }) {
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationBell />
 
-            <div className="flex items-center gap-2 rounded-2xl border border-white/60 bg-white/75 py-1.5 pl-1.5 pr-2 shadow-sm backdrop-blur-sm sm:gap-3 sm:pr-3">
-              <div
-                className={cn(
-                  "grid h-9 w-9 place-items-center rounded-full text-xs font-bold text-white",
-                  isVivencias
-                    ? "bg-gradient-to-br from-emerald-500 to-teal-700"
-                    : "bg-gradient-to-br from-[#0F52BA] to-[#7B2CBF]",
-                )}
-              >
-                {userInitials}
-              </div>
-              <div className="hidden min-w-0 md:block">
-                <div className="truncate text-sm font-semibold text-[#0F172A]">{userName}</div>
-                <div className="text-[11px] text-[#64748B]">
-                  {isAdmin ? (isSuperAdmin ? "Super Admin" : "Coordenador") : "Profissional"}
-                </div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => {
-                  setMustChangePassword(false);
-                  setChangePasswordOpen(true);
-                }}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "h-9 shrink-0 gap-1.5 rounded-xl px-2.5 sm:px-3",
-                  isVivencias
-                    ? "text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-900"
-                    : "text-[#0F52BA] hover:bg-[#0F52BA]/10 hover:text-[#0A3D8C]",
-                )}
-                aria-label="Alterar senha"
-                title="Alterar senha"
-              >
-                <KeyRound className="h-4 w-4" />
-                <span className="hidden lg:inline">Senha</span>
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSignOut}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "h-9 shrink-0 gap-1.5 rounded-xl px-2.5 sm:px-3",
-                  isVivencias
-                    ? "text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-900"
-                    : "text-[#0F52BA] hover:bg-[#0F52BA]/10 hover:text-[#0A3D8C]",
-                )}
-                aria-label="Sair"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-2xl border border-white/60 bg-white/75 py-1.5 pl-1.5 pr-2 shadow-sm backdrop-blur-sm outline-none transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-[#0F52BA]/30 sm:gap-3 sm:pr-3"
+                  aria-label="Menu da conta"
+                >
+                  <div
+                    className={cn(
+                      "grid h-9 w-9 place-items-center rounded-full text-xs font-bold text-white",
+                      isVivencias
+                        ? "bg-gradient-to-br from-emerald-500 to-teal-700"
+                        : "bg-gradient-to-br from-[#0F52BA] to-[#7B2CBF]",
+                    )}
+                  >
+                    {userInitials}
+                  </div>
+                  <div className="hidden min-w-0 text-left md:block">
+                    <div className="truncate text-sm font-semibold text-[#0F172A]">{userName}</div>
+                    <div className="text-[11px] text-[#64748B]">
+                      {isAdmin ? (isSuperAdmin ? "Super Admin" : "Coordenador") : "Profissional"}
+                    </div>
+                  </div>
+                  <ChevronDown className="hidden h-4 w-4 shrink-0 text-[#64748B] sm:block" aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[11rem]">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setMustChangePassword(false);
+                    setChangePasswordOpen(true);
+                  }}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Trocar senha
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void handleSignOut()}>
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

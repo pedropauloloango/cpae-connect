@@ -93,7 +93,9 @@ BEGIN
   SELECT COALESCE(array_agg(DISTINCT lower(trim(p.email))), ARRAY[]::TEXT[])
   INTO v_alerts
   FROM public.profiles p
+  INNER JOIN public.user_roles ur ON ur.user_id = p.id
   WHERE p.receive_acolhimento_emails IS TRUE
+    AND ur.role IN ('admin'::public.app_role, 'super_admin'::public.app_role)
     AND p.email IS NOT NULL
     AND length(trim(p.email)) > 3
     AND coalesce(p.account_status::text, 'aprovado') <> 'rejeitado';
@@ -215,7 +217,9 @@ BEGIN
   SELECT COALESCE(array_agg(DISTINCT lower(trim(p.email))), ARRAY[]::TEXT[])
   INTO v_alerts
   FROM public.profiles p
+  INNER JOIN public.user_roles ur ON ur.user_id = p.id
   WHERE p.receive_vivencias_emails IS TRUE
+    AND ur.role IN ('admin'::public.app_role, 'super_admin'::public.app_role)
     AND p.email IS NOT NULL
     AND length(trim(p.email)) > 3
     AND coalesce(p.account_status::text, 'aprovado') <> 'rejeitado';

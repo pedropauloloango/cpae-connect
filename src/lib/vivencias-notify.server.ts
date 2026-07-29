@@ -27,18 +27,11 @@ export async function sendVivenciaCreatedEmails(
   }
 
   const { appUrl } = getEmailConfig();
-  const fromSubmit = (data.alertEmails ?? [])
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const fromDb = fromSubmit.length > 0 ? [] : await fetchNotificationEmails("vivencias");
-  const notifyEmails = [...new Set(fromSubmit.length > 0 ? fromSubmit : fromDb)];
+  // Sempre resolve no banco (flag atual). Não usa alertEmails do formulário público.
+  const notifyEmails = await fetchNotificationEmails("vivencias");
   result.adminRecipients = notifyEmails;
 
-  console.info("[vivencias-notify] alert recipients", {
-    fromSubmit,
-    fromDb,
-    notifyEmails,
-  });
+  console.info("[vivencias-notify] alert recipients", { notifyEmails });
 
   const adminContent = buildAdminVivenciaEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteVivenciaEmail(data, appUrl);
@@ -60,7 +53,7 @@ export async function sendVivenciaCreatedEmails(
 
   if (notifyEmails.length === 0) {
     const msg =
-      "[vivencias-notify] Nenhum destinatário com alerta Vivências ativo (profile/RPC/env).";
+      "[vivencias-notify] Nenhum destinatário com alerta Vivências ativo.";
     console.warn(msg);
     result.errors.push(msg);
   }

@@ -34,19 +34,11 @@ export async function sendAcolhimentoCreatedEmails(
   }
 
   const { appUrl } = getEmailConfig();
-  // Preferência: e-mails já resolvidos no RPC do submit (mesmo banco / SECURITY DEFINER)
-  const fromSubmit = (data.alertEmails ?? [])
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const fromDb = fromSubmit.length > 0 ? [] : await fetchNotificationEmails("acolhimento");
-  const notifyEmails = [...new Set(fromSubmit.length > 0 ? fromSubmit : fromDb)];
+  // Sempre resolve no banco (flag atual). Não usa alertEmails do formulário público.
+  const notifyEmails = await fetchNotificationEmails("acolhimento");
   result.adminRecipients = notifyEmails;
 
-  console.info("[acolhimento-notify] alert recipients", {
-    fromSubmit,
-    fromDb,
-    notifyEmails,
-  });
+  console.info("[acolhimento-notify] alert recipients", { notifyEmails });
 
   const adminContent = buildAdminAcolhimentoEmail(data, appUrl);
   const solicitanteContent = buildSolicitanteAcolhimentoEmail(data, appUrl);
@@ -68,7 +60,7 @@ export async function sendAcolhimentoCreatedEmails(
 
   if (notifyEmails.length === 0) {
     const msg =
-      "[acolhimento-notify] Nenhum destinatário com alerta Acolhimento ativo (profile/RPC/env).";
+      "[acolhimento-notify] Nenhum destinatário com alerta Acolhimento ativo.";
     console.warn(msg);
     result.errors.push(msg);
   }
