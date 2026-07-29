@@ -317,17 +317,38 @@ export function EncerramentoTab({
       });
 
       if (decision === "aprovado") {
-        await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
+        const { data: updatedReq, error: reqErr } = await supabase
+          .from("requests")
+          .update({ status: "concluida" })
+          .eq("id", requestId)
+          .select("id, status")
+          .maybeSingle();
+        if (reqErr) throw reqErr;
+        if (!updatedReq || updatedReq.status !== "concluida") {
+          throw new Error(
+            "Relatório aprovado, mas o status da demanda não foi atualizado para Concluída. Tente novamente.",
+          );
+        }
       } else {
-        await supabase.from("requests").update({ status: "em_ajuste" }).eq("id", requestId);
+        const { data: updatedReq, error: reqErr } = await supabase
+          .from("requests")
+          .update({ status: "em_ajuste" })
+          .eq("id", requestId)
+          .select("id, status")
+          .maybeSingle();
+        if (reqErr) throw reqErr;
+        if (!updatedReq) {
+          throw new Error("Não foi possível atualizar o status da demanda.");
+        }
       }
 
-      await supabase.from("activity_logs").insert({
+      const { error: logErr } = await supabase.from("activity_logs").insert({
         request_id: requestId,
         actor_id: user?.id,
         action: `aprovacao_relatorio_${decision}`,
         details: { closure_id: closureId, comentario },
       });
+      if (logErr) console.warn("[encerramento] log de aprovação falhou:", logErr.message);
     },
     onSuccess: () => {
       toast.success("Decisão registrada.");
@@ -335,6 +356,34 @@ export function EncerramentoTab({
     },
     onError: (e: Error) => toast.error("Erro", { description: e.message }),
   });
+
+  const syncConcluidaMut = useMutation({
+    mutationFn: async () => {
+      const { data: updatedReq, error: reqErr } = await supabase
+        .from("requests")
+        .update({ status: "concluida" })
+        .eq("id", requestId)
+        .select("id, status")
+        .maybeSingle();
+      if (reqErr) throw reqErr;
+      if (!updatedReq || updatedReq.status !== "concluida") {
+        throw new Error("Não foi possível marcar a demanda como Concluída.");
+      }
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: "status_sincronizado_concluida",
+        details: { reason: "closure_aprovado_sem_request_concluida", closure_id: closure?.id },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Demanda marcada como Concluída.");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error("Erro", { description: e.message }),
+  });
+
+  const needsStatusSync = isAdmin && closure?.status === "aprovado" && !isConcluida;
 
   const showCreateButton = !isAdmin && registeredMeetings.length > 0 && canEditClosure && !closure;
   const showProfessionalClosureActions =
@@ -518,12 +567,33 @@ export function EncerramentoTab({
     return (
       <div className="space-y-4">
         {encerramentoHeader}
+        {needsStatusSync && (
+          <Card className="border-warning/40 bg-warning/10">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm">
+                <p className="font-medium text-warning-foreground">Relatório aprovado, mas a demanda ainda está Em andamento.</p>
+                <p className="text-muted-foreground">
+                  Clique para sincronizar o status para Concluída.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="shrink-0"
+                onClick={() => syncConcluidaMut.mutate()}
+                disabled={syncConcluidaMut.isPending}
+              >
+                <Check className="mr-1.5 h-4 w-4" />
+                Marcar como Concluída
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         <CollapsibleRecordCard
           className="border-l-4 border-l-success"
           title={
             <span className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success" />
-              Caso encerrado
+              {isConcluida ? "Caso encerrado" : "Relatório aprovado"}
             </span>
           }
         >

@@ -54,16 +54,37 @@ function Aprovacoes() {
         comentario,
       });
       if (decision === "aprovado") {
-        await supabase.from("requests").update({ status: "concluida" }).eq("id", requestId);
+        const { data: updatedReq, error: reqErr } = await supabase
+          .from("requests")
+          .update({ status: "concluida" })
+          .eq("id", requestId)
+          .select("id, status")
+          .maybeSingle();
+        if (reqErr) throw reqErr;
+        if (!updatedReq || updatedReq.status !== "concluida") {
+          throw new Error(
+            "Relatório aprovado, mas o status da demanda não foi atualizado para Concluída. Tente novamente.",
+          );
+        }
       } else {
-        await supabase.from("requests").update({ status: "em_ajuste" }).eq("id", requestId);
+        const { data: updatedReq, error: reqErr } = await supabase
+          .from("requests")
+          .update({ status: "em_ajuste" })
+          .eq("id", requestId)
+          .select("id, status")
+          .maybeSingle();
+        if (reqErr) throw reqErr;
+        if (!updatedReq) {
+          throw new Error("Não foi possível atualizar o status da demanda.");
+        }
       }
-      await supabase.from("activity_logs").insert({
+      const { error: logErr } = await supabase.from("activity_logs").insert({
         request_id: requestId,
         actor_id: user?.id,
         action: `aprovacao_relatorio_${decision}`,
         details: { closure_id: closureId, comentario },
       });
+      if (logErr) console.warn("[aprovacoes] log falhou:", logErr.message);
     },
     onSuccess: () => {
       toast.success("Decisão registrada");
