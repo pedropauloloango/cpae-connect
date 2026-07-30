@@ -1,17 +1,5 @@
--- Horários de início (vivência por turma + palestra) e RPC de submit.
--- Execute no SQL Editor do Supabase.
-
-ALTER TABLE public.vivencia_request_groups
-  ADD COLUMN IF NOT EXISTS hora_inicio TIME;
-
-COMMENT ON COLUMN public.vivencia_request_groups.hora_inicio IS
-  'Horário de início preferível (HH:MM). Na agenda, o fim é sempre início + 1 hora.';
-
-ALTER TABLE public.vivencia_requests
-  ADD COLUMN IF NOT EXISTS hora_inicio_palestra TIME;
-
-COMMENT ON COLUMN public.vivencia_requests.hora_inicio_palestra IS
-  'Horário de início preferível da palestra (HH:MM). Na agenda, o fim é sempre início + 1 hora.';
+-- Corrige submit_vivencia_request: cast de tipo_escola (erro 42804).
+-- Execute no SQL Editor do Supabase e tente enviar de novo.
 
 DROP FUNCTION IF EXISTS public.submit_vivencia_request(JSONB);
 
@@ -139,14 +127,18 @@ BEGIN
   SELECT COALESCE(array_agg(DISTINCT lower(trim(p.email))), ARRAY[]::TEXT[])
   INTO v_alerts
   FROM public.profiles p
+  INNER JOIN public.user_roles ur ON ur.user_id = p.id
   WHERE p.receive_vivencias_emails IS TRUE
+    AND ur.role::text IN ('admin', 'super_admin')
     AND p.email IS NOT NULL
     AND length(trim(p.email)) > 3
     AND coalesce(p.account_status::text, 'aprovado') <> 'rejeitado';
 
-  RETURN QUERY SELECT v_id, v_numero, v_alerts;
+  RETURN QUERY SELECT v_id, v_numero, COALESCE(v_alerts, ARRAY[]::TEXT[]);
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.submit_vivencia_request(JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.submit_vivencia_request(JSONB) TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';

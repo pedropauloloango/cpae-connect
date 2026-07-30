@@ -67,7 +67,7 @@ BEGIN
   ) VALUES (
     v_school_id,
     NULLIF(trim(payload->>'school_nome'), ''),
-    NULLIF(trim(payload->>'tipo_escola'), ''),
+    NULLIF(trim(payload->>'tipo_escola'), '')::public.school_tipo,
     NULLIF(trim(payload->>'regiao_escola'), ''),
     NULLIF(trim(payload->>'solicitante_email'), ''),
     NULLIF(trim(payload->>'solicitante_nome'), ''),

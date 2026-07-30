@@ -41,10 +41,13 @@ function normalizePersonName(value: string): string {
 
 function mapSubmitError(error: { message?: string; code?: string }): string {
   const msg = error.message ?? "";
-  if (msg.includes("column") || error.code === "PGRST204") {
+  if (error.code === "42804" || msg.includes("school_tipo") || msg.includes("expression is of type text")) {
+    return "Função de envio desatualizada. Execute scripts/fix-submit-vivencia-tipo-escola.sql no Supabase.";
+  }
+  if (error.code === "PGRST204" || (msg.includes("column") && msg.includes("does not exist"))) {
     return "Banco de dados desatualizado. Execute scripts/fix-vivencias-module.sql no Supabase.";
   }
-  if (error.code === "PGRST202" || msg.includes("submit_vivencia_request")) {
+  if (error.code === "PGRST202" || msg.includes("Could not find the function")) {
     return "Função de envio não configurada. Execute scripts/fix-vivencias-module.sql no Supabase.";
   }
   if (msg.includes("row-level security") || error.code === "42501") {
