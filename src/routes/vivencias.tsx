@@ -35,19 +35,16 @@ import { VivenciaDatePicker } from "@/components/vivencias/VivenciaDatePicker";
 import { VisitStartTimeSelect } from "@/components/vivencias/VisitStartTimeSelect";
 import type { PublicSchoolOption } from "@/lib/public-schools";
 import {
-  alunoSerieOptions,
-  alunoTurmaOptions,
   normalizeRegiaoFromSchool,
   periodoOptions,
   regiaoEscolaLabel,
   regiaoEscolaOptions,
   solicitanteCargoOptions,
   solicitanteCargoValues,
-  type AlunoSerie,
-  type AlunoTurma,
   type PeriodoEscolar,
   type SolicitanteCargo,
 } from "@/lib/acolhimento-options";
+import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
 import {
   palestraTemaOptions,
   vivenciaTemaOptions,
@@ -181,8 +178,8 @@ const checkboxOptionLabel =
 
 function emptyGroup() {
   return {
-    aluno_serie: undefined as unknown as AlunoSerie,
-    aluno_turma: undefined as unknown as AlunoTurma,
+    aluno_serie: undefined as unknown as string,
+    aluno_turma: undefined as unknown as string,
     periodo: undefined as unknown as PeriodoEscolar,
     temas: [] as string[],
     data_vivencia: "",
@@ -353,6 +350,18 @@ function VivenciasPublico() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: serieOptions = [] } = useQuery({
+    queryKey: ["catalog-series"],
+    queryFn: fetchActiveSeries,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: turmaOptions = [] } = useQuery({
+    queryKey: ["catalog-turmas"],
+    queryFn: fetchActiveTurmas,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -400,8 +409,8 @@ function VivenciasPublico() {
         solicitante_cargo: values.solicitante_cargo as SolicitanteCargo,
         solicitante_telefone: values.solicitante_telefone,
         groups: completeGroups.map((g) => ({
-          aluno_serie: g.aluno_serie as AlunoSerie,
-          aluno_turma: g.aluno_turma as AlunoTurma,
+          aluno_serie: g.aluno_serie as string,
+          aluno_turma: g.aluno_turma as string,
           periodo: g.periodo as PeriodoEscolar,
           temas: g.temas as VivenciaTema[],
           data_vivencia: g.data_vivencia || null,
@@ -410,6 +419,8 @@ function VivenciasPublico() {
         palestra_tema: (values.palestra_tema || null) as PalestraTema | null,
         data_preferivel_palestra: values.data_preferivel_palestra || null,
         hora_inicio_palestra: values.hora_inicio_palestra || null,
+        serieLabels: labelsMap(serieOptions),
+        turmaLabels: labelsMap(turmaOptions),
       });
     },
     onSuccess: (data) => {
@@ -634,7 +645,7 @@ function VivenciasPublico() {
                                 <SelectValue placeholder="Selecione a série" />
                               </SelectTrigger>
                               <SelectContent>
-                                {alunoSerieOptions.map((o) => (
+                                {serieOptions.map((o) => (
                                   <SelectItem key={o.value} value={o.value}>
                                     {o.label}
                                   </SelectItem>
@@ -655,7 +666,7 @@ function VivenciasPublico() {
                                 <SelectValue placeholder="Selecione a turma" />
                               </SelectTrigger>
                               <SelectContent>
-                                {alunoTurmaOptions.map((o) => (
+                                {turmaOptions.map((o) => (
                                   <SelectItem key={o.value} value={o.value}>
                                     {o.label}
                                   </SelectItem>

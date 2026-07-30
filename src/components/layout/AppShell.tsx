@@ -17,6 +17,7 @@ import {
   HeartHandshake,
   ClipboardCheck,
   KeyRound,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,7 +54,6 @@ const ACO_NAV: NavItem[] = [
   { to: "/demandas", label: "Demandas", icon: Inbox },
   { to: "/agenda", label: "Agenda", icon: Calendar },
   { to: "/aprovacoes", label: "Aprovações", icon: CheckSquare, admin: true },
-  { to: "/escolas", label: "Escolas", icon: School, admin: true },
   { to: "/profissionais", label: "Profissionais", icon: Users, admin: true },
 ];
 
@@ -62,11 +62,20 @@ const VIV_NAV: NavItem[] = [
   { to: "/modulo-vivencias/demandas", label: "Demandas", icon: Inbox },
   { to: "/modulo-vivencias/visitas-tecnicas", label: "Visita técnica", icon: ClipboardCheck },
   { to: "/modulo-vivencias/agenda", label: "Agenda", icon: Calendar },
-  { to: "/escolas", label: "Escolas", icon: School, admin: true },
   { to: "/profissionais", label: "Profissionais", icon: Users, admin: true },
 ];
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Escolas",
+    icon: School,
+    admin: true,
+    basePath: "/escolas",
+    children: [
+      { to: "/escolas", label: "Cadastro", icon: School },
+      { to: "/escolas/serie-turma", label: "Série/Turma", icon: Layers },
+    ],
+  },
   {
     label: "Configurações",
     icon: Settings,
@@ -104,7 +113,20 @@ function AppShellLayout({ children }: { children: ReactNode }) {
 
   const items = (isVivencias ? VIV_NAV : ACO_NAV).filter((i) => !i.admin || isAdmin);
   const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
-  const [settingsOpen, setSettingsOpen] = useState(() => pathname.startsWith("/configuracoes"));
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => ({
+    "/configuracoes": pathname.startsWith("/configuracoes"),
+    "/escolas": pathname.startsWith("/escolas"),
+  }));
+
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = { ...prev };
+      for (const group of NAV_GROUPS) {
+        if (pathname.startsWith(group.basePath)) next[group.basePath] = true;
+      }
+      return next;
+    });
+  }, [pathname]);
 
   const showModuleSwitcher = canAccessAcolhimento && canAccessVivencias;
   const homeTo = canAccessAcolhimento
@@ -300,13 +322,18 @@ function AppShellLayout({ children }: { children: ReactNode }) {
 
           {groups.map((group) => {
             const groupActive = pathname.startsWith(group.basePath);
-            const expanded = settingsOpen || groupActive;
+            const expanded = openGroups[group.basePath] ?? groupActive;
 
             return (
               <div key={group.basePath} className="pt-1">
                 <button
                   type="button"
-                  onClick={() => setSettingsOpen((v) => !v)}
+                  onClick={() =>
+                    setOpenGroups((prev) => ({
+                      ...prev,
+                      [group.basePath]: !(prev[group.basePath] ?? groupActive),
+                    }))
+                  }
                   className={cn(linkClass(groupActive), "w-full justify-between")}
                   aria-expanded={expanded}
                 >
@@ -325,7 +352,10 @@ function AppShellLayout({ children }: { children: ReactNode }) {
                 {expanded && (
                   <div className="mt-0.5 space-y-0.5">
                     {group.children.map((child) => {
-                      const active = pathname === child.to || pathname.startsWith(child.to + "/");
+                      const active =
+                        child.to === group.basePath
+                          ? pathname === child.to
+                          : pathname === child.to || pathname.startsWith(child.to + "/");
                       return (
                         <Link
                           key={child.to}

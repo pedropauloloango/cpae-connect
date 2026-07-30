@@ -26,24 +26,19 @@ import {
   periodoOptions,
   regiaoEscolaLabel,
   regiaoEscolaOptions,
-  alunoSerieOptions,
-  alunoSerieValues,
   alunoSexoOptions,
-  alunoTurmaOptions,
-  alunoTurmaValues,
   solicitanteCargoOptions,
   solicitanteCargoValues,
   situacaoObservadaOptions,
-  type AlunoSerie,
   type AlunoSexo,
-  type AlunoTurma,
   type AutorizacaoAta,
   type ComunicouAbuso,
   type ModalidadeAcolhimento,
   type PeriodoEscolar,
-  type SolicitanteCargo,
   type SituacaoObservada,
+  type SolicitanteCargo,
 } from "@/lib/acolhimento-options";
+import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
 
 export const Route = createFileRoute("/acolhimento")({
   head: () => ({
@@ -71,8 +66,8 @@ const schema = z.object({
   aluno_nascimento: z.string().min(1, "Informe a data de nascimento"),
   aluno_sexo: z.enum(["masculino", "feminino", "outro"], { required_error: "Selecione o sexo" }),
   educacao_especial: z.enum(["sim", "nao"], { required_error: "Selecione uma opção" }),
-  aluno_serie: z.enum(alunoSerieValues, { required_error: "Selecione a série" }),
-  aluno_turma: z.enum(alunoTurmaValues, { required_error: "Selecione a turma" }),
+  aluno_serie: z.string().min(1, "Selecione a série"),
+  aluno_turma: z.string().min(1, "Selecione a turma"),
   periodo: z.enum(["matutino", "vespertino", "integral", "noturno"], { required_error: "Selecione o período" }),
   comunicou_abuso: z.array(z.string()).min(1, "Selecione ao menos uma opção"),
   situacao_observada: z.array(z.string()).min(1, "Selecione ao menos uma situação"),
@@ -173,6 +168,18 @@ function AcolhimentoPublico() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: serieOptions = [] } = useQuery({
+    queryKey: ["catalog-series"],
+    queryFn: fetchActiveSeries,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: turmaOptions = [] } = useQuery({
+    queryKey: ["catalog-turmas"],
+    queryFn: fetchActiveTurmas,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -212,13 +219,15 @@ function AcolhimentoPublico() {
         aluno_nascimento: values.aluno_nascimento,
         aluno_sexo: values.aluno_sexo as AlunoSexo,
         educacao_especial: values.educacao_especial,
-        aluno_serie: values.aluno_serie as AlunoSerie,
-        aluno_turma: values.aluno_turma as AlunoTurma,
+        aluno_serie: values.aluno_serie,
+        aluno_turma: values.aluno_turma,
         periodo: values.periodo as PeriodoEscolar,
         comunicou_abuso: values.comunicou_abuso as ComunicouAbuso[],
         situacao_observada: values.situacao_observada as SituacaoObservada[],
         acolhido_anteriormente: values.acolhido_anteriormente,
         autorizacao_ata: values.autorizacao_ata as AutorizacaoAta,
+        serieLabels: labelsMap(serieOptions),
+        turmaLabels: labelsMap(turmaOptions),
       }),
     onSuccess: (data) => {
       setSuccessNumero(data.numero);
@@ -455,7 +464,7 @@ function AcolhimentoPublico() {
                           <SelectValue placeholder="Selecione a série" />
                         </SelectTrigger>
                         <SelectContent>
-                          {alunoSerieOptions.map((o) => (
+                          {serieOptions.map((o) => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
                         </SelectContent>
@@ -474,7 +483,7 @@ function AcolhimentoPublico() {
                           <SelectValue placeholder="Selecione a turma" />
                         </SelectTrigger>
                         <SelectContent>
-                          {alunoTurmaOptions.map((o) => (
+                          {turmaOptions.map((o) => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
                         </SelectContent>

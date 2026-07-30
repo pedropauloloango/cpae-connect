@@ -49,6 +49,10 @@ export const vivenciaTemaOptions = [
     value: "doce_encanto",
     label: "Projeto: Doce Encanto (Grupos e 1º ano)",
   },
+  {
+    value: "projeto_joaninha",
+    label: "Projeto Joaninha",
+  },
 ] as const;
 
 export const palestraTemaOptions = [

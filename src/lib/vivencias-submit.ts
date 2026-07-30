@@ -2,9 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import {
   alunoSerieLabels,
+  alunoTurmaLabels,
   solicitanteCargoLabels,
-  type AlunoSerie,
-  type AlunoTurma,
   type PeriodoEscolar,
   type SolicitanteCargo,
 } from "./acolhimento-options";
@@ -12,8 +11,8 @@ import type { PalestraTema, VivenciaTema } from "./vivencias-options";
 import { notifyVivenciaCreated } from "./vivencias-notify.functions";
 
 export type VivenciaGroupSubmission = {
-  aluno_serie: AlunoSerie;
-  aluno_turma: AlunoTurma;
+  aluno_serie: string;
+  aluno_turma: string;
   periodo: PeriodoEscolar;
   temas: VivenciaTema[];
   data_vivencia?: string | null;
@@ -33,6 +32,8 @@ export type VivenciaSubmission = {
   palestra_tema?: PalestraTema | null;
   data_preferivel_palestra?: string | null;
   hora_inicio_palestra?: string | null;
+  serieLabels?: Record<string, string>;
+  turmaLabels?: Record<string, string>;
 };
 
 function normalizePersonName(value: string): string {
@@ -62,10 +63,13 @@ export async function submitVivenciaRequest(
   const solicitanteNome = normalizePersonName(data.solicitante_nome);
 
   const groups = data.groups.map((g) => {
-    const serieLabel = alunoSerieLabels[g.aluno_serie] ?? g.aluno_serie;
+    const serieLabel =
+      data.serieLabels?.[g.aluno_serie] ?? alunoSerieLabels[g.aluno_serie] ?? g.aluno_serie;
+    const turmaLabel =
+      data.turmaLabels?.[g.aluno_turma] ?? alunoTurmaLabels[g.aluno_turma] ?? g.aluno_turma;
     return {
       aluno_serie: serieLabel,
-      aluno_turma: g.aluno_turma,
+      aluno_turma: turmaLabel,
       periodo: g.periodo,
       temas: g.temas,
       data_preferivel: g.data_vivencia || null,

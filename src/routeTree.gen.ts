@@ -15,20 +15,22 @@ import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedProfissionaisRouteImport } from './routes/_authenticated/profissionais'
-import { Route as AuthenticatedEscolasRouteImport } from './routes/_authenticated/escolas'
 import { Route as AuthenticatedDemandasRouteImport } from './routes/_authenticated/demandas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authenticated/aprovacoes'
 import { Route as AuthenticatedAguardandoAprovacaoRouteImport } from './routes/_authenticated/aguardando-aprovacao'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/_authenticated/modulo-vivencias/route'
+import { Route as AuthenticatedEscolasRouteRouteImport } from './routes/_authenticated/escolas/route'
 import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
 import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
+import { Route as AuthenticatedEscolasIndexRouteImport } from './routes/_authenticated/escolas/index'
 import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
 import { Route as AuthenticatedModuloVivenciasVisitasTecnicasRouteImport } from './routes/_authenticated/modulo-vivencias/visitas-tecnicas'
 import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
 import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
 import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
+import { Route as AuthenticatedEscolasSerieTurmaRouteImport } from './routes/_authenticated/escolas/serie-turma'
 import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 import { Route as AuthenticatedConfiguracoesUsuariosRouteImport } from './routes/_authenticated/configuracoes/usuarios'
 import { Route as AuthenticatedModuloVivenciasDemandasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.index'
@@ -64,11 +66,6 @@ const AuthenticatedProfissionaisRoute =
     path: '/profissionais',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedEscolasRoute = AuthenticatedEscolasRouteImport.update({
-  id: '/escolas',
-  path: '/escolas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDemandasRoute = AuthenticatedDemandasRouteImport.update({
   id: '/demandas',
   path: '/demandas',
@@ -101,6 +98,12 @@ const AuthenticatedModuloVivenciasRouteRoute =
     path: '/modulo-vivencias',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEscolasRouteRoute =
+  AuthenticatedEscolasRouteRouteImport.update({
+    id: '/escolas',
+    path: '/escolas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConfiguracoesRouteRoute =
   AuthenticatedConfiguracoesRouteRouteImport.update({
     id: '/configuracoes',
@@ -112,6 +115,12 @@ const AuthenticatedModuloVivenciasIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedEscolasIndexRoute =
+  AuthenticatedEscolasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedEscolasRouteRoute,
   } as any)
 const AuthenticatedDemandasIndexRoute =
   AuthenticatedDemandasIndexRouteImport.update({
@@ -143,6 +152,12 @@ const AuthenticatedModuloVivenciasAgendaRoute =
     path: '/agenda',
     getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
   } as any)
+const AuthenticatedEscolasSerieTurmaRoute =
+  AuthenticatedEscolasSerieTurmaRouteImport.update({
+    id: '/serie-turma',
+    path: '/serie-turma',
+    getParentRoute: () => AuthenticatedEscolasRouteRoute,
+  } as any)
 const AuthenticatedDemandasIdRoute = AuthenticatedDemandasIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -173,21 +188,23 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/vivencias': typeof VivenciasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  '/escolas': typeof AuthenticatedEscolasRouteRouteWithChildren
   '/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
   '/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/demandas': typeof AuthenticatedDemandasRouteWithChildren
-  '/escolas': typeof AuthenticatedEscolasRoute
   '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/demandas/': typeof AuthenticatedDemandasIndexRoute
+  '/escolas/': typeof AuthenticatedEscolasIndexRoute
   '/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
   '/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
@@ -202,14 +219,15 @@ export interface FileRoutesByTo {
   '/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
   '/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/escolas': typeof AuthenticatedEscolasRoute
   '/profissionais': typeof AuthenticatedProfissionaisRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/demandas': typeof AuthenticatedDemandasIndexRoute
+  '/escolas': typeof AuthenticatedEscolasIndexRoute
   '/modulo-vivencias': typeof AuthenticatedModuloVivenciasIndexRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
   '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
@@ -222,21 +240,23 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/vivencias': typeof VivenciasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  '/_authenticated/escolas': typeof AuthenticatedEscolasRouteRouteWithChildren
   '/_authenticated/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
   '/_authenticated/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/demandas': typeof AuthenticatedDemandasRouteWithChildren
-  '/_authenticated/escolas': typeof AuthenticatedEscolasRoute
   '/_authenticated/profissionais': typeof AuthenticatedProfissionaisRoute
   '/_authenticated/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/_authenticated/demandas/$id': typeof AuthenticatedDemandasIdRoute
+  '/_authenticated/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
   '/_authenticated/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/_authenticated/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/_authenticated/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/_authenticated/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
   '/_authenticated/demandas/': typeof AuthenticatedDemandasIndexRoute
+  '/_authenticated/escolas/': typeof AuthenticatedEscolasIndexRoute
   '/_authenticated/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
   '/_authenticated/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
   '/_authenticated/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
@@ -249,21 +269,23 @@ export interface FileRouteTypes {
     | '/auth'
     | '/vivencias'
     | '/configuracoes'
+    | '/escolas'
     | '/modulo-vivencias'
     | '/agenda'
     | '/aguardando-aprovacao'
     | '/aprovacoes'
     | '/dashboard'
     | '/demandas'
-    | '/escolas'
     | '/profissionais'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
+    | '/escolas/serie-turma'
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
     | '/modulo-vivencias/demandas'
     | '/modulo-vivencias/visitas-tecnicas'
     | '/demandas/'
+    | '/escolas/'
     | '/modulo-vivencias/'
     | '/modulo-vivencias/demandas/$id'
     | '/modulo-vivencias/demandas/'
@@ -278,14 +300,15 @@ export interface FileRouteTypes {
     | '/aguardando-aprovacao'
     | '/aprovacoes'
     | '/dashboard'
-    | '/escolas'
     | '/profissionais'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
+    | '/escolas/serie-turma'
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
     | '/modulo-vivencias/visitas-tecnicas'
     | '/demandas'
+    | '/escolas'
     | '/modulo-vivencias'
     | '/modulo-vivencias/demandas/$id'
     | '/modulo-vivencias/demandas'
@@ -297,21 +320,23 @@ export interface FileRouteTypes {
     | '/auth'
     | '/vivencias'
     | '/_authenticated/configuracoes'
+    | '/_authenticated/escolas'
     | '/_authenticated/modulo-vivencias'
     | '/_authenticated/agenda'
     | '/_authenticated/aguardando-aprovacao'
     | '/_authenticated/aprovacoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/demandas'
-    | '/_authenticated/escolas'
     | '/_authenticated/profissionais'
     | '/_authenticated/configuracoes/usuarios'
     | '/_authenticated/demandas/$id'
+    | '/_authenticated/escolas/serie-turma'
     | '/_authenticated/modulo-vivencias/agenda'
     | '/_authenticated/modulo-vivencias/dashboard'
     | '/_authenticated/modulo-vivencias/demandas'
     | '/_authenticated/modulo-vivencias/visitas-tecnicas'
     | '/_authenticated/demandas/'
+    | '/_authenticated/escolas/'
     | '/_authenticated/modulo-vivencias/'
     | '/_authenticated/modulo-vivencias/demandas/$id'
     | '/_authenticated/modulo-vivencias/demandas/'
@@ -369,13 +394,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfissionaisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/escolas': {
-      id: '/_authenticated/escolas'
-      path: '/escolas'
-      fullPath: '/escolas'
-      preLoaderRoute: typeof AuthenticatedEscolasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/demandas': {
       id: '/_authenticated/demandas'
       path: '/demandas'
@@ -418,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloVivenciasRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/escolas': {
+      id: '/_authenticated/escolas'
+      path: '/escolas'
+      fullPath: '/escolas'
+      preLoaderRoute: typeof AuthenticatedEscolasRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
       path: '/configuracoes'
@@ -431,6 +456,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/modulo-vivencias/'
       preLoaderRoute: typeof AuthenticatedModuloVivenciasIndexRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/escolas/': {
+      id: '/_authenticated/escolas/'
+      path: '/'
+      fullPath: '/escolas/'
+      preLoaderRoute: typeof AuthenticatedEscolasIndexRouteImport
+      parentRoute: typeof AuthenticatedEscolasRouteRoute
     }
     '/_authenticated/demandas/': {
       id: '/_authenticated/demandas/'
@@ -466,6 +498,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/modulo-vivencias/agenda'
       preLoaderRoute: typeof AuthenticatedModuloVivenciasAgendaRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/escolas/serie-turma': {
+      id: '/_authenticated/escolas/serie-turma'
+      path: '/serie-turma'
+      fullPath: '/escolas/serie-turma'
+      preLoaderRoute: typeof AuthenticatedEscolasSerieTurmaRouteImport
+      parentRoute: typeof AuthenticatedEscolasRouteRoute
     }
     '/_authenticated/demandas/$id': {
       id: '/_authenticated/demandas/$id'
@@ -511,6 +550,22 @@ const AuthenticatedConfiguracoesRouteRouteChildren: AuthenticatedConfiguracoesRo
 const AuthenticatedConfiguracoesRouteRouteWithChildren =
   AuthenticatedConfiguracoesRouteRoute._addFileChildren(
     AuthenticatedConfiguracoesRouteRouteChildren,
+  )
+
+interface AuthenticatedEscolasRouteRouteChildren {
+  AuthenticatedEscolasSerieTurmaRoute: typeof AuthenticatedEscolasSerieTurmaRoute
+  AuthenticatedEscolasIndexRoute: typeof AuthenticatedEscolasIndexRoute
+}
+
+const AuthenticatedEscolasRouteRouteChildren: AuthenticatedEscolasRouteRouteChildren =
+  {
+    AuthenticatedEscolasSerieTurmaRoute: AuthenticatedEscolasSerieTurmaRoute,
+    AuthenticatedEscolasIndexRoute: AuthenticatedEscolasIndexRoute,
+  }
+
+const AuthenticatedEscolasRouteRouteWithChildren =
+  AuthenticatedEscolasRouteRoute._addFileChildren(
+    AuthenticatedEscolasRouteRouteChildren,
   )
 
 interface AuthenticatedModuloVivenciasDemandasRouteChildren {
@@ -575,19 +630,20 @@ const AuthenticatedDemandasRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRouteRoute: typeof AuthenticatedConfiguracoesRouteRouteWithChildren
+  AuthenticatedEscolasRouteRoute: typeof AuthenticatedEscolasRouteRouteWithChildren
   AuthenticatedModuloVivenciasRouteRoute: typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAguardandoAprovacaoRoute: typeof AuthenticatedAguardandoAprovacaoRoute
   AuthenticatedAprovacoesRoute: typeof AuthenticatedAprovacoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDemandasRoute: typeof AuthenticatedDemandasRouteWithChildren
-  AuthenticatedEscolasRoute: typeof AuthenticatedEscolasRoute
   AuthenticatedProfissionaisRoute: typeof AuthenticatedProfissionaisRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRouteRoute:
     AuthenticatedConfiguracoesRouteRouteWithChildren,
+  AuthenticatedEscolasRouteRoute: AuthenticatedEscolasRouteRouteWithChildren,
   AuthenticatedModuloVivenciasRouteRoute:
     AuthenticatedModuloVivenciasRouteRouteWithChildren,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
@@ -595,7 +651,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAprovacoesRoute: AuthenticatedAprovacoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDemandasRoute: AuthenticatedDemandasRouteWithChildren,
-  AuthenticatedEscolasRoute: AuthenticatedEscolasRoute,
   AuthenticatedProfissionaisRoute: AuthenticatedProfissionaisRoute,
 }
 

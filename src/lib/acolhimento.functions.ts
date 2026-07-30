@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { deriveTipoQueixa, alunoSerieLabels, alunoSerieValues, alunoTurmaValues, solicitanteCargoLabels, solicitanteCargoValues } from "./acolhimento-options";
+import { deriveTipoQueixa, solicitanteCargoLabels, solicitanteCargoValues } from "./acolhimento-options";
 import { sendAcolhimentoCreatedEmails } from "./acolhimento-notify.server";
 import { normalizeAcolhimentoPersonName } from "./acolhimento-submit";
 import type { Database } from "@/integrations/supabase/types";
@@ -21,8 +21,8 @@ const submissionSchema = z.object({
   aluno_nascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data de nascimento"),
   aluno_sexo: z.enum(["masculino", "feminino", "outro"]),
   educacao_especial: z.enum(["sim", "nao"]),
-  aluno_serie: z.enum(alunoSerieValues),
-  aluno_turma: z.enum(alunoTurmaValues),
+  aluno_serie: z.string().min(1),
+  aluno_turma: z.string().min(1),
   periodo: z.enum(["matutino", "vespertino", "integral", "noturno"]),
   comunicou_abuso: z
     .array(z.enum(["conselho_tutelar", "orgao_semed", "nao_se_aplica", "outra_rede", "outro"]))
@@ -32,6 +32,8 @@ const submissionSchema = z.object({
     .min(1, "Selecione ao menos uma situação"),
   acolhido_anteriormente: z.enum(["sim", "nao"]),
   autorizacao_ata: z.enum(["ja_temos", "ainda_nao"]),
+  serieLabels: z.record(z.string()).optional(),
+  turmaLabels: z.record(z.string()).optional(),
 });
 
 export const submitAcolhimento = createServerFn({ method: "POST" })
@@ -45,8 +47,9 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
     const solicitanteNome = normalizeAcolhimentoPersonName(data.solicitante_nome);
     const alunoNome = normalizeAcolhimentoPersonName(data.aluno_nome);
     const nomeCargo = `${solicitanteNome} — ${cargoLabel}`;
-    const serieLabel = alunoSerieLabels[data.aluno_serie] ?? `${data.aluno_serie}º ano`;
-    const turmaAno = `${serieLabel} ${data.aluno_turma}`;
+    const serieLabel = data.serieLabels?.[data.aluno_serie] ?? data.aluno_serie;
+    const turmaLabel = data.turmaLabels?.[data.aluno_turma] ?? data.aluno_turma;
+    const turmaAno = `${serieLabel} ${turmaLabel}`;
 
     const { data: req, error } = await supabaseAdmin
       .from("requests")
@@ -66,7 +69,7 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
         aluno_sexo: data.aluno_sexo,
         educacao_especial: data.educacao_especial === "sim",
         aluno_serie: serieLabel,
-        aluno_turma: data.aluno_turma,
+        aluno_turma: turmaLabel,
         aluno_turma_ano: turmaAno,
         periodo: data.periodo,
         comunicou_abuso: data.comunicou_abuso,
@@ -109,7 +112,7 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
         aluno_sexo: data.aluno_sexo,
         educacao_especial: data.educacao_especial === "sim",
         aluno_serie: serieLabel,
-        aluno_turma: data.aluno_turma,
+        aluno_turma: turmaLabel,
         aluno_turma_ano: turmaAno,
         periodo: data.periodo,
         comunicou_abuso: data.comunicou_abuso,

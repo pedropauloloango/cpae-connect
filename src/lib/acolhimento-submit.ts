@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
   alunoSerieLabels,
+  alunoTurmaLabels,
   deriveTipoQueixa,
   solicitanteCargoLabels,
   type AutorizacaoAta,
@@ -10,9 +11,7 @@ import {
   type PeriodoEscolar,
   type SituacaoObservada,
   type SolicitanteCargo,
-  type AlunoSerie,
   type AlunoSexo,
-  type AlunoTurma,
 } from "./acolhimento-options";
 import { notifyAcolhimentoCreated } from "./acolhimento-notify.functions";
 
@@ -36,13 +35,15 @@ export type AcolhimentoSubmission = {
   aluno_nascimento: string;
   aluno_sexo: AlunoSexo;
   educacao_especial: "sim" | "nao";
-  aluno_serie: AlunoSerie;
-  aluno_turma: AlunoTurma;
+  aluno_serie: string;
+  aluno_turma: string;
   periodo: PeriodoEscolar;
   comunicou_abuso: ComunicouAbuso[];
   situacao_observada: SituacaoObservada[];
   acolhido_anteriormente: "sim" | "nao";
   autorizacao_ata: AutorizacaoAta;
+  serieLabels?: Record<string, string>;
+  turmaLabels?: Record<string, string>;
 };
 
 function mapSubmitError(error: { message?: string; code?: string; hint?: string }): string {
@@ -68,8 +69,15 @@ export async function submitAcolhimentoRequest(
   const solicitanteNome = normalizeAcolhimentoPersonName(data.solicitante_nome);
   const alunoNome = normalizeAcolhimentoPersonName(data.aluno_nome);
   const nomeCargo = `${solicitanteNome} — ${cargoLabel}`;
-  const serieLabel = alunoSerieLabels[data.aluno_serie] ?? `${data.aluno_serie}º ano`;
-  const turmaAno = `${serieLabel} ${data.aluno_turma}`;
+  const serieLabel =
+    data.serieLabels?.[data.aluno_serie] ??
+    alunoSerieLabels[data.aluno_serie] ??
+    data.aluno_serie;
+  const turmaLabel =
+    data.turmaLabels?.[data.aluno_turma] ??
+    alunoTurmaLabels[data.aluno_turma] ??
+    data.aluno_turma;
+  const turmaAno = `${serieLabel} ${turmaLabel}`;
 
   const payload: Json = {
     school_id: data.school_id,
@@ -87,7 +95,7 @@ export async function submitAcolhimentoRequest(
     aluno_sexo: data.aluno_sexo,
     educacao_especial: data.educacao_especial === "sim",
     aluno_serie: serieLabel,
-    aluno_turma: data.aluno_turma,
+    aluno_turma: turmaLabel,
     aluno_turma_ano: turmaAno,
     periodo: data.periodo,
     comunicou_abuso: data.comunicou_abuso,
@@ -132,7 +140,7 @@ export async function submitAcolhimentoRequest(
       aluno_sexo: data.aluno_sexo,
       educacao_especial: data.educacao_especial === "sim",
       aluno_serie: serieLabel,
-      aluno_turma: data.aluno_turma,
+      aluno_turma: turmaLabel,
       aluno_turma_ano: turmaAno,
       periodo: data.periodo,
       comunicou_abuso: data.comunicou_abuso,

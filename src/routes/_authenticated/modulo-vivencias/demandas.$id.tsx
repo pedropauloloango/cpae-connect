@@ -22,13 +22,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { requestStatusLabels, requestStatusTone } from "@/lib/labels";
 import { buildVivenciaFormSections } from "@/lib/vivencias-form-display";
 import {
-  alunoSerieOptions,
-  alunoTurmaOptions,
   periodoOptions,
   palestraTemaOptions,
   vivenciaTemaOptions,
 } from "@/lib/vivencias-options";
-import { alunoSerieLabels } from "@/lib/acolhimento-options";
+import {
+  fetchActiveSeries,
+  fetchActiveTurmas,
+  labelsMap,
+  type CatalogOption,
+} from "@/lib/serie-turma-catalog";
 import {
   collectVivenciaActivityLogLookupIds,
   formatVivenciaActivityLogDescription,
@@ -534,12 +537,26 @@ type EditableGroup = {
  * A série pode estar gravada como valor ("5") ou como rótulo ("5º ano", padrão do
  * formulário público). Converte para o valor da opção usado pelo Select.
  */
-function serieToOptionValue(stored: string | null | undefined): string {
+function serieToOptionValue(
+  stored: string | null | undefined,
+  options: CatalogOption[],
+): string {
   if (!stored) return "";
-  const byValue = alunoSerieOptions.find((o) => o.value === stored);
+  const byValue = options.find((o) => o.value === stored);
   if (byValue) return byValue.value;
-  const byLabel = alunoSerieOptions.find((o) => o.label === stored);
-  return byLabel ? byLabel.value : "";
+  const byLabel = options.find((o) => o.label === stored);
+  return byLabel ? byLabel.value : stored;
+}
+
+function turmaToOptionValue(
+  stored: string | null | undefined,
+  options: CatalogOption[],
+): string {
+  if (!stored) return "";
+  const byValue = options.find((o) => o.value === stored);
+  if (byValue) return byValue.value;
+  const byLabel = options.find((o) => o.label === stored);
+  return byLabel ? byLabel.value : stored;
 }
 
 function TemasMultiSelect({
@@ -598,20 +615,38 @@ function VivenciaEditForm({
 }) {
   const qc = useQueryClient();
   const { user } = useAuth();
-  const [groups, setGroups] = useState<EditableGroup[]>(() =>
-    req.groups.map((g) => ({
-      id: g.id,
-      aluno_serie: serieToOptionValue(g.aluno_serie),
-      aluno_turma: g.aluno_turma ?? "",
-      periodo: g.periodo ?? "",
-      temas: g.temas ?? [],
-      data_preferivel: g.data_preferivel ?? "",
-      hora_inicio: (() => {
-        const { hour, minute } = parseHoraInicio(g.hora_inicio);
-        return hour && minute ? buildHoraInicio(hour, minute) : "";
-      })(),
-    })),
-  );
+
+  const { data: serieOptions = [] } = useQuery({
+    queryKey: ["catalog-series"],
+    queryFn: fetchActiveSeries,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: turmaOptions = [] } = useQuery({
+    queryKey: ["catalog-turmas"],
+    queryFn: fetchActiveTurmas,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [groups, setGroups] = useState<EditableGroup[]>([]);
+
+  useEffect(() => {
+    if (!serieOptions.length && !turmaOptions.length) return;
+    setGroups(
+      req.groups.map((g) => ({
+        id: g.id,
+        aluno_serie: serieToOptionValue(g.aluno_serie, serieOptions),
+        aluno_turma: turmaToOptionValue(g.aluno_turma, turmaOptions),
+        periodo: g.periodo ?? "",
+        temas: g.temas ?? [],
+        data_preferivel: g.data_preferivel ?? "",
+        hora_inicio: (() => {
+          const { hour, minute } = parseHoraInicio(g.hora_inicio);
+          return hour && minute ? buildHoraInicio(hour, minute) : "";
+        })(),
+      })),
+    );
+  }, [req.groups, serieOptions, turmaOptions]);
+
   const [palestraTema, setPalestraTema] = useState(req.palestra_tema ?? "");
   const [dataPalestra, setDataPalestra] = useState(req.data_preferivel_palestra ?? "");
   const [horaInicioPalestra, setHoraInicioPalestra] = useState(() => {
@@ -630,6 +665,9 @@ function VivenciaEditForm({
         }
       }
 
+      const serieLabels = labelsMap(serieOptions);
+      const turmaLabels = labelsMap(turmaOptions);
+
       for (const g of groups) {
         if (!g.aluno_serie || !g.aluno_turma || !g.periodo) {
           throw new Error("Preencha série, turma e período de todas as turmas.");
@@ -637,9 +675,8 @@ function VivenciaEditForm({
         const { error } = await supabase
           .from("vivencia_request_groups")
           .update({
-            aluno_serie:
-              alunoSerieLabels[g.aluno_serie as keyof typeof alunoSerieLabels] ?? g.aluno_serie,
-            aluno_turma: g.aluno_turma,
+            aluno_serie: serieLabels[g.aluno_serie] ?? g.aluno_serie,
+            aluno_turma: turmaLabels[g.aluno_turma] ?? g.aluno_turma,
             periodo: g.periodo,
             temas: g.temas,
             data_preferivel: g.data_preferivel || null,
@@ -708,7 +745,7 @@ function VivenciaEditForm({
                         <SelectValue placeholder="Selecione…" />
                       </SelectTrigger>
                       <SelectContent>
-                        {alunoSerieOptions.map((o) => (
+                        {serieOptions.map((o) => (
                           <SelectItem key={o.value} value={o.value}>
                             {o.label}
                           </SelectItem>
@@ -726,7 +763,7 @@ function VivenciaEditForm({
                         <SelectValue placeholder="Selecione…" />
                       </SelectTrigger>
                       <SelectContent>
-                        {alunoTurmaOptions.map((o) => (
+                        {turmaOptions.map((o) => (
                           <SelectItem key={o.value} value={o.value}>
                             {o.label}
                           </SelectItem>

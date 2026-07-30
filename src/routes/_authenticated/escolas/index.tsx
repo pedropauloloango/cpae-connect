@@ -32,7 +32,7 @@ import {
   type SchoolImportRow,
 } from "@/lib/schools-import";
 
-export const Route = createFileRoute("/_authenticated/escolas")({ component: Escolas });
+export const Route = createFileRoute("/_authenticated/escolas/")({ component: Escolas });
 
 const PAGE_SIZE = 15;
 
