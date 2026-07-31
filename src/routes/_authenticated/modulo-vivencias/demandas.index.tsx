@@ -20,16 +20,30 @@ import {
 import { PageHeader } from "@/components/layout/AppShell";
 import { requestStatusLabels, requestStatusTone } from "@/lib/labels";
 import { toast } from "sonner";
-import { Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { regiaoEscolaLabel } from "@/lib/acolhimento-options";
+import { periodoLabels, regiaoEscolaLabel } from "@/lib/acolhimento-options";
 import { palestraTemaLabel } from "@/lib/vivencias-options";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/modulo-vivencias/demandas/")({
   component: VivenciasDemandas,
 });
 
 const PAGE_SIZE = 15;
+
+type SortKey =
+  | "numero"
+  | "escola"
+  | "tipo"
+  | "data_vivencia"
+  | "periodo"
+  | "turmas"
+  | "profissionais"
+  | "status"
+  | "recebida";
+
+type SortDir = "asc" | "desc";
 
 interface VivReq {
   id: string;
@@ -39,9 +53,166 @@ interface VivReq {
   school_nome_snapshot: string | null;
   regiao_escola: string | null;
   palestra_tema: string | null;
+  data_preferivel_vivencia: string | null;
+  data_preferivel_palestra: string | null;
   school: { regiao: string | null } | null;
-  groups: { aluno_serie: string; aluno_turma: string; periodo: string }[] | null;
+  groups: { aluno_serie: string; aluno_turma: string; periodo: string; data_preferivel: string | null }[] | null;
   assignees: { professional: { nome: string } | null }[] | null;
+}
+
+function formatDateBr(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("pt-BR");
+}
+
+function requestTipo(r: VivReq): string {
+  const hasGroups = (r.groups?.length ?? 0) > 0;
+  const hasPalestra = Boolean(r.palestra_tema?.trim());
+  if (hasGroups && hasPalestra) return "Vivência e palestra";
+  if (hasPalestra) return "Palestra";
+  if (hasGroups) return "Vivência";
+  return "—";
+}
+
+function requestDatasVivencia(r: VivReq): string {
+  const fromGroups = [
+    ...new Set(
+      (r.groups ?? [])
+        .map((g) => formatDateBr(g.data_preferivel))
+        .filter((d): d is string => Boolean(d)),
+    ),
+  ];
+  if (fromGroups.length > 0) return fromGroups.join(", ");
+
+  const fromRequest = formatDateBr(r.data_preferivel_vivencia);
+  if (fromRequest) return fromRequest;
+
+  if (r.palestra_tema) {
+    const palestra = formatDateBr(r.data_preferivel_palestra);
+    if (palestra) return palestra;
+  }
+  return "—";
+}
+
+/** ISO date for sorting (earliest group/request date). */
+function requestDataVivenciaSortKey(r: VivReq): string {
+  const fromGroups = (r.groups ?? [])
+    .map((g) => g.data_preferivel)
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  if (fromGroups[0]) return fromGroups[0];
+  if (r.data_preferivel_vivencia) return r.data_preferivel_vivencia;
+  if (r.palestra_tema && r.data_preferivel_palestra) return r.data_preferivel_palestra;
+  return "";
+}
+
+function requestPeriodos(r: VivReq): string {
+  const periodos = [
+    ...new Set(
+      (r.groups ?? [])
+        .map((g) => periodoLabels[g.periodo] ?? g.periodo)
+        .filter(Boolean),
+    ),
+  ];
+  return periodos.length > 0 ? periodos.join(", ") : "—";
+}
+
+function requestTurmas(r: VivReq): string {
+  return (
+    r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`).join(", ") ||
+    (r.palestra_tema ? `Palestra: ${palestraTemaLabel(r.palestra_tema)}` : "—")
+  );
+}
+
+function requestProfissionaisNomes(r: VivReq): string[] {
+  return (
+    r.assignees
+      ?.map((a) => a.professional?.nome)
+      .filter((n): n is string => Boolean(n)) ?? []
+  );
+}
+
+function requestProfissionais(r: VivReq): string {
+  const nomes = requestProfissionaisNomes(r);
+  return nomes.length > 0 ? nomes.join(", ") : "—";
+}
+
+const professionalTonePalette = [
+  "bg-info/10 text-info border-info/20",
+  "bg-primary/10 text-primary border-primary/20",
+  "bg-success/10 text-success border-success/20",
+  "bg-orange-500/10 text-orange-700 border-orange-500/25 dark:text-orange-400",
+  "bg-accent/10 text-accent border-accent/20",
+  "bg-violet-500/10 text-violet-700 border-violet-500/25 dark:text-violet-400",
+  "bg-teal-500/10 text-teal-700 border-teal-500/25 dark:text-teal-400",
+  "bg-rose-500/10 text-rose-700 border-rose-500/25 dark:text-rose-400",
+] as const;
+
+function professionalTone(nome: string): string {
+  let hash = 0;
+  for (let i = 0; i < nome.length; i++) {
+    hash = (hash * 31 + nome.charCodeAt(i)) >>> 0;
+  }
+  return professionalTonePalette[hash % professionalTonePalette.length];
+}
+
+function sortValue(r: VivReq, key: SortKey): string {
+  switch (key) {
+    case "numero":
+      return r.numero ?? "";
+    case "escola":
+      return (r.school_nome_snapshot ?? "").toLowerCase();
+    case "tipo":
+      return requestTipo(r).toLowerCase();
+    case "data_vivencia":
+      return requestDataVivenciaSortKey(r);
+    case "periodo":
+      return requestPeriodos(r).toLowerCase();
+    case "turmas":
+      return requestTurmas(r).toLowerCase();
+    case "profissionais":
+      return requestProfissionais(r).toLowerCase();
+    case "status":
+      return (requestStatusLabels[r.status] ?? r.status).toLowerCase();
+    case "recebida":
+      return r.created_at ?? "";
+    default:
+      return "";
+  }
+}
+
+function SortHeader({
+  label,
+  column,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  column: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === column;
+  const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th className="px-4 py-3 font-semibold">
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={cn(
+          "inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-foreground",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" />
+      </button>
+    </th>
+  );
 }
 
 function VivenciasDemandas() {
@@ -51,6 +222,8 @@ function VivenciasDemandas() {
   const [status, setStatus] = useState<string>("todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<VivReq | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("recebida");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ["vivencias-demandas", status],
@@ -58,7 +231,7 @@ function VivenciasDemandas() {
       let qb = supabase
         .from("vivencia_requests")
         .select(
-          "id, numero, status, created_at, school_nome_snapshot, regiao_escola, palestra_tema, school:schools(regiao), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo), assignees:vivencia_request_assignees(professional:professionals(nome))",
+          "id, numero, status, created_at, school_nome_snapshot, regiao_escola, palestra_tema, data_preferivel_vivencia, data_preferivel_palestra, school:schools(regiao), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo, data_preferivel), assignees:vivencia_request_assignees(professional:professionals(nome))",
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -86,12 +259,25 @@ function VivenciasDemandas() {
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
   });
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "recebida" || key === "data_vivencia" ? "desc" : "asc");
+    }
+    setPage(1);
+  };
+
   const filtered = list.filter((r) => {
     if (!q.trim()) return true;
     const hay = [
       r.numero,
       r.school_nome_snapshot,
       r.palestra_tema,
+      requestTipo(r),
+      requestDatasVivencia(r),
+      requestPeriodos(r),
       ...(r.assignees?.map((a) => a.professional?.nome) ?? []),
       ...(r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`) ?? []),
     ]
@@ -101,10 +287,18 @@ function VivenciasDemandas() {
     return hay.includes(q.trim().toLowerCase());
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    const av = sortValue(a, sortKey);
+    const bv = sortValue(b, sortKey);
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+
   useEffect(() => setPage(1), [q, status]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -149,28 +343,28 @@ function VivenciasDemandas() {
           ) : pageItems.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground">Nenhuma solicitação encontrada.</div>
           ) : (
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b bg-slate-50/80 text-xs uppercase tracking-wide text-muted-foreground">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="border-b bg-slate-50/80 text-xs tracking-wide">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Protocolo</th>
-                  <th className="px-4 py-3 font-semibold">Escola</th>
-                  <th className="px-4 py-3 font-semibold">Turmas</th>
-                  <th className="px-4 py-3 font-semibold">Profissionais</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Recebida</th>
-                  <th className="px-4 py-3 font-semibold">Ações</th>
+                  <SortHeader label="Protocolo" column="numero" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Escola" column="escola" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Tipo" column="tipo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Data vivência" column="data_vivencia" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Período" column="periodo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Turmas" column="turmas" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Profissionais" column="profissionais" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Status" column="status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Recebida" column="recebida" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                  <th className="px-4 py-3 font-semibold uppercase text-muted-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {pageItems.map((r) => {
-                  const turmas =
-                    r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`).join(", ") ||
-                    (r.palestra_tema ? `Palestra: ${palestraTemaLabel(r.palestra_tema)}` : "—");
-                  const pros =
-                    r.assignees
-                      ?.map((a) => a.professional?.nome)
-                      .filter(Boolean)
-                      .join(", ") || "—";
+                  const turmas = requestTurmas(r);
+                  const prosNomes = requestProfissionaisNomes(r);
+                  const tipo = requestTipo(r);
+                  const datas = requestDatasVivencia(r);
+                  const periodos = requestPeriodos(r);
                   return (
                     <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/60">
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-[#0F52BA]">{r.numero}</td>
@@ -180,11 +374,41 @@ function VivenciasDemandas() {
                           {regiaoEscolaLabel(r.regiao_escola ?? r.school?.regiao)}
                         </div>
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap">{tipo}</td>
+                      <td className="px-4 py-3 whitespace-nowrap" title={datas}>
+                        {datas}
+                      </td>
+                      <td className="max-w-[140px] truncate px-4 py-3" title={periodos}>
+                        {periodos}
+                      </td>
                       <td className="max-w-[200px] truncate px-4 py-3" title={turmas}>
                         {turmas}
                       </td>
-                      <td className="max-w-[160px] truncate px-4 py-3" title={pros}>
-                        {pros}
+                      <td className="max-w-[200px] px-4 py-3" title={prosNomes.join(", ") || undefined}>
+                        {prosNomes.length === 0 ? (
+                          "—"
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex flex-col gap-1",
+                              prosNomes.length > 1 ? "text-xs" : "text-sm",
+                            )}
+                          >
+                            {prosNomes.map((nome, i) => (
+                              <Badge
+                                key={`${nome}-${i}`}
+                                variant="secondary"
+                                className={cn(
+                                  "w-fit max-w-full truncate border font-normal",
+                                  prosNomes.length > 1 && "text-[11px] px-1.5 py-0",
+                                  professionalTone(nome),
+                                )}
+                              >
+                                {nome}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant="secondary" className={requestStatusTone[r.status] ?? ""}>

@@ -98,7 +98,6 @@ export async function fetchSeriesAdmin(): Promise<CatalogRow[]> {
   const { data, error } = await supabase
     .from("school_series")
     .select("id, value, label, sort_order, deleted_at, created_at, updated_at")
-    .is("deleted_at", null)
     .order("sort_order")
     .order("label");
   if (error) throw error;
@@ -109,7 +108,6 @@ export async function fetchTurmasAdmin(): Promise<CatalogRow[]> {
   const { data, error } = await supabase
     .from("school_turmas")
     .select("id, value, label, sort_order, deleted_at, created_at, updated_at")
-    .is("deleted_at", null)
     .order("sort_order")
     .order("label");
   if (error) throw error;

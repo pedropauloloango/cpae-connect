@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchSeriesAdmin,
@@ -77,16 +77,20 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
     queryFn: () => (kind === "series" ? fetchSeriesAdmin() : fetchTurmasAdmin()),
   });
 
+  const activeRows = rows.filter((r) => !r.deleted_at);
+  const deletedRows = rows.filter((r) => !!r.deleted_at);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogRow | null>(null);
   const [label, setLabel] = useState("");
   const [sortOrder, setSortOrder] = useState("0");
   const [deleteTarget, setDeleteTarget] = useState<CatalogRow | null>(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<CatalogRow | null>(null);
 
   const openCreate = () => {
     setEditing(null);
     setLabel("");
-    setSortOrder(String((rows.at(-1)?.sort_order ?? 0) + 10));
+    setSortOrder(String((activeRows.at(-1)?.sort_order ?? 0) + 10));
     setFormOpen(true);
   };
 
@@ -97,6 +101,12 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
     setFormOpen(true);
   };
 
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey });
+    qc.invalidateQueries({ queryKey: ["catalog-series"] });
+    qc.invalidateQueries({ queryKey: ["catalog-turmas"] });
+  };
+
   const saveMut = useMutation({
     mutationFn: async () => {
       const trimmed = label.trim();
@@ -105,11 +115,14 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
       if (!Number.isFinite(order)) throw new Error("Ordem inválida.");
 
       if (editing) {
-        const { error: updErr } = await supabase
+        const { data: updated, error: updErr } = await supabase
           .from(table)
           .update({ label: trimmed, sort_order: order })
-          .eq("id", editing.id);
+          .eq("id", editing.id)
+          .select("id")
+          .maybeSingle();
         if (updErr) throw updErr;
+        if (!updated) throw new Error("Não foi possível salvar. Verifique permissões de administrador.");
         return;
       }
 
@@ -117,39 +130,86 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
         trimmed,
         rows.map((r) => r.value),
       );
-      const { error: insErr } = await supabase.from(table).insert({
-        value,
-        label: trimmed,
-        sort_order: order,
-      });
+      const { data: created, error: insErr } = await supabase
+        .from(table)
+        .insert({
+          value,
+          label: trimmed,
+          sort_order: order,
+        })
+        .select("id")
+        .maybeSingle();
       if (insErr) throw insErr;
+      if (!created) throw new Error("Não foi possível cadastrar. Verifique permissões de administrador.");
     },
     onSuccess: () => {
       toast.success(editing ? `${title} atualizada.` : `${title} cadastrada.`);
       setFormOpen(false);
-      qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["catalog-series"] });
-      qc.invalidateQueries({ queryKey: ["catalog-turmas"] });
+      invalidate();
     },
     onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
   });
 
   const deleteMut = useMutation({
     mutationFn: async (row: CatalogRow) => {
-      const { error: delErr } = await supabase
+      const { data: updated, error: delErr } = await supabase
         .from(table)
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", row.id);
+        .eq("id", row.id)
+        .select("id, deleted_at")
+        .maybeSingle();
       if (delErr) throw delErr;
+      if (!updated?.deleted_at) {
+        throw new Error("A exclusão não foi gravada no banco. Verifique permissões de administrador.");
+      }
     },
     onSuccess: () => {
-      toast.success(`${title} excluída.`);
+      toast.success(`${title} excluída da listagem ativa.`);
       setDeleteTarget(null);
-      qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["catalog-series"] });
-      qc.invalidateQueries({ queryKey: ["catalog-turmas"] });
+      invalidate();
     },
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: async (row: CatalogRow) => {
+      const { data: updated, error: restErr } = await supabase
+        .from(table)
+        .update({ deleted_at: null })
+        .eq("id", row.id)
+        .select("id, deleted_at")
+        .maybeSingle();
+      if (restErr) throw restErr;
+      if (!updated || updated.deleted_at) {
+        throw new Error("Não foi possível restaurar. Verifique permissões de administrador.");
+      }
+    },
+    onSuccess: () => {
+      toast.success(`${title} restaurada.`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error("Erro ao restaurar", { description: e.message }),
+  });
+
+  const hardDeleteMut = useMutation({
+    mutationFn: async (row: CatalogRow) => {
+      const { data: removed, error: hardErr } = await supabase
+        .from(table)
+        .delete()
+        .eq("id", row.id)
+        .select("id")
+        .maybeSingle();
+      if (hardErr) throw hardErr;
+      if (!removed) {
+        throw new Error("A exclusão definitiva não foi gravada. Verifique permissões de administrador.");
+      }
+    },
+    onSuccess: () => {
+      toast.success(`${title} removida definitivamente do banco.`);
+      setHardDeleteTarget(null);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error("Erro ao excluir definitivamente", { description: e.message }),
   });
 
   return (
@@ -158,7 +218,8 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
         <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {rows.length} {kind === "series" ? "série(s)" : "turma(s)"} ativa(s)
+              {activeRows.length} {kind === "series" ? "série(s)" : "turma(s)"} ativa(s)
+              {deletedRows.length > 0 ? ` · ${deletedRows.length} excluída(s)` : ""}
             </p>
             <Button size="sm" onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" />
@@ -175,12 +236,12 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
             </p>
           )}
 
-          {!isLoading && !isError && rows.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhum item cadastrado.</p>
+          {!isLoading && !isError && activeRows.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum item ativo cadastrado.</p>
           )}
 
           <div className="divide-y rounded-md border">
-            {rows.map((row) => (
+            {activeRows.map((row) => (
               <div
                 key={row.id}
                 className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
@@ -210,6 +271,49 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
               </div>
             ))}
           </div>
+
+          {deletedRows.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-medium text-muted-foreground">Excluídas (ainda no banco)</p>
+              <div className="divide-y rounded-md border border-dashed">
+                {deletedRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-muted-foreground line-through">{row.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Código: {row.value} · Ordem: {row.sort_order}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => restoreMut.mutate(row)}
+                        disabled={restoreMut.isPending}
+                      >
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                        Restaurar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => setHardDeleteTarget(row)}
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                        Excluir definitivamente
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -259,8 +363,8 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {title.toLowerCase()}?</AlertDialogTitle>
             <AlertDialogDescription>
-              “{deleteTarget?.label}” deixará de aparecer nos formulários. Demandas já registradas
-              mantêm o texto antigo.
+              “{deleteTarget?.label}” sai das listas dos formulários, mas permanece no banco e pode ser
+              restaurada depois. Demandas já registradas mantêm o texto antigo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -274,6 +378,30 @@ function CatalogPanel({ kind }: { kind: CatalogKind }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!hardDeleteTarget} onOpenChange={(o) => !o && setHardDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{hardDeleteTarget?.label}” será removida do banco de dados de forma permanente. Essa ação
+              não pode ser desfeita. Demandas antigas que já usaram esse texto continuam com o valor
+              gravado nelas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => hardDeleteTarget && hardDeleteMut.mutate(hardDeleteTarget)}
+              disabled={hardDeleteMut.isPending}
+            >
+              Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
