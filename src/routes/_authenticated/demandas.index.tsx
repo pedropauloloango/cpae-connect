@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,11 +21,25 @@ import {
 import { PageHeader } from "@/components/layout/AppShell";
 import { MeetingCountIndicators } from "@/components/requests/MeetingCountIndicators";
 import { complaintTypeLabels, requestStatusLabels, requestStatusTone } from "@/lib/labels";
+import {
+  DEMANDAS_FILTROS,
+  EM_ATENDIMENTO_STATUSES,
+  demandasFiltroLabels,
+  type DemandasFiltro,
+} from "@/lib/demandas-filtros";
 import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
 import { Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/demandas/")({ component: Demandas });
+export const Route = createFileRoute("/_authenticated/demandas/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    filtro:
+      typeof search.filtro === "string" && search.filtro.trim().length > 0
+        ? search.filtro.trim()
+        : undefined,
+  }),
+  component: Demandas,
+});
 
 const PAGE_SIZE = 15;
 
@@ -44,11 +58,26 @@ interface Req {
 
 function Demandas() {
   const qc = useQueryClient();
+  const navigate = useNavigate({ from: "/_authenticated/demandas/" });
+  const { filtro: filtroSearch } = Route.useSearch();
   const { user, isAdmin } = useAuth();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("todos");
+  const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
+
+  useEffect(() => {
+    setStatus(filtroSearch ?? "todos");
+  }, [filtroSearch]);
+
+  const applyFilter = (value: string) => {
+    setStatus(value);
+    setPage(1);
+    void navigate({
+      search: { filtro: value === "todos" ? undefined : value },
+      replace: true,
+    });
+  };
 
   const { data: myProfId, isLoading: loadingMyProf } = useQuery({
     queryKey: ["my-pro", user?.id],
@@ -95,6 +124,33 @@ function Demandas() {
     queryFn: async () => {
       if (!isAdmin && !myProfId) return [];
 
+      let requestIdsForMonth: string[] | null = null;
+      if (status === "atendimentos_mes") {
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+
+        let qAppt = supabase
+          .from("appointments")
+          .select("request_id")
+          .gte("inicio", monthStart.toISOString())
+          .is("vivencia_request_id", null)
+          .not("request_id", "is", null);
+
+        if (!isAdmin && myProfId) qAppt = qAppt.eq("professional_id", myProfId);
+
+        const { data: appts, error: apptErr } = await qAppt;
+        if (apptErr) throw apptErr;
+        requestIdsForMonth = [
+          ...new Set(
+            (appts ?? [])
+              .map((a) => a.request_id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        ];
+        if (requestIdsForMonth.length === 0) return [];
+      }
+
       let qb = supabase
         .from("requests")
         .select(
@@ -104,7 +160,15 @@ function Demandas() {
         .order("created_at", { ascending: false })
         .limit(200);
       if (!isAdmin && myProfId) qb = qb.eq("assigned_professional_id", myProfId);
-      if (status !== "todos") qb = qb.eq("status", status as "recebida");
+
+      if (status === "em_atendimento") {
+        qb = qb.in("status", [...EM_ATENDIMENTO_STATUSES]);
+      } else if (status === "atendimentos_mes" && requestIdsForMonth) {
+        qb = qb.in("id", requestIdsForMonth);
+      } else if (status !== "todos") {
+        qb = qb.eq("status", status as "recebida");
+      }
+
       const { data, error } = await qb;
       if (error) throw error;
       return (data ?? []) as unknown as Req[];
@@ -140,10 +204,13 @@ function Demandas() {
   });
 
   useEffect(() => {
-    if (status !== "todos" && availableStatuses.length > 0 && !availableStatuses.includes(status)) {
+    if (status === "todos") return;
+    if ((DEMANDAS_FILTROS as readonly string[]).includes(status)) return;
+    if (availableStatuses.length > 0 && !availableStatuses.includes(status)) {
       setStatus("todos");
+      void navigate({ search: { filtro: undefined }, replace: true });
     }
-  }, [status, availableStatuses]);
+  }, [status, availableStatuses, navigate]);
 
   useEffect(() => {
     setPage(1);
@@ -159,15 +226,23 @@ function Demandas() {
 
   const listLoading = isLoading || (!isAdmin && loadingMyProf);
   const colSpan = 10;
+  const activeFiltroLabel =
+    status !== "todos" && (DEMANDAS_FILTROS as readonly string[]).includes(status)
+      ? demandasFiltroLabels[status as DemandasFiltro]
+      : status !== "todos"
+        ? (requestStatusLabels[status] ?? status)
+        : null;
 
   return (
     <div>
       <PageHeader
         title="Demandas"
         description={
-          isAdmin
-            ? "Acompanhamento das solicitações de acolhimento."
-            : "Suas solicitações de acolhimento atribuídas."
+          activeFiltroLabel
+            ? `Filtro: ${activeFiltroLabel}.`
+            : isAdmin
+              ? "Acompanhamento das solicitações de acolhimento."
+              : "Suas solicitações de acolhimento atribuídas."
         }
       />
 
@@ -177,10 +252,12 @@ function Demandas() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por número, aluno ou escola…" className="pl-9" />
           </div>
-          <Select value={status} onValueChange={setStatus} disabled={loadingStatuses}>
+          <Select value={status} onValueChange={applyFilter} disabled={loadingStatuses}>
             <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value="em_atendimento">{demandasFiltroLabels.em_atendimento}</SelectItem>
+              <SelectItem value="atendimentos_mes">{demandasFiltroLabels.atendimentos_mes}</SelectItem>
               {availableStatuses.map((statusValue) => (
                 <SelectItem key={statusValue} value={statusValue}>
                   {requestStatusLabels[statusValue] ?? statusValue}

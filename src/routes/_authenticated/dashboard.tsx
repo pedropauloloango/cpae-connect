@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +10,7 @@ import {
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
 import { complaintTypeLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import type { DemandasFiltro } from "@/lib/demandas-filtros";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -165,11 +166,39 @@ function Dashboard() {
         }
       />
 
-      <div className={`grid gap-4 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"}`}>
-        <Kpi label="Solicitações Recebidas" value={counters?.recebida ?? 0} sub="Total recebido" icon={Inbox} iconBg="bg-[#FAF5FF] text-[#7B2CBF]" />
-        <Kpi label="Em Andamento" value={counters?.em_andamento ?? 0} sub="Em atendimento" icon={Clock} iconBg="bg-[#FFFBEB] text-[#F7B500]" />
-        <Kpi label="Concluídas" value={counters?.concluida ?? 0} sub="Finalizadas" icon={CheckCircle2} iconBg="bg-[#F2FFF6] text-[#52C41A]" />
-        <Kpi label="Atendimentos no Mês" value={counters?.agendados_mes ?? 0} sub="Agenda do mês" icon={Calendar} iconBg="bg-[#EAF2FF] text-[#0F52BA]" />
+      <div className={`grid items-stretch gap-4 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"}`}>
+        <Kpi
+          label="Solicitações Recebidas"
+          value={counters?.recebida ?? 0}
+          sub="Total recebido"
+          icon={Inbox}
+          iconBg="bg-[#FAF5FF] text-[#7B2CBF]"
+          filtro="recebida"
+        />
+        <Kpi
+          label="Em Andamento"
+          value={counters?.em_andamento ?? 0}
+          sub="Em atendimento"
+          icon={Clock}
+          iconBg="bg-[#FFFBEB] text-[#F7B500]"
+          filtro="em_atendimento"
+        />
+        <Kpi
+          label="Concluídas"
+          value={counters?.concluida ?? 0}
+          sub="Finalizadas"
+          icon={CheckCircle2}
+          iconBg="bg-[#F2FFF6] text-[#52C41A]"
+          filtro="concluida"
+        />
+        <Kpi
+          label="Atendimentos no Mês"
+          value={counters?.agendados_mes ?? 0}
+          sub="Agenda do mês"
+          icon={Calendar}
+          iconBg="bg-[#EAF2FF] text-[#0F52BA]"
+          filtro="atendimentos_mes"
+        />
         {isAdmin && (
           <>
             <Kpi label="Escolas Ativas" value={counters?.total_escolas ?? 0} sub="Cadastradas" icon={School} iconBg="bg-[#EAF2FF] text-[#0F52BA]" />
@@ -246,28 +275,45 @@ function Kpi({
   sub,
   icon: Icon,
   iconBg,
+  filtro,
 }: {
   label: string;
   value: number;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
+  filtro?: DemandasFiltro;
 }) {
-  return (
-    <Card className="cpae-card border-0 shadow-none">
-      <CardContent className="p-5">
+  const card = (
+    <Card className={cn("cpae-card h-full border-0 shadow-none", filtro && "cursor-pointer")}>
+      <CardContent className="flex h-full flex-col justify-between gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-[#64748B]">{label}</div>
-            <div className="mt-2 text-3xl font-bold tabular-nums text-[#0F172A]">{value}</div>
-            <div className="mt-1 text-[11px] text-[#94A3B8]">{sub}</div>
+          <div className="min-h-[2.5rem] min-w-0 text-xs font-medium leading-snug text-[#64748B]">
+            {label}
           </div>
           <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconBg)}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
+        <div className="min-w-0">
+          <div className="text-3xl font-bold tabular-nums text-[#0F172A]">{value}</div>
+          <div className="mt-1 text-[11px] text-[#94A3B8]">{sub}</div>
+        </div>
       </CardContent>
     </Card>
+  );
+
+  if (!filtro) return card;
+
+  return (
+    <Link
+      to="/demandas"
+      search={{ filtro }}
+      className="block h-full rounded-xl outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#0F52BA]/40"
+      title={`Ver demandas: ${label}`}
+    >
+      {card}
+    </Link>
   );
 }
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { periodoLabels, regiaoEscolaLabel } from "@/lib/acolhimento-options";
 import { palestraTemaLabel } from "@/lib/vivencias-options";
+import type { VivenciasDemandasFiltro } from "@/lib/vivencias-demandas-filtros";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/modulo-vivencias/dashboard")({
@@ -325,7 +326,7 @@ function VivenciasDashboard() {
       />
 
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-2 xl:grid-cols-4"}`}
+        className={`grid items-stretch gap-3 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-2 xl:grid-cols-4"}`}
       >
         <Kpi
           label="Solicitações Recebidas"
@@ -333,6 +334,7 @@ function VivenciasDashboard() {
           sub="Aguardando atribuição"
           icon={Inbox}
           iconBg="bg-emerald-50 text-emerald-700"
+          filtro="recebida"
         />
         <Kpi
           label="Em Andamento"
@@ -340,6 +342,7 @@ function VivenciasDashboard() {
           sub="Em atendimento"
           icon={Clock}
           iconBg="bg-amber-50 text-amber-600"
+          filtro="em_atendimento"
         />
         <Kpi
           label="Concluídas"
@@ -347,6 +350,7 @@ function VivenciasDashboard() {
           sub="Finalizadas"
           icon={CheckCircle2}
           iconBg="bg-green-50 text-green-600"
+          filtro="concluida"
         />
         <Kpi
           label={isAdmin ? "Relatórios p/ validar" : "Meus relatórios"}
@@ -354,6 +358,7 @@ function VivenciasDashboard() {
           sub={isAdmin ? "Aguardando aprovação" : "Rascunho / correção"}
           icon={FileText}
           iconBg="bg-lime-50 text-lime-700"
+          filtro="relatorios_validar"
         />
         {isAdmin && (
           <>
@@ -498,27 +503,44 @@ function Kpi({
   sub,
   icon: Icon,
   iconBg,
+  filtro,
 }: {
   label: string;
   value: number;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
+  filtro?: VivenciasDemandasFiltro;
 }) {
-  return (
-    <Card className="cpae-card border-0 shadow-none">
-      <CardContent className="p-5">
+  const card = (
+    <Card className={cn("cpae-card h-full border-0 shadow-none", filtro && "cursor-pointer")}>
+      <CardContent className="flex h-full flex-col justify-between gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-[#64748B]">{label}</div>
-            <div className="mt-2 text-3xl font-bold tabular-nums text-[#0F172A]">{value}</div>
-            <div className="mt-1 text-[11px] text-[#94A3B8]">{sub}</div>
+          <div className="min-h-[2.5rem] min-w-0 text-xs font-medium leading-snug text-[#64748B]">
+            {label}
           </div>
           <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconBg)}>
             <Icon className="h-5 w-5" />
           </div>
         </div>
+        <div className="min-w-0">
+          <div className="text-3xl font-bold tabular-nums text-[#0F172A]">{value}</div>
+          <div className="mt-1 text-[11px] text-[#94A3B8]">{sub}</div>
+        </div>
       </CardContent>
     </Card>
+  );
+
+  if (!filtro) return card;
+
+  return (
+    <Link
+      to="/modulo-vivencias/demandas"
+      search={{ filtro }}
+      className="block h-full rounded-xl outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-emerald-600/40"
+      title={`Ver demandas: ${label}`}
+    >
+      {card}
+    </Link>
   );
 }

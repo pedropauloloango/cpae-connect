@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
 import { requestStatusLabels, requestStatusTone } from "@/lib/labels";
+import {
+  VIVENCIAS_DEMANDAS_FILTROS,
+  VIVENCIAS_EM_ATENDIMENTO_STATUSES,
+  vivenciasDemandasFiltroLabels,
+  type VivenciasDemandasFiltro,
+} from "@/lib/vivencias-demandas-filtros";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +33,12 @@ import { palestraTemaLabel } from "@/lib/vivencias-options";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/modulo-vivencias/demandas/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    filtro:
+      typeof search.filtro === "string" && search.filtro.trim().length > 0
+        ? search.filtro.trim()
+        : undefined,
+  }),
   component: VivenciasDemandas,
 });
 
@@ -217,17 +229,84 @@ function SortHeader({
 
 function VivenciasDemandas() {
   const qc = useQueryClient();
-  const { isAdmin } = useAuth();
+  const navigate = useNavigate({ from: "/_authenticated/modulo-vivencias/demandas/" });
+  const { filtro: filtroSearch } = Route.useSearch();
+  const { user, isAdmin } = useAuth();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("todos");
+  const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<VivReq | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recebida");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const { data: list = [], isLoading } = useQuery({
-    queryKey: ["vivencias-demandas", status],
+  useEffect(() => {
+    setStatus(filtroSearch ?? "todos");
+  }, [filtroSearch]);
+
+  const applyFilter = (value: string) => {
+    setStatus(value);
+    setPage(1);
+    void navigate({
+      search: { filtro: value === "todos" ? undefined : value },
+      replace: true,
+    });
+  };
+
+  const { data: myProfId } = useQuery({
+    queryKey: ["my-pro", user?.id],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from("professionals")
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+    enabled: !!user && !isAdmin,
+  });
+
+  const { data: myRequestIds = [] } = useQuery({
+    queryKey: ["viv-dash-my-request-ids", myProfId],
+    enabled: !isAdmin && !!myProfId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vivencia_request_assignees")
+        .select("vivencia_request_id")
+        .eq("professional_id", myProfId!);
+      if (error) throw error;
+      return (data ?? []).map((r) => r.vivencia_request_id);
+    },
+  });
+
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: ["vivencias-demandas", status, isAdmin, myRequestIds],
+    enabled: isAdmin || myProfId !== undefined,
+    queryFn: async () => {
+      let requestIdsFromReports: string[] | null = null;
+
+      if (status === "relatorios_validar") {
+        let reportsQ = supabase.from("vivencia_reports").select("vivencia_request_id");
+        if (isAdmin) {
+          reportsQ = reportsQ.eq("status", "aguardando_aprovacao");
+        } else {
+          if (!myProfId || myRequestIds.length === 0) return [];
+          reportsQ = reportsQ
+            .in("vivencia_request_id", myRequestIds)
+            .in("status", ["correcao_solicitada", "rejeitado", "rascunho"]);
+        }
+        const { data: reports, error: reportsErr } = await reportsQ;
+        if (reportsErr) throw reportsErr;
+        requestIdsFromReports = [
+          ...new Set(
+            (reports ?? [])
+              .map((r) => r.vivencia_request_id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        ];
+        if (requestIdsFromReports.length === 0) return [];
+      }
+
       let qb = supabase
         .from("vivencia_requests")
         .select(
@@ -236,7 +315,15 @@ function VivenciasDemandas() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
-      if (status !== "todos") qb = qb.eq("status", status as "recebida");
+
+      if (status === "em_atendimento") {
+        qb = qb.in("status", [...VIVENCIAS_EM_ATENDIMENTO_STATUSES]);
+      } else if (status === "relatorios_validar" && requestIdsFromReports) {
+        qb = qb.in("id", requestIdsFromReports);
+      } else if (status !== "todos") {
+        qb = qb.eq("status", status as "recebida");
+      }
+
       const { data, error } = await qb;
       if (error) throw error;
       return (data ?? []) as unknown as VivReq[];
@@ -300,11 +387,22 @@ function VivenciasDemandas() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const activeFiltroLabel =
+    status !== "todos" && (VIVENCIAS_DEMANDAS_FILTROS as readonly string[]).includes(status)
+      ? vivenciasDemandasFiltroLabels[status as VivenciasDemandasFiltro]
+      : status !== "todos"
+        ? (requestStatusLabels[status] ?? status)
+        : null;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Demandas — Vivências"
-        description="Solicitações de vivências e palestras enviadas pelas escolas"
+        description={
+          activeFiltroLabel
+            ? `Filtro: ${activeFiltroLabel}.`
+            : "Solicitações de vivências e palestras enviadas pelas escolas"
+        }
       />
 
       <Card>
@@ -318,12 +416,20 @@ function VivenciasDemandas() {
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          <Select value={status} onValueChange={setStatus}>
+          <Select value={status} onValueChange={applyFilter}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value="em_atendimento">
+                {vivenciasDemandasFiltroLabels.em_atendimento}
+              </SelectItem>
+              <SelectItem value="relatorios_validar">
+                {isAdmin
+                  ? vivenciasDemandasFiltroLabels.relatorios_validar
+                  : "Meus relatórios"}
+              </SelectItem>
               {Object.entries(requestStatusLabels).map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
