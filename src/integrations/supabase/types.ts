@@ -956,6 +956,53 @@ export type Database = {
           },
         ]
       }
+      vivencia_request_palestras: {
+        Row: {
+          aluno_serie: string
+          aluno_turma: string
+          created_at: string
+          data_preferivel: string | null
+          hora_inicio: string | null
+          id: string
+          palestra_tema: string
+          periodo: string
+          sort_order: number
+          vivencia_request_id: string
+        }
+        Insert: {
+          aluno_serie: string
+          aluno_turma: string
+          created_at?: string
+          data_preferivel?: string | null
+          hora_inicio?: string | null
+          id?: string
+          palestra_tema: string
+          periodo: string
+          sort_order?: number
+          vivencia_request_id: string
+        }
+        Update: {
+          aluno_serie?: string
+          aluno_turma?: string
+          created_at?: string
+          data_preferivel?: string | null
+          hora_inicio?: string | null
+          id?: string
+          palestra_tema?: string
+          periodo?: string
+          sort_order?: number
+          vivencia_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vivencia_request_palestras_vivencia_request_id_fkey"
+            columns: ["vivencia_request_id"]
+            isOneToOne: false
+            referencedRelation: "vivencia_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vivencia_requests: {
         Row: {
           created_at: string

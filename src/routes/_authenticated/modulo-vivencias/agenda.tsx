@@ -46,6 +46,15 @@ type PreferidaGroup = {
   hora_inicio: string | null;
 };
 
+type PreferidaPalestra = {
+  aluno_serie: string;
+  aluno_turma: string;
+  periodo: string;
+  palestra_tema: string;
+  data_preferivel: string | null;
+  hora_inicio: string | null;
+};
+
 type Assignee = {
   professional_id?: string;
   professional: { id?: string; nome: string } | null;
@@ -113,6 +122,7 @@ type Preferida = {
   palestra_tema: string | null;
   school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | null } | null;
   groups: PreferidaGroup[] | null;
+  palestras: PreferidaPalestra[] | null;
   assignees: Assignee[] | null;
 };
 
@@ -158,6 +168,48 @@ function vivenciaDates(
 function formatTemas(temas: string[] | null | undefined): string | null {
   if (!temas?.length) return null;
   return temas.map((t) => vivenciaTemaLabel(t)).join("; ");
+}
+
+function palestraDates(
+  p: Preferida,
+): {
+  label: string;
+  date: string;
+  periodo: string | null;
+  hora_inicio: string | null;
+  palestra_tema: string | null;
+}[] {
+  const items: {
+    label: string;
+    date: string;
+    periodo: string | null;
+    hora_inicio: string | null;
+    palestra_tema: string | null;
+  }[] = [];
+
+  for (const pal of p.palestras ?? []) {
+    if (pal.data_preferivel) {
+      items.push({
+        label: `${pal.aluno_serie} ${pal.aluno_turma}`,
+        date: pal.data_preferivel,
+        periodo: pal.periodo ?? null,
+        hora_inicio: pal.hora_inicio ?? null,
+        palestra_tema: pal.palestra_tema ?? null,
+      });
+    }
+  }
+
+  if (items.length === 0 && p.data_preferivel_palestra) {
+    items.push({
+      label: "Palestra",
+      date: p.data_preferivel_palestra,
+      periodo: null,
+      hora_inicio: p.hora_inicio_palestra ?? null,
+      palestra_tema: p.palestra_tema ?? null,
+    });
+  }
+
+  return items;
 }
 
 function requestRegiao(p: {
@@ -237,14 +289,14 @@ function VivenciasAgenda() {
       const { data, error } = await supabase
         .from("vivencia_requests")
         .select(
-          "id, numero, school_id, school_nome_snapshot, regiao_escola, data_preferivel_vivencia, data_preferivel_palestra, hora_inicio_palestra, palestra_tema, school:schools(id, nome, regiao, tipo_escola), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo, temas, data_preferivel, hora_inicio), assignees:vivencia_request_assignees(professional_id, professional:professionals(id, nome))",
+          "id, numero, school_id, school_nome_snapshot, regiao_escola, data_preferivel_vivencia, data_preferivel_palestra, hora_inicio_palestra, palestra_tema, school:schools(id, nome, regiao, tipo_escola), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo, temas, data_preferivel, hora_inicio), palestras:vivencia_request_palestras(aluno_serie, aluno_turma, periodo, palestra_tema, data_preferivel, hora_inicio), assignees:vivencia_request_assignees(professional_id, professional:professionals(id, nome))",
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(300);
       if (error) throw error;
       return ((data ?? []) as unknown as Preferida[]).filter(
-        (p) => vivenciaDates(p).length > 0 || p.data_preferivel_palestra,
+        (p) => vivenciaDates(p).length > 0 || palestraDates(p).length > 0,
       );
     },
   });
@@ -351,7 +403,7 @@ function VivenciasAgenda() {
         schoolId: p.school_id ?? p.school?.id ?? null,
         schoolNome: p.school_nome_snapshot,
         professionalIds: assigneeIds(p.assignees),
-        periodos: (p.groups ?? []).map((g) => g.periodo).filter(Boolean),
+        periodos: [...(p.groups ?? []).map((g) => g.periodo), ...(p.palestras ?? []).map((pal) => pal.periodo)].filter(Boolean),
       }),
     );
   }, [preferidas, regiaoFilter, schoolFilter, profFilter, periodoFilter, schoolsWithDemands]);
@@ -505,22 +557,18 @@ function VivenciasAgenda() {
           },
         });
       });
-      if (p.data_preferivel_palestra) {
-        const periods = (p.groups ?? []).map((g) => g.periodo).filter(Boolean);
-        const palestraOk =
-          periodoFilter === "todos" ||
-          periods.length === 0 ||
-          periods.includes(periodoFilter);
+      palestraDates(p).forEach((pal, i) => {
+        const palestraOk = periodoFilter === "todos" || !pal.periodo || pal.periodo === periodoFilter;
         if (palestraOk) {
           const slot = vivenciaPreferredAgendaSlot(
-            p.data_preferivel_palestra,
-            p.hora_inicio_palestra,
+            pal.date,
+            pal.hora_inicio,
           );
-          const horaLabel = formatHoraInicio(p.hora_inicio_palestra);
-          const fallback = `${p.numero} • Palestra (pref.)`;
+          const horaLabel = formatHoraInicio(pal.hora_inicio);
+          const fallback = `${p.numero} • Palestra ${pal.label} (pref.)`;
           const kind = "Palestra";
           items.push({
-            id: `${p.id}-pal`,
+            id: `${p.id}-pal-${i}`,
             title: agendaEventTitle({
               isAdmin,
               fallback,
@@ -537,7 +585,7 @@ function VivenciasAgenda() {
                 title: `${p.numero} • Palestra (preferência)`,
                 requestId: p.id,
                 fields: [
-                  { label: "Data preferível", value: formatDate(p.data_preferivel_palestra) },
+                  { label: "Data preferível", value: formatDate(pal.date) },
                   {
                     label: "Horário",
                     value:
@@ -545,9 +593,11 @@ function VivenciasAgenda() {
                         ? "Dia inteiro (sem horário)"
                         : `${horaLabel} — duração 1h`,
                   },
+                  { label: "Série / Turma", value: pal.label },
+                  { label: "Período", value: pal.periodo ? (periodoOptions.find((o) => o.value === pal.periodo)?.label ?? pal.periodo) : null },
                   {
                     label: "Tema da palestra",
-                    value: p.palestra_tema ? palestraTemaLabel(p.palestra_tema) : null,
+                    value: pal.palestra_tema ? palestraTemaLabel(pal.palestra_tema) : null,
                   },
                   { label: "Protocolo", value: p.numero },
                   { label: "Escola", value: p.school_nome_snapshot },
@@ -564,7 +614,7 @@ function VivenciasAgenda() {
             },
           });
         }
-      }
+      });
       return items;
     });
 

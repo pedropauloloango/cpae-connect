@@ -35,6 +35,15 @@ export type VivenciaGroupView = {
   hora_inicio?: string | null;
 };
 
+export type VivenciaPalestraView = {
+  aluno_serie: string;
+  aluno_turma: string;
+  periodo: string;
+  palestra_tema: string | null;
+  data_preferivel?: string | null;
+  hora_inicio?: string | null;
+};
+
 type VivenciaRequestView = {
   school_nome_snapshot?: string | null;
   tipo_escola?: string | null;
@@ -48,6 +57,7 @@ type VivenciaRequestView = {
   data_preferivel_palestra?: string | null;
   hora_inicio_palestra?: string | null;
   groups?: VivenciaGroupView[] | null;
+  palestras?: VivenciaPalestraView[] | null;
 };
 
 function formatDate(value: string | null | undefined): string {
@@ -62,6 +72,7 @@ function formatSerie(value: string | null | undefined): string {
 
 export function buildVivenciaFormSections(req: VivenciaRequestView): VivenciaFormSection[] {
   const groups = req.groups ?? [];
+  const palestras = req.palestras ?? [];
   const sections: VivenciaFormSection[] = [
     {
       title: "Identificação",
@@ -145,25 +156,77 @@ export function buildVivenciaFormSections(req: VivenciaRequestView): VivenciaFor
     });
   }
 
-  sections.push({
-    title: "Palestras e datas",
-    items: [
-      { number: 0, question: "Palestra", answer: palestraTemaLabel(req.palestra_tema) },
-      {
-        number: 0,
-        question: "Data preferível — Palestra",
-        answer: formatDate(req.data_preferivel_palestra),
-      },
-      {
-        number: 0,
-        question: "Horário de início — Palestra",
-        answer:
-          formatHoraInicio(req.hora_inicio_palestra) === "—"
-            ? "—"
-            : `${formatHoraInicio(req.hora_inicio_palestra)} (duração 1h)`,
-      },
-    ],
-  });
+  if (palestras.length > 0) {
+    sections.push({
+      title: "Palestras",
+      items: [],
+      groups: palestras.map((p, i) => {
+        const n = i + 1;
+        return {
+          title: `Palestra ${n}`,
+          rows: [
+            [
+              {
+                number: 0,
+                question: `Palestra ${n} — Série`,
+                answer: formatSerie(p.aluno_serie),
+              },
+              {
+                number: 0,
+                question: `Palestra ${n} — Turma`,
+                answer: p.aluno_turma || "—",
+              },
+              {
+                number: 0,
+                question: `Palestra ${n} — Período`,
+                answer: periodoLabels[p.periodo] ?? p.periodo ?? "—",
+              },
+            ],
+            [
+              {
+                number: 0,
+                question: `Palestra ${n} — Tema`,
+                answer: palestraTemaLabel(p.palestra_tema),
+              },
+              {
+                number: 0,
+                question: `Palestra ${n} — Data preferível`,
+                answer: formatDate(p.data_preferivel),
+              },
+              {
+                number: 0,
+                question: `Palestra ${n} — Horário de início`,
+                answer:
+                  formatHoraInicio(p.hora_inicio) === "—"
+                    ? "—"
+                    : `${formatHoraInicio(p.hora_inicio)} (duração 1h)`,
+              },
+            ],
+          ],
+        };
+      }),
+    });
+  } else {
+    sections.push({
+      title: "Palestras e datas",
+      items: [
+        { number: 0, question: "Palestra", answer: palestraTemaLabel(req.palestra_tema) },
+        {
+          number: 0,
+          question: "Data preferível — Palestra",
+          answer: formatDate(req.data_preferivel_palestra),
+        },
+        {
+          number: 0,
+          question: "Horário de início — Palestra",
+          answer:
+            formatHoraInicio(req.hora_inicio_palestra) === "—"
+              ? "—"
+              : `${formatHoraInicio(req.hora_inicio_palestra)} (duração 1h)`,
+        },
+      ],
+    });
+  }
 
   return sections;
 }

@@ -19,6 +19,15 @@ export type VivenciaGroupSubmission = {
   hora_inicio?: string | null;
 };
 
+export type VivenciaPalestraSubmission = {
+  aluno_serie: string;
+  aluno_turma: string;
+  periodo: PeriodoEscolar;
+  palestra_tema: PalestraTema;
+  data_preferivel?: string | null;
+  hora_inicio?: string | null;
+};
+
 export type VivenciaSubmission = {
   school_id: string;
   school_nome: string;
@@ -29,6 +38,7 @@ export type VivenciaSubmission = {
   solicitante_cargo: SolicitanteCargo;
   solicitante_telefone: string;
   groups: VivenciaGroupSubmission[];
+  palestras: VivenciaPalestraSubmission[];
   palestra_tema?: PalestraTema | null;
   data_preferivel_palestra?: string | null;
   hora_inicio_palestra?: string | null;
@@ -77,6 +87,23 @@ export async function submitVivenciaRequest(
     };
   });
 
+  const palestras = data.palestras.map((p) => {
+    const serieLabel =
+      data.serieLabels?.[p.aluno_serie] ?? alunoSerieLabels[p.aluno_serie] ?? p.aluno_serie;
+    const turmaLabel =
+      data.turmaLabels?.[p.aluno_turma] ?? alunoTurmaLabels[p.aluno_turma] ?? p.aluno_turma;
+    return {
+      aluno_serie: serieLabel,
+      aluno_turma: turmaLabel,
+      periodo: p.periodo,
+      palestra_tema: p.palestra_tema,
+      data_preferivel: p.data_preferivel || null,
+      hora_inicio: p.hora_inicio || null,
+    };
+  });
+
+  const primeiraPalestra = palestras[0] ?? null;
+
   const payload: Json = {
     school_id: data.school_id,
     school_nome: data.school_nome.trim(),
@@ -87,9 +114,12 @@ export async function submitVivenciaRequest(
     solicitante_cargo: data.solicitante_cargo,
     solicitante_telefone: data.solicitante_telefone.trim(),
     groups,
-    palestra_tema: data.palestra_tema || null,
-    data_preferivel_palestra: data.data_preferivel_palestra || null,
-    hora_inicio_palestra: data.hora_inicio_palestra || null,
+    palestras,
+    // Compatibilidade com leituras legadas enquanto a app migra para múltiplas palestras:
+    // espelhamos a primeira palestra nos campos antigos da requisição.
+    palestra_tema: primeiraPalestra?.palestra_tema ?? (data.palestra_tema || null),
+    data_preferivel_palestra: primeiraPalestra?.data_preferivel ?? (data.data_preferivel_palestra || null),
+    hora_inicio_palestra: primeiraPalestra?.hora_inicio ?? (data.hora_inicio_palestra || null),
   };
 
   const { data: rows, error } = await supabase.rpc("submit_vivencia_request", { payload });
@@ -121,9 +151,10 @@ export async function submitVivenciaRequest(
       solicitante_cargo: data.solicitante_cargo,
       solicitante_telefone: data.solicitante_telefone.trim(),
       groups,
-      palestra_tema: data.palestra_tema || null,
-      data_preferivel_palestra: data.data_preferivel_palestra || null,
-      hora_inicio_palestra: data.hora_inicio_palestra || null,
+      palestras,
+      palestra_tema: primeiraPalestra?.palestra_tema ?? (data.palestra_tema || null),
+      data_preferivel_palestra: primeiraPalestra?.data_preferivel ?? (data.data_preferivel_palestra || null),
+      hora_inicio_palestra: primeiraPalestra?.hora_inicio ?? (data.hora_inicio_palestra || null),
       alertEmails,
     },
   })

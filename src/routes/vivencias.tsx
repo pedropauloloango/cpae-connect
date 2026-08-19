@@ -13,7 +13,6 @@ import {
   School,
   Users,
   Mic2,
-  CalendarDays,
   Plus,
   Trash2,
   X,
@@ -25,7 +24,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { submitVivenciaRequest } from "@/lib/vivencias-submit";
 import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schools";
@@ -74,6 +72,15 @@ const groupSchema = z.object({
   hora_inicio: z.string().optional(),
 });
 
+const palestraSchema = z.object({
+  aluno_serie: z.string().optional(),
+  aluno_turma: z.string().optional(),
+  periodo: z.string().optional(),
+  palestra_tema: z.string().optional(),
+  data_preferivel: z.string().optional(),
+  hora_inicio: z.string().optional(),
+});
+
 function isGroupEmpty(g: {
   aluno_serie?: string;
   aluno_turma?: string;
@@ -97,6 +104,24 @@ function isGroupComplete(g: {
   );
 }
 
+function isPalestraEmpty(p: {
+  aluno_serie?: string;
+  aluno_turma?: string;
+  periodo?: string;
+  palestra_tema?: string;
+}): boolean {
+  return !p.aluno_serie && !p.aluno_turma && !p.periodo && !p.palestra_tema;
+}
+
+function isPalestraComplete(p: {
+  aluno_serie?: string;
+  aluno_turma?: string;
+  periodo?: string;
+  palestra_tema?: string;
+}): boolean {
+  return Boolean(p.aluno_serie && p.aluno_turma && p.periodo && p.palestra_tema);
+}
+
 const schema = z
   .object({
     school_id: z.string().uuid("Selecione a escola ou EMEI"),
@@ -110,27 +135,23 @@ const schema = z
     }),
     solicitante_telefone: z.string().min(8, "Informe o telefone para contato"),
     groups: z.array(groupSchema),
-    palestra_tema: z.string().optional(),
-    data_preferivel_palestra: z.string().optional(),
-    hora_inicio_palestra: z.string().optional(),
+    palestras: z.array(palestraSchema),
   })
   .superRefine((val, ctx) => {
-    const hasPalestra = Boolean(val.palestra_tema?.trim());
     const completeGroups = val.groups.filter(isGroupComplete);
+    const completePalestras = val.palestras.filter(isPalestraComplete);
 
-    if (!hasPalestra && completeGroups.length === 0) {
+    if (completeGroups.length === 0 && completePalestras.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "Adicione ao menos um grupo de vivência completo ou selecione uma palestra",
+          "Adicione ao menos uma vivência completa ou uma palestra completa",
         path: ["groups"],
       });
     }
 
-    // Com palestra: grupos vazios são ignorados; grupos iniciados precisam estar completos.
-    // Sem palestra: todos os grupos listados precisam estar completos.
     val.groups.forEach((g, i) => {
-      if (hasPalestra && isGroupEmpty(g)) return;
+      if (isGroupEmpty(g)) return;
       if (!g.aluno_serie) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -160,6 +181,38 @@ const schema = z
         });
       }
     });
+
+    val.palestras.forEach((p, i) => {
+      if (isPalestraEmpty(p)) return;
+      if (!p.aluno_serie) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione a série",
+          path: ["palestras", i, "aluno_serie"],
+        });
+      }
+      if (!p.aluno_turma) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione a turma",
+          path: ["palestras", i, "aluno_turma"],
+        });
+      }
+      if (!p.periodo) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione o período",
+          path: ["palestras", i, "periodo"],
+        });
+      }
+      if (!p.palestra_tema) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selecione a palestra",
+          path: ["palestras", i, "palestra_tema"],
+        });
+      }
+    });
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -169,9 +222,6 @@ const primaryBtn =
 
 const formCard =
   "rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.05)]";
-
-const optionLabel =
-  "flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm transition-colors has-[[data-state=checked]]:border-[#0F52BA] has-[[data-state=checked]]:bg-[#EAF2FF]/50";
 
 const checkboxOptionLabel =
   "flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm transition-colors hover:border-slate-300 has-[[data-state=checked]]:border-[#0F52BA] has-[[data-state=checked]]:bg-[#EAF2FF]/50";
@@ -183,6 +233,17 @@ function emptyGroup() {
     periodo: undefined as unknown as PeriodoEscolar,
     temas: [] as string[],
     data_vivencia: "",
+    hora_inicio: "",
+  };
+}
+
+function emptyPalestra() {
+  return {
+    aluno_serie: undefined as unknown as string,
+    aluno_turma: undefined as unknown as string,
+    periodo: undefined as unknown as PeriodoEscolar,
+    palestra_tema: undefined as unknown as string,
+    data_preferivel: "",
     hora_inicio: "",
   };
 }
@@ -369,15 +430,21 @@ function VivenciasPublico() {
       school_nome: "",
       regiao_escola: "",
       groups: [emptyGroup()],
-      palestra_tema: "",
-      data_preferivel_palestra: "",
-      hora_inicio_palestra: "",
+      palestras: [emptyPalestra()],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "groups",
+  });
+  const {
+    fields: palestraFields,
+    append: appendPalestra,
+    remove: removePalestra,
+  } = useFieldArray({
+    control: form.control,
+    name: "palestras",
   });
 
   const selectedSchoolId = form.watch("school_id");
@@ -386,8 +453,7 @@ function VivenciasPublico() {
   const regiaoKnown = regiaoEscolaOptions.some((o) => o.value === regiaoValue);
 
   const watchedGroups = form.watch("groups");
-  const watchedPalestra = form.watch("palestra_tema");
-  const hasPalestra = Boolean(watchedPalestra?.trim());
+  const watchedPalestras = form.watch("palestras");
 
   const handleSchoolSelect = (school: PublicSchoolOption) => {
     form.setValue("school_id", school.id, { shouldValidate: true });
@@ -399,6 +465,7 @@ function VivenciasPublico() {
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       const completeGroups = values.groups.filter(isGroupComplete);
+      const completePalestras = values.palestras.filter(isPalestraComplete);
       return submitVivenciaRequest({
         school_id: values.school_id,
         school_nome: values.school_nome,
@@ -416,9 +483,14 @@ function VivenciasPublico() {
           data_vivencia: g.data_vivencia || null,
           hora_inicio: g.hora_inicio || null,
         })),
-        palestra_tema: (values.palestra_tema || null) as PalestraTema | null,
-        data_preferivel_palestra: values.data_preferivel_palestra || null,
-        hora_inicio_palestra: values.hora_inicio_palestra || null,
+        palestras: completePalestras.map((p) => ({
+          aluno_serie: p.aluno_serie as string,
+          aluno_turma: p.aluno_turma as string,
+          periodo: p.periodo as PeriodoEscolar,
+          palestra_tema: p.palestra_tema as PalestraTema,
+          data_preferivel: p.data_preferivel || null,
+          hora_inicio: p.hora_inicio || null,
+        })),
         serieLabels: labelsMap(serieOptions),
         turmaLabels: labelsMap(turmaOptions),
       });
@@ -608,7 +680,7 @@ function VivenciasPublico() {
                   )
                   .filter((d): d is string => Boolean(d));
 
-                const groupRequiredMark = hasPalestra ? "" : " *";
+                const groupRequiredMark = " *";
 
                 return (
                   <div
@@ -620,7 +692,7 @@ function VivenciasPublico() {
                         Turma {index + 1}
                         {fields.length > 1 ? ` de ${fields.length}` : ""}
                       </h3>
-                      {(fields.length > 1 || hasPalestra) && (
+                      {fields.length > 1 && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -765,104 +837,200 @@ function VivenciasPublico() {
                 ? "Adicionar série / turma / período"
                 : "Adicionar outra série / turma / período"}
             </Button>
-            {watchedGroups.length > 0 && !watchedGroups.every(isGroupComplete) && (
+            {watchedGroups.length > 0 && !watchedGroups.every((g) => isGroupComplete(g) || isGroupEmpty(g)) && (
               <p className="text-center text-xs text-[#64748B]">
-                {hasPalestra
-                  ? "Deixe a turma em branco (ou remova) se for só palestra, ou complete série, turma, período e tema."
-                  : "Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra."}
-              </p>
-            )}
-            {fields.length === 0 && hasPalestra && (
-              <p className="text-center text-xs text-[#64748B]">
-                Solicitação apenas de palestra — vivências para alunos não são obrigatórias.
+                Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra.
               </p>
             )}
           </FormSection>
 
           <FormSection
             title="Palestras"
-            description="Opcional se já houver vivências — ou escolha uma palestra para solicitar só palestra"
+            description="Opcional se já houver vivências. Você pode adicionar mais de uma palestra para séries, turmas e períodos diferentes."
             icon={Mic2}
           >
-            <Field label="Palestra desejada">
-              <Controller
-                control={form.control}
-                name="palestra_tema"
-                render={({ field }) => (
-                  <RadioGroup
-                    value={field.value || ""}
-                    onValueChange={(v) => {
-                      field.onChange(v === field.value ? "" : v);
-                      void form.trigger("groups");
-                    }}
-                    className="grid gap-2"
-                  >
-                    {palestraTemaOptions.map((o) => (
-                      <label key={o.value} className={`${optionLabel} items-start`}>
-                        <RadioGroupItem value={o.value} className="mt-0.5" />
-                        {o.label}
-                      </label>
-                    ))}
-                  </RadioGroup>
-                )}
-              />
-              {form.watch("palestra_tema") && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 text-[#64748B]"
-                  onClick={() => {
-                    form.setValue("palestra_tema", "", { shouldValidate: true });
-                    void form.trigger("groups");
-                  }}
-                >
-                  Limpar seleção de palestra
-                </Button>
-              )}
-            </Field>
-          </FormSection>
+            <div className="space-y-5">
+              {palestraFields.map((field, index) => {
+                const palestraErrors = form.formState.errors.palestras?.[index];
+                const periodo = form.watch(`palestras.${index}.periodo`);
+                const palestrasSnapshot = form.watch("palestras") ?? [];
+                const extraOccupiedDates = palestrasSnapshot
+                  .map((p, i) =>
+                    i !== index && p.data_preferivel ? p.data_preferivel : null,
+                  )
+                  .filter((d): d is string => Boolean(d));
 
-          <FormSection
-            title="Data preferível da Palestra"
-            description="Sugestão de data e horário para a equipe confirmar (duração de 1 hora)"
-            icon={CalendarDays}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Data">
-                <p className="mb-2 text-xs text-[#64748B]">
-                  Dias úteis em verde; laranja = já há vivência ou palestra na mesma região. Sujeita à
-                  confirmação da equipe.
-                </p>
-                <Controller
-                  control={form.control}
-                  name="data_preferivel_palestra"
-                  render={({ field: f }) => (
-                    <VivenciaDatePicker
-                      kind="palestra"
-                      value={f.value}
-                      onChange={f.onChange}
-                      regiao={regiaoValue}
-                      extraOccupiedDates={(watchedGroups ?? [])
-                        .map((g) => g.data_vivencia)
-                        .filter((d): d is string => Boolean(d))}
-                    />
-                  )}
-                />
-              </Field>
-              <Field label="Horário de início">
-                <p className="mb-2 text-xs text-[#64748B]">
-                  Hora (07–21) e minuto (00/15/30/45). Na agenda a duração será sempre de 1 hora.
-                </p>
-                <Controller
-                  control={form.control}
-                  name="hora_inicio_palestra"
-                  render={({ field: f }) => (
-                    <VisitStartTimeSelect value={f.value ?? ""} onChange={f.onChange} />
-                  )}
-                />
-              </Field>
+                return (
+                  <div
+                    key={field.id}
+                    className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-bold text-[#0F172A]">
+                        Palestra {index + 1}
+                        {palestraFields.length > 1 ? ` de ${palestraFields.length}` : ""}
+                      </h3>
+                      {palestraFields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => removePalestra(index)}
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" />
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field label="Série *" error={palestraErrors?.aluno_serie?.message}>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.aluno_serie`}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a série" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {serieOptions.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </Field>
+
+                      <Field label="Turma *" error={palestraErrors?.aluno_turma?.message}>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.aluno_turma`}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a turma" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {turmaOptions.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </Field>
+
+                      <Field label="Período *" error={palestraErrors?.periodo?.message}>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.periodo`}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o período" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {periodoOptions.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="Tema da palestra *" error={palestraErrors?.palestra_tema?.message}>
+                      <Controller
+                        control={form.control}
+                        name={`palestras.${index}.palestra_tema`}
+                        render={({ field: f }) => (
+                          <Select value={f.value} onValueChange={f.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a palestra" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {palestraTemaOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Data preferível da Palestra">
+                        <p className="mb-2 text-xs text-[#64748B]">
+                          Dias úteis em verde; laranja = já há vivência ou palestra na mesma região. Sujeita à
+                          confirmação da equipe.
+                        </p>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.data_preferivel`}
+                          render={({ field: f }) => (
+                            <VivenciaDatePicker
+                              kind="palestra"
+                              value={f.value}
+                              onChange={f.onChange}
+                              regiao={regiaoValue}
+                              periodo={periodo}
+                              extraOccupiedDates={[
+                                ...(watchedGroups ?? [])
+                                  .map((g) => g.data_vivencia)
+                                  .filter((d): d is string => Boolean(d)),
+                                ...extraOccupiedDates,
+                              ]}
+                            />
+                          )}
+                        />
+                      </Field>
+                      <Field label="Horário de início">
+                        <p className="mb-2 text-xs text-[#64748B]">
+                          Hora (07–21) e minuto (00/15/30/45). Na agenda a duração será sempre de 1 hora.
+                        </p>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.hora_inicio`}
+                          render={({ field: f }) => (
+                            <VisitStartTimeSelect value={f.value ?? ""} onChange={f.onChange} />
+                          )}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-[14px] border-dashed border-[#0F52BA]/40 text-[#0F52BA] hover:bg-[#EAF2FF] disabled:cursor-not-allowed"
+              disabled={watchedPalestras.length > 0 && !watchedPalestras.every((p) => isPalestraComplete(p) || isPalestraEmpty(p))}
+              onClick={() => appendPalestra(emptyPalestra())}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {palestraFields.length === 0
+                ? "Adicionar palestra"
+                : "Adicionar outra palestra"}
+            </Button>
+            {watchedPalestras.length > 0 && !watchedPalestras.every((p) => isPalestraComplete(p) || isPalestraEmpty(p)) && (
+              <p className="text-center text-xs text-[#64748B]">
+                Preencha série, turma, período e a palestra atual para adicionar outra.
+              </p>
+            )}
           </FormSection>
 
           <Button type="submit" size="lg" className={`w-full ${primaryBtn} py-6 text-base`} disabled={mutation.isPending}>

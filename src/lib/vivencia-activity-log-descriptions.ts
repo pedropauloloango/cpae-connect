@@ -59,10 +59,14 @@ export function formatVivenciaActivityLogDescription(
       const { nome, cargo } = solicitanteFromRequest(ctx);
       const numero = String(details.numero ?? ctx.request?.numero ?? "—");
       const groupsCount = typeof details.groups_count === "number" ? details.groups_count : null;
+      const palestrasCount = typeof details.palestras_count === "number" ? details.palestras_count : null;
       const palestra = details.palestra_tema ? palestraTemaLabel(String(details.palestra_tema)) : null;
       let text = `Quem criou: ${nome}, cargo ${cargo}. Protocolo ${numero}.`;
       if (groupsCount !== null && groupsCount > 0) {
         text += ` ${groupsCount} grupo(s) de vivência informado(s).`;
+      }
+      if (palestrasCount !== null && palestrasCount > 0) {
+        text += ` ${palestrasCount} palestra(s) informada(s).`;
       }
       if (palestra && palestra !== "—") text += ` Palestra: ${palestra}.`;
       return text;

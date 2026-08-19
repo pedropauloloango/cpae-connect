@@ -200,18 +200,30 @@ function VivenciasDashboard() {
     enabled: !authLoading && scopeReady,
     queryFn: async () => {
       if (!isAdmin && myRequestIds.length === 0) return [];
-      let qb = supabase
+      const counts = new Map<string, number>();
+
+      let legacyQ = supabase
         .from("vivencia_requests")
-        .select("palestra_tema")
+        .select("id, palestra_tema")
         .is("deleted_at", null)
         .not("palestra_tema", "is", null);
-      if (!isAdmin) qb = qb.in("id", myRequestIds);
-      const { data } = await qb;
-      const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { palestra_tema: string | null }) => {
+      if (!isAdmin) legacyQ = legacyQ.in("id", myRequestIds);
+      const { data: legacy } = await legacyQ;
+      (legacy ?? []).forEach((r: { palestra_tema: string | null }) => {
         if (!r.palestra_tema) return;
         counts.set(r.palestra_tema, (counts.get(r.palestra_tema) ?? 0) + 1);
       });
+
+      let multiQ = supabase
+        .from("vivencia_request_palestras")
+        .select("palestra_tema, vivencia_request_id");
+      if (!isAdmin) multiQ = multiQ.in("vivencia_request_id", myRequestIds);
+      const { data: multi } = await multiQ;
+      (multi ?? []).forEach((r: { palestra_tema: string | null }) => {
+        if (!r.palestra_tema) return;
+        counts.set(r.palestra_tema, (counts.get(r.palestra_tema) ?? 0) + 1);
+      });
+
       return Array.from(counts.entries()).map(([k, v]) => ({
         name: palestraTemaLabel(k),
         value: v,

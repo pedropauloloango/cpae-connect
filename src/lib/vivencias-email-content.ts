@@ -17,6 +17,15 @@ export type VivenciaEmailGroup = {
   hora_inicio?: string | null;
 };
 
+export type VivenciaEmailPalestra = {
+  aluno_serie: string;
+  aluno_turma: string;
+  periodo: string;
+  palestra_tema: string;
+  data_preferivel?: string | null;
+  hora_inicio?: string | null;
+};
+
 export type VivenciaEmailPayload = {
   requestId: string;
   numero: string;
@@ -28,6 +37,7 @@ export type VivenciaEmailPayload = {
   solicitante_cargo: string;
   solicitante_telefone: string;
   groups: VivenciaEmailGroup[];
+  palestras?: VivenciaEmailPalestra[];
   palestra_tema?: string | null;
   data_preferivel_palestra?: string | null;
   hora_inicio_palestra?: string | null;
@@ -79,7 +89,19 @@ function buildDetailRows(data: VivenciaEmailPayload): Array<{ label: string; val
     });
   });
 
-  if (data.palestra_tema) {
+  const palestras = data.palestras ?? [];
+
+  if (palestras.length > 0) {
+    palestras.forEach((p, index) => {
+      const n = index + 1;
+      const hora = formatHoraInicio(p.hora_inicio);
+      const horario = hora !== "—" ? ` · horário ${hora} (1h)` : "";
+      rows.push({
+        label: `Palestra ${n}`,
+        value: `${p.aluno_serie} — turma ${p.aluno_turma} · ${periodoLabels[p.periodo] ?? p.periodo} · ${palestraTemaLabel(p.palestra_tema)} · data ${formatDate(p.data_preferivel)}${horario}`,
+      });
+    });
+  } else if (data.palestra_tema) {
     rows.push({ label: "Palestra", value: palestraTemaLabel(data.palestra_tema) });
     rows.push({ label: "Data preferível (palestra)", value: formatDate(data.data_preferivel_palestra) });
     const horaPalestra = formatHoraInicio(data.hora_inicio_palestra);

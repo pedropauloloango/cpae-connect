@@ -201,7 +201,7 @@ function VivenciaDemandaDetail() {
       const { data, error } = await supabase
         .from("vivencia_requests")
         .select(
-          "*, school:schools(*), groups:vivencia_request_groups(*), assignees:vivencia_request_assignees(id, professional_id, assigned_at, professional:professionals(id, nome))",
+          "*, school:schools(*), groups:vivencia_request_groups(*), palestras:vivencia_request_palestras(*), assignees:vivencia_request_assignees(id, professional_id, assigned_at, professional:professionals(id, nome))",
         )
         .eq("id", id)
         .is("deleted_at", null)

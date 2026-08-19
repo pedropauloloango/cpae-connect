@@ -69,6 +69,7 @@ interface VivReq {
   data_preferivel_palestra: string | null;
   school: { regiao: string | null } | null;
   groups: { aluno_serie: string; aluno_turma: string; periodo: string; data_preferivel: string | null }[] | null;
+  palestras: { aluno_serie: string; aluno_turma: string; periodo: string; palestra_tema: string; data_preferivel: string | null }[] | null;
   assignees: { professional: { nome: string } | null }[] | null;
 }
 
@@ -81,7 +82,7 @@ function formatDateBr(value: string | null | undefined): string | null {
 
 function requestTipo(r: VivReq): string {
   const hasGroups = (r.groups?.length ?? 0) > 0;
-  const hasPalestra = Boolean(r.palestra_tema?.trim());
+  const hasPalestra = (r.palestras?.length ?? 0) > 0 || Boolean(r.palestra_tema?.trim());
   if (hasGroups && hasPalestra) return "Vivência e palestra";
   if (hasPalestra) return "Palestra";
   if (hasGroups) return "Vivência";
@@ -97,6 +98,15 @@ function requestDatasVivencia(r: VivReq): string {
     ),
   ];
   if (fromGroups.length > 0) return fromGroups.join(", ");
+
+  const fromPalestras = [
+    ...new Set(
+      (r.palestras ?? [])
+        .map((p) => formatDateBr(p.data_preferivel))
+        .filter((d): d is string => Boolean(d)),
+    ),
+  ];
+  if (fromPalestras.length > 0) return fromPalestras.join(", ");
 
   const fromRequest = formatDateBr(r.data_preferivel_vivencia);
   if (fromRequest) return fromRequest;
@@ -115,6 +125,11 @@ function requestDataVivenciaSortKey(r: VivReq): string {
     .filter((d): d is string => Boolean(d))
     .sort();
   if (fromGroups[0]) return fromGroups[0];
+  const fromPalestras = (r.palestras ?? [])
+    .map((p) => p.data_preferivel)
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  if (fromPalestras[0]) return fromPalestras[0];
   if (r.data_preferivel_vivencia) return r.data_preferivel_vivencia;
   if (r.palestra_tema && r.data_preferivel_palestra) return r.data_preferivel_palestra;
   return "";
@@ -123,7 +138,7 @@ function requestDataVivenciaSortKey(r: VivReq): string {
 function requestPeriodos(r: VivReq): string {
   const periodos = [
     ...new Set(
-      (r.groups ?? [])
+      [...(r.groups ?? []), ...(r.palestras ?? [])]
         .map((g) => periodoLabels[g.periodo] ?? g.periodo)
         .filter(Boolean),
     ),
@@ -132,8 +147,13 @@ function requestPeriodos(r: VivReq): string {
 }
 
 function requestTurmas(r: VivReq): string {
+  const fromGroups = r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`).join(", ");
+  const fromPalestras = r.palestras
+    ?.map((p) => `${p.aluno_serie} ${p.aluno_turma} · ${palestraTemaLabel(p.palestra_tema)}`)
+    .join(", ");
   return (
-    r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`).join(", ") ||
+    fromGroups ||
+    fromPalestras ||
     (r.palestra_tema ? `Palestra: ${palestraTemaLabel(r.palestra_tema)}` : "—")
   );
 }
@@ -310,7 +330,7 @@ function VivenciasDemandas() {
       let qb = supabase
         .from("vivencia_requests")
         .select(
-          "id, numero, status, created_at, school_nome_snapshot, regiao_escola, palestra_tema, data_preferivel_vivencia, data_preferivel_palestra, school:schools(regiao), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo, data_preferivel), assignees:vivencia_request_assignees(professional:professionals(nome))",
+          "id, numero, status, created_at, school_nome_snapshot, regiao_escola, palestra_tema, data_preferivel_vivencia, data_preferivel_palestra, school:schools(regiao), groups:vivencia_request_groups(aluno_serie, aluno_turma, periodo, data_preferivel), palestras:vivencia_request_palestras(aluno_serie, aluno_turma, periodo, palestra_tema, data_preferivel), assignees:vivencia_request_assignees(professional:professionals(nome))",
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -362,11 +382,13 @@ function VivenciasDemandas() {
       r.numero,
       r.school_nome_snapshot,
       r.palestra_tema,
+      ...(r.palestras?.map((p) => p.palestra_tema) ?? []),
       requestTipo(r),
       requestDatasVivencia(r),
       requestPeriodos(r),
       ...(r.assignees?.map((a) => a.professional?.nome) ?? []),
       ...(r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`) ?? []),
+      ...(r.palestras?.map((p) => `${p.aluno_serie} ${p.aluno_turma}`) ?? []),
     ]
       .filter(Boolean)
       .join(" ")
