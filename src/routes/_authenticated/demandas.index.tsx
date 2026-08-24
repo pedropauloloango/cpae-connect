@@ -29,7 +29,7 @@ import {
 } from "@/lib/demandas-filtros";
 import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
-import { Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Loader2, Trash2, ChevronLeft, ChevronRight, FilterX } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -58,10 +58,12 @@ interface Req {
 
 function Demandas() {
   const qc = useQueryClient();
-  const navigate = useNavigate({ from: "/_authenticated/demandas/" });
+  const navigate = useNavigate();
   const { filtro: filtroSearch } = Route.useSearch();
   const { user, isAdmin } = useAuth();
-  const [q, setQ] = useState("");
+  const [aluno, setAluno] = useState("");
+  const [escola, setEscola] = useState("");
+  const [profissional, setProfissional] = useState("todos");
   const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
@@ -70,14 +72,28 @@ function Demandas() {
     setStatus(filtroSearch ?? "todos");
   }, [filtroSearch]);
 
-  const applyFilter = (value: string) => {
+  const applyStatusFilter = (value: string) => {
     setStatus(value);
     setPage(1);
     void navigate({
+      to: "/demandas",
       search: { filtro: value === "todos" ? undefined : value },
       replace: true,
     });
   };
+
+  const clearFilters = () => {
+    setAluno("");
+    setEscola("");
+    setProfissional("todos");
+    applyStatusFilter("todos");
+  };
+
+  const hasActiveFilters =
+    aluno.trim().length > 0 ||
+    escola.trim().length > 0 ||
+    profissional !== "todos" ||
+    status !== "todos";
 
   const { data: myProfId, isLoading: loadingMyProf } = useQuery({
     queryKey: ["my-pro", user?.id],
@@ -115,6 +131,26 @@ function Demandas() {
         if (bi === -1) return -1;
         return ai - bi;
       });
+    },
+  });
+
+  const { data: professionals = [] } = useQuery({
+    queryKey: ["demandas-professional-options", isAdmin, myProfId],
+    enabled: isAdmin || myProfId !== undefined,
+    queryFn: async () => {
+      let qb = supabase
+        .from("professionals")
+        .select("id, nome")
+        .eq("atende_acolhimento", true)
+        .is("deleted_at", null)
+        .order("nome");
+      if (!isAdmin) {
+        if (!myProfId) return [];
+        qb = qb.eq("id", myProfId);
+      }
+      const { data, error } = await qb;
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -193,14 +229,27 @@ function Demandas() {
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [aluno, escola, profissional]);
+
   const filtered = list.filter((r) => {
-    if (!q) return true;
-    const s = q.toLowerCase();
-    return (
-      r.numero.toLowerCase().includes(s) ||
-      r.aluno_nome.toLowerCase().includes(s) ||
-      (r.school_nome_snapshot ?? "").toLowerCase().includes(s)
-    );
+    const alunoQ = aluno.trim().toLowerCase();
+    if (alunoQ && !r.aluno_nome.toLowerCase().includes(alunoQ)) return false;
+
+    const escolaQ = escola.trim().toLowerCase();
+    if (escolaQ && !(r.school_nome_snapshot ?? "").toLowerCase().includes(escolaQ)) return false;
+
+    if (profissional !== "todos") {
+      const nome = r.professional?.nome ?? "";
+      if (profissional === "sem_profissional") {
+        if (nome) return false;
+      } else if (nome !== profissional) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   useEffect(() => {
@@ -208,13 +257,13 @@ function Demandas() {
     if ((DEMANDAS_FILTROS as readonly string[]).includes(status)) return;
     if (availableStatuses.length > 0 && !availableStatuses.includes(status)) {
       setStatus("todos");
-      void navigate({ search: { filtro: undefined }, replace: true });
+      void navigate({ to: "/demandas", search: { filtro: undefined }, replace: true });
     }
   }, [status, availableStatuses, navigate]);
 
   useEffect(() => {
     setPage(1);
-  }, [q, status]);
+  }, [status]);
 
   const totalFiltered = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -247,13 +296,37 @@ function Demandas() {
       />
 
       <Card className="cpae-card mb-4 border-0 shadow-none">
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_220px]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por número, aluno ou escola…" className="pl-9" />
-          </div>
-          <Select value={status} onValueChange={applyFilter} disabled={loadingStatuses}>
-            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <Input
+            value={aluno}
+            onChange={(e) => setAluno(e.target.value)}
+            placeholder="Aluno"
+            className="sm:min-w-0 sm:flex-1"
+          />
+          <Input
+            value={escola}
+            onChange={(e) => setEscola(e.target.value)}
+            placeholder="Escola"
+            className="sm:min-w-0 sm:flex-1"
+          />
+          <Select value={profissional} onValueChange={setProfissional}>
+            <SelectTrigger className="sm:w-[200px]">
+              <SelectValue placeholder="Profissional" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os profissionais</SelectItem>
+              <SelectItem value="sem_profissional">Sem profissional</SelectItem>
+              {professionals.map((p) => (
+                <SelectItem key={p.id} value={p.nome}>
+                  {p.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={applyStatusFilter} disabled={loadingStatuses}>
+            <SelectTrigger className="sm:w-[220px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
               <SelectItem value="em_atendimento">{demandasFiltroLabels.em_atendimento}</SelectItem>
@@ -265,6 +338,17 @@ function Demandas() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            title="Limpar filtros"
+          >
+            <FilterX className="h-4 w-4" />
+          </Button>
         </CardContent>
       </Card>
 
