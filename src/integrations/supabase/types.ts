@@ -674,7 +674,10 @@ export type Database = {
           diretor_nome: string | null
           email: string | null
           endereco: string | null
+          geocode_status: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           nome: string
           ramal: string | null
           regiao: string | null
@@ -697,7 +700,10 @@ export type Database = {
           diretor_nome?: string | null
           email?: string | null
           endereco?: string | null
+          geocode_status?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome: string
           ramal?: string | null
           regiao?: string | null
@@ -720,7 +726,10 @@ export type Database = {
           diretor_nome?: string | null
           email?: string | null
           endereco?: string | null
+          geocode_status?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome?: string
           ramal?: string | null
           regiao?: string | null

@@ -1,3 +1,5 @@
+import { sanitizeSchoolAddressFields } from "@/lib/school-address-sanitize";
+
 export const SCHOOL_IMPORT_COLUMNS = [
   { key: "nome", label: "Nome", required: true },
   { key: "tipo_escola", label: "Tipo Escola", required: true },
@@ -32,6 +34,9 @@ export type SchoolImportRow = {
   diretor_nome: string | null;
   diretor_celular: string | null;
   diretor_cpf: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocode_status?: "ok" | "manual" | "manual_required" | null;
 };
 
 export type SchoolImportPreview = {
@@ -210,15 +215,23 @@ export async function parseSchoolImportFile(file: File): Promise<SchoolImportPre
       continue;
     }
 
+    const clean = sanitizeSchoolAddressFields({
+      nome,
+      endereco: row.endereco ?? null,
+      bairro: row.bairro ?? null,
+      cep: row.cep ?? null,
+      regiao: row.regiao ?? null,
+    });
+
     valid.push({
       nome,
       tipo_escola,
       codigo_siger: row.codigo_siger ?? null,
       codigo_inep: row.codigo_inep ?? null,
-      endereco: row.endereco ?? null,
-      bairro: row.bairro ?? null,
-      cep: row.cep ?? null,
-      regiao: row.regiao ?? null,
+      endereco: clean.endereco,
+      bairro: clean.bairro,
+      cep: clean.cep,
+      regiao: clean.regiao,
       tipologia: row.tipologia ?? null,
       email: row.email ?? null,
       ramal: row.ramal ?? null,
@@ -237,20 +250,53 @@ export function formValuesToSchoolRow(vals: Record<string, string>): SchoolImpor
     throw new Error('Tipo Escola inválido. Use "Escola" ou "EMEI".');
   }
 
+  const clean = sanitizeSchoolAddressFields({
+    nome: vals.nome,
+    endereco: emptyToNull(vals.endereco),
+    bairro: emptyToNull(vals.bairro),
+    cep: emptyToNull(vals.cep),
+    regiao: emptyToNull(vals.regiao),
+  });
+
   return {
     nome: vals.nome.trim(),
     tipo_escola,
     codigo_siger: emptyToNull(vals.codigo_siger),
     codigo_inep: emptyToNull(vals.codigo_inep),
-    endereco: emptyToNull(vals.endereco),
-    bairro: emptyToNull(vals.bairro),
-    cep: emptyToNull(vals.cep),
-    regiao: emptyToNull(vals.regiao),
+    endereco: clean.endereco,
+    bairro: clean.bairro,
+    cep: clean.cep,
+    regiao: clean.regiao,
     tipologia: emptyToNull(vals.tipologia),
     email: emptyToNull(vals.email),
     ramal: emptyToNull(vals.ramal),
     diretor_nome: emptyToNull(vals.diretor_nome),
     diretor_celular: emptyToNull(vals.diretor_celular),
     diretor_cpf: emptyToNull(vals.diretor_cpf),
+  };
+}
+
+/** Monta payload de escrita incluindo geocoding (ou lat/lng manuais do formulário). */
+export async function formValuesToSchoolRowWithCoords(
+  vals: Record<string, string>,
+  opts?: { schoolId?: string },
+): Promise<SchoolImportRow> {
+  const base = formValuesToSchoolRow(vals);
+  const { resolveSchoolCoordinatesForSave } = await import("@/lib/geocode-school");
+  const coords = await resolveSchoolCoordinatesForSave({
+    id: opts?.schoolId,
+    nome: base.nome,
+    endereco: base.endereco,
+    bairro: base.bairro,
+    cep: base.cep,
+    regiao: base.regiao,
+    latitude: vals.latitude,
+    longitude: vals.longitude,
+  });
+  return {
+    ...base,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    geocode_status: coords.geocode_status,
   };
 }

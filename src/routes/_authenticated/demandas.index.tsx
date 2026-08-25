@@ -25,6 +25,7 @@ import {
   DEMANDAS_FILTROS,
   EM_ATENDIMENTO_STATUSES,
   demandasFiltroLabels,
+  fetchRequestIdsComAtendimentoNoMes,
   type DemandasFiltro,
 } from "@/lib/demandas-filtros";
 import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
@@ -64,6 +65,7 @@ function Demandas() {
   const [aluno, setAluno] = useState("");
   const [escola, setEscola] = useState("");
   const [profissional, setProfissional] = useState("todos");
+  const [mesSolicitacao, setMesSolicitacao] = useState("");
   const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
@@ -86,6 +88,7 @@ function Demandas() {
     setAluno("");
     setEscola("");
     setProfissional("todos");
+    setMesSolicitacao("");
     applyStatusFilter("todos");
   };
 
@@ -93,6 +96,7 @@ function Demandas() {
     aluno.trim().length > 0 ||
     escola.trim().length > 0 ||
     profissional !== "todos" ||
+    mesSolicitacao.length > 0 ||
     status !== "todos";
 
   const { data: myProfId, isLoading: loadingMyProf } = useQuery({
@@ -154,36 +158,52 @@ function Demandas() {
     },
   });
 
+  const { data: monthOptions = [] } = useQuery({
+    queryKey: ["demandas-month-options", isAdmin, myProfId],
+    enabled: isAdmin || myProfId !== undefined,
+    queryFn: async () => {
+      let qb = supabase
+        .from("requests")
+        .select("created_at")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (!isAdmin) {
+        if (!myProfId) return [];
+        qb = qb.eq("assigned_professional_id", myProfId);
+      }
+      const { data, error } = await qb;
+      if (error) throw error;
+
+      const keys = new Set<string>();
+      for (const row of data ?? []) {
+        const d = new Date(row.created_at);
+        keys.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+      return [...keys]
+        .sort()
+        .reverse()
+        .map((key) => {
+          const [y, m] = key.split("-").map(Number);
+          const label = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", {
+            month: "long",
+            year: "numeric",
+          });
+          return { value: key, label: label.charAt(0).toUpperCase() + label.slice(1) };
+        });
+    },
+  });
+
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ["demandas", status, isAdmin, myProfId],
+    queryKey: ["demandas", status, mesSolicitacao, isAdmin, myProfId],
     enabled: isAdmin || (!loadingMyProf && myProfId !== undefined),
     queryFn: async () => {
       if (!isAdmin && !myProfId) return [];
 
       let requestIdsForMonth: string[] | null = null;
       if (status === "atendimentos_mes") {
-        const monthStart = new Date();
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-
-        let qAppt = supabase
-          .from("appointments")
-          .select("request_id")
-          .gte("inicio", monthStart.toISOString())
-          .is("vivencia_request_id", null)
-          .not("request_id", "is", null);
-
-        if (!isAdmin && myProfId) qAppt = qAppt.eq("professional_id", myProfId);
-
-        const { data: appts, error: apptErr } = await qAppt;
-        if (apptErr) throw apptErr;
-        requestIdsForMonth = [
-          ...new Set(
-            (appts ?? [])
-              .map((a) => a.request_id)
-              .filter((id): id is string => Boolean(id)),
-          ),
-        ];
+        requestIdsForMonth = await fetchRequestIdsComAtendimentoNoMes(
+          isAdmin ? null : myProfId,
+        );
         if (requestIdsForMonth.length === 0) return [];
       }
 
@@ -193,9 +213,15 @@ function Demandas() {
           "id, numero, aluno_nome, tipo_queixa, status, created_at, school_nome_snapshot, school:schools(regiao), professional:professionals!assigned_professional_id(nome), meetings(status)",
         )
         .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(200);
+        .order("created_at", { ascending: false });
       if (!isAdmin && myProfId) qb = qb.eq("assigned_professional_id", myProfId);
+
+      if (mesSolicitacao) {
+        const [y, m] = mesSolicitacao.split("-").map(Number);
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 1, 0, 0, 0, 0);
+        qb = qb.gte("created_at", start.toISOString()).lt("created_at", end.toISOString());
+      }
 
       if (status === "em_atendimento") {
         qb = qb.in("status", [...EM_ATENDIMENTO_STATUSES]);
@@ -231,7 +257,7 @@ function Demandas() {
 
   useEffect(() => {
     setPage(1);
-  }, [aluno, escola, profissional]);
+  }, [aluno, escola, profissional, mesSolicitacao]);
 
   const filtered = list.filter((r) => {
     const alunoQ = aluno.trim().toLowerCase();
@@ -296,7 +322,7 @@ function Demandas() {
       />
 
       <Card className="cpae-card mb-4 border-0 shadow-none">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
             value={aluno}
             onChange={(e) => setAluno(e.target.value)}
@@ -319,6 +345,35 @@ function Demandas() {
               {professionals.map((p) => (
                 <SelectItem key={p.id} value={p.nome}>
                   {p.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={mesSolicitacao || "todos"}
+            onValueChange={(v) => setMesSolicitacao(v === "todos" ? "" : v)}
+          >
+            <SelectTrigger className="sm:w-[200px]">
+              <SelectValue placeholder="Mês da solicitação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os meses</SelectItem>
+              {mesSolicitacao &&
+                !monthOptions.some((o) => o.value === mesSolicitacao) && (
+                  <SelectItem value={mesSolicitacao}>
+                    {(() => {
+                      const [y, m] = mesSolicitacao.split("-").map(Number);
+                      const label = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", {
+                        month: "long",
+                        year: "numeric",
+                      });
+                      return label.charAt(0).toUpperCase() + label.slice(1);
+                    })()}
+                  </SelectItem>
+                )}
+              {monthOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -366,7 +421,7 @@ function Demandas() {
                   <th className="px-4 py-3">Profissional</th>
                   <th className="px-4 py-3">Qtde de Encontros</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Recebida</th>
+                  <th className="px-4 py-3">Criado</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
@@ -425,7 +480,8 @@ function Demandas() {
                 <div className="mt-1 font-medium">{r.aluno_nome}</div>
                 <div className="mt-0.5 text-sm text-muted-foreground">{r.school_nome_snapshot ?? "—"}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {r.tipo_queixa ? complaintTypeLabels[r.tipo_queixa] : "—"} • {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                  {r.tipo_queixa ? complaintTypeLabels[r.tipo_queixa] : "—"} • Criado{" "}
+                  {new Date(r.created_at).toLocaleDateString("pt-BR")}
                 </div>
                 {r.professional?.nome && (
                   <div className="mt-1 text-xs text-muted-foreground">Profissional: {r.professional.nome}</div>

@@ -1,16 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState, type ComponentType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/AppShell";
 import {
-  Inbox, Clock, CheckCircle2, Calendar, TrendingUp, AlertCircle, Users, School,
+  Inbox, Clock, CheckCircle2, Calendar, TrendingUp, AlertCircle, Users, School, MapPin,
 } from "lucide-react";
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, LabelList } from "recharts";
 import { complaintTypeLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import type { DemandasFiltro } from "@/lib/demandas-filtros";
+import { fetchRequestIdsComAtendimentoNoMes, type DemandasFiltro } from "@/lib/demandas-filtros";
+import type { HeatSchoolCount } from "@/components/dashboard/ComplaintsHeatMap";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -37,12 +39,9 @@ function Dashboard() {
     queryKey: ["dashboard-counters", isAdmin, myProfId],
     enabled: !authLoading && (isAdmin || myProfId !== undefined),
     queryFn: async () => {
-      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-
       let qRecebida = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "recebida");
       let qAndamento = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).in("status", ["distribuida", "em_andamento", "em_ajuste", "aguardando_aprovacao"]);
       let qConcluida = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "concluida");
-      let qAppt = supabase.from("appointments").select("id", { count: "exact", head: true }).gte("inicio", monthStart.toISOString()).is("vivencia_request_id", null);
 
       if (!isAdmin) {
         if (!myProfId) {
@@ -51,10 +50,14 @@ function Dashboard() {
         qRecebida = qRecebida.eq("assigned_professional_id", myProfId);
         qAndamento = qAndamento.eq("assigned_professional_id", myProfId);
         qConcluida = qConcluida.eq("assigned_professional_id", myProfId);
-        qAppt = qAppt.eq("professional_id", myProfId);
       }
 
-      const [r1, r2, r3, ap] = await Promise.all([qRecebida, qAndamento, qConcluida, qAppt]);
+      const [r1, r2, r3, requestIdsMes] = await Promise.all([
+        qRecebida,
+        qAndamento,
+        qConcluida,
+        fetchRequestIdsComAtendimentoNoMes(isAdmin ? null : myProfId),
+      ]);
 
       let total_escolas = 0;
       let total_profissionais = 0;
@@ -68,8 +71,12 @@ function Dashboard() {
       }
 
       return {
-        recebida: r1.count ?? 0, em_andamento: r2.count ?? 0, concluida: r3.count ?? 0,
-        agendados_mes: ap.count ?? 0, total_escolas, total_profissionais,
+        recebida: r1.count ?? 0,
+        em_andamento: r2.count ?? 0,
+        concluida: r3.count ?? 0,
+        agendados_mes: requestIdsMes.length,
+        total_escolas,
+        total_profissionais,
       };
     },
   });
@@ -130,6 +137,66 @@ function Dashboard() {
   });
 
   const barChartData = isAdmin ? byRegion : bySchool;
+
+  const { data: heatSchools = [] } = useQuery({
+    queryKey: ["dash-heatmap-schools", isAdmin, myProfId],
+    enabled: !authLoading && (isAdmin || myProfId !== undefined),
+    queryFn: async () => {
+      let qb = supabase
+        .from("requests")
+        .select(
+          "school_id, tipo_queixa, school:schools(id, nome, endereco, bairro, cep, regiao, latitude, longitude, geocode_status)",
+        )
+        .is("deleted_at", null)
+        .not("school_id", "is", null);
+      if (!isAdmin) {
+        if (!myProfId) return [] as HeatSchoolCount[];
+        qb = qb.eq("assigned_professional_id", myProfId);
+      }
+      const { data, error } = await qb;
+      if (error) throw error;
+
+      type SchoolRow = {
+        id: string;
+        nome: string;
+        endereco: string | null;
+        bairro: string | null;
+        cep: string | null;
+        regiao: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geocode_status: string | null;
+      };
+
+      const byId = new Map<string, HeatSchoolCount>();
+      for (const row of data ?? []) {
+        const school = row.school as SchoolRow | SchoolRow[] | null;
+        const s = Array.isArray(school) ? school[0] : school;
+        if (!s?.id) continue;
+        const tipo = (row as { tipo_queixa?: string | null }).tipo_queixa ?? "outros";
+        const existing = byId.get(s.id);
+        if (existing) {
+          existing.count += 1;
+          existing.byTipo[tipo] = (existing.byTipo[tipo] ?? 0) + 1;
+        } else {
+          byId.set(s.id, {
+            id: s.id,
+            nome: s.nome,
+            endereco: s.endereco,
+            bairro: s.bairro,
+            cep: s.cep,
+            regiao: s.regiao,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            geocode_status: s.geocode_status,
+            count: 1,
+            byTipo: { [tipo]: 1 },
+          });
+        }
+      }
+      return [...byId.values()].sort((a, b) => b.count - a.count);
+    },
+  });
 
   const { data: monthly = [] } = useQuery({
     queryKey: ["dash-monthly", isAdmin, myProfId],
@@ -194,7 +261,7 @@ function Dashboard() {
         <Kpi
           label="Atendimentos no Mês"
           value={counters?.agendados_mes ?? 0}
-          sub="Agenda do mês"
+          sub="Demandas com agenda no mês"
           icon={Calendar}
           iconBg="bg-[#EAF2FF] text-[#0F52BA]"
           filtro="atendimentos_mes"
@@ -212,12 +279,19 @@ function Dashboard() {
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-[#0F52BA]" /> Evolução Mensal</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthly}>
+              <LineChart data={monthly} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 240)" />
                 <XAxis dataKey="mes" stroke="oklch(0.5 0.02 250)" fontSize={12} />
                 <YAxis allowDecimals={false} stroke="oklch(0.5 0.02 250)" fontSize={12} />
                 <Tooltip />
-                <Line type="monotone" dataKey="total" stroke="oklch(0.42 0.14 250)" strokeWidth={2.5} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="total" stroke="oklch(0.42 0.14 250)" strokeWidth={2.5} dot={{ r: 3 }}>
+                  <LabelList
+                    dataKey="total"
+                    position="top"
+                    offset={8}
+                    className="fill-[#0F172A] text-[11px] font-semibold"
+                  />
+                </Line>
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -228,7 +302,16 @@ function Dashboard() {
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={byComplaint} dataKey="value" nameKey="name" outerRadius={90} label={(e) => e.name}>
+                <Pie
+                  data={byComplaint}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={90}
+                  label={({ name, value, percent }) =>
+                    `${name}: ${value} (${((percent ?? 0) * 100).toFixed(0)}%)`
+                  }
+                  labelLine
+                >
                   {byComplaint.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
@@ -246,7 +329,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartData}>
+              <BarChart data={barChartData} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 240)" />
                 <XAxis
                   dataKey="name"
@@ -259,14 +342,61 @@ function Dashboard() {
                 />
                 <YAxis allowDecimals={false} stroke="oklch(0.5 0.02 250)" fontSize={12} />
                 <Tooltip />
-                <Bar dataKey="value" fill="oklch(0.62 0.13 200)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" fill="oklch(0.62 0.13 200)" radius={[6, 6, 0, 0]}>
+                  <LabelList
+                    dataKey="value"
+                    position="top"
+                    offset={6}
+                    className="fill-[#0F172A] text-[11px] font-semibold"
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="cpae-card mt-4 border-0 shadow-none">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MapPin className="h-4 w-4 text-[#0F52BA]" />
+            Mapa de calor — queixas por escola
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Intensidade com base nas coordenadas cadastradas da escola e na quantidade de demandas.
+            Escolas sem lat/lng ficam de fora até o preenchimento em Escolas.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <ClientComplaintsHeatMap schools={heatSchools} />
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function ClientComplaintsHeatMap({ schools }: { schools: HeatSchoolCount[] }) {
+  const [MapComp, setMapComp] = useState<ComponentType<{ schools: HeatSchoolCount[] }> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void import("@/components/dashboard/ComplaintsHeatMap").then((mod) => {
+      if (active) setMapComp(() => mod.ComplaintsHeatMap);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!MapComp) {
+    return (
+      <div className="flex h-[420px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+        Carregando mapa…
+      </div>
+    );
+  }
+
+  return <MapComp schools={schools} />;
 }
 
 function Kpi({

@@ -21,16 +21,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2, Pencil, Trash2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { schoolTipoLabels } from "@/lib/labels";
 import {
   downloadSchoolImportTemplate,
-  formValuesToSchoolRow,
+  formValuesToSchoolRowWithCoords,
   parseSchoolImportFile,
   type SchoolImportPreview,
   type SchoolImportRow,
 } from "@/lib/schools-import";
+import { resolveSchoolCoordinatesForSave } from "@/lib/geocode-school";
+import { geocodeSchoolsBatchFn } from "@/lib/geocode-school.functions";
+import { isSuspiciousStoredCoords } from "@/lib/campo-grande-regiao-centroids";
 
 export const Route = createFileRoute("/_authenticated/escolas/")({ component: Escolas });
 
@@ -53,6 +56,9 @@ interface School {
   diretor_celular: string | null;
   diretor_cpf: string | null;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
+  geocode_status: "ok" | "manual" | "manual_required" | null;
 }
 
 function formDataToRecord(form: FormData): Record<string, string> {
@@ -74,6 +80,7 @@ function Escolas() {
   const [q, setQ] = useState("");
   const [regiao, setRegiao] = useState("todas");
   const [filterTipo, setFilterTipo] = useState<"todos" | "escola" | "emei">("todos");
+  const [filterGeo, setFilterGeo] = useState<"todas" | "manual_required" | "ok" | "manual">("todas");
   const [open, setOpen] = useState(false);
   const [tipoEscola, setTipoEscola] = useState<"escola" | "emei">("escola");
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
@@ -82,6 +89,12 @@ function Escolas() {
   const [importPreview, setImportPreview] = useState<SchoolImportPreview | null>(null);
   const [parsingFile, setParsingFile] = useState(false);
   const [page, setPage] = useState(1);
+  const [geoProgress, setGeoProgress] = useState<{
+    current: number;
+    total: number;
+    ok: number;
+    pending: number;
+  } | null>(null);
 
   const { data: schools = [] } = useQuery({
     queryKey: ["schools"],
@@ -97,6 +110,15 @@ function Escolas() {
   const filtered = schools.filter((s) => {
     if (regiao !== "todas" && s.regiao !== regiao) return false;
     if (filterTipo !== "todos" && (s.tipo_escola ?? "escola") !== filterTipo) return false;
+    if (filterGeo === "manual_required") {
+      const needs =
+        s.geocode_status === "manual_required" ||
+        (s.latitude == null && s.longitude == null) ||
+        isSuspiciousStoredCoords(s.latitude, s.longitude);
+      if (!needs) return false;
+    } else if (filterGeo !== "todas" && s.geocode_status !== filterGeo) {
+      return false;
+    }
     if (!q) return true;
     const t = q.toLowerCase();
     return (
@@ -108,7 +130,14 @@ function Escolas() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, regiao, filterTipo]);
+  }, [q, regiao, filterTipo, filterGeo]);
+
+  const needsGeocode = (s: School) =>
+    s.geocode_status === "manual_required" ||
+    (s.latitude == null && s.longitude == null) ||
+    isSuspiciousStoredCoords(s.latitude, s.longitude);
+
+  const pendingGeoCount = schools.filter(needsGeocode).length;
 
   const totalFiltered = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -127,20 +156,49 @@ function Escolas() {
   };
 
   const createMut = useMutation({
-    mutationFn: async (vals: Record<string, string>) => insertSchools([formValuesToSchoolRow(vals)]),
-    onSuccess: () => {
-      toast.success("Escola cadastrada");
+    mutationFn: async (vals: Record<string, string>) => {
+      const row = await formValuesToSchoolRowWithCoords(vals);
+      await insertSchools([row]);
+      return row;
+    },
+    onSuccess: (row) => {
+      if (row.geocode_status === "manual_required") {
+        toast.warning("Escola cadastrada — coordenadas pendentes", {
+          description: "Não foi possível localizar pelo endereço. Preencha latitude/longitude manualmente.",
+        });
+      } else {
+        toast.success("Escola cadastrada");
+      }
       qc.invalidateQueries({ queryKey: ["schools"] });
+      qc.invalidateQueries({ queryKey: ["dash-heatmap-schools"] });
       setOpen(false);
     },
     onError: (e: Error) => toast.error("Erro", { description: e.message }),
   });
 
   const bulkMut = useMutation({
-    mutationFn: insertSchools,
-    onSuccess: (_, rows) => {
-      toast.success(`${rows.length} escola(s) cadastrada(s) com sucesso.`);
+    mutationFn: async (rows: SchoolImportRow[]) => {
+      const withCoords: SchoolImportRow[] = [];
+      for (const row of rows) {
+        const coords = await resolveSchoolCoordinatesForSave({
+          nome: row.nome,
+          endereco: row.endereco,
+          bairro: row.bairro,
+          cep: row.cep,
+          regiao: row.regiao,
+        });
+        withCoords.push({ ...row, ...coords });
+      }
+      await insertSchools(withCoords);
+      return withCoords;
+    },
+    onSuccess: (rows) => {
+      const pending = rows.filter((r) => r.geocode_status === "manual_required").length;
+      toast.success(
+        `${rows.length} escola(s) cadastrada(s)${pending ? ` — ${pending} com coordenadas pendentes` : ""}.`,
+      );
       qc.invalidateQueries({ queryKey: ["schools"] });
+      qc.invalidateQueries({ queryKey: ["dash-heatmap-schools"] });
       setImportPreview(null);
       setOpen(false);
     },
@@ -149,15 +207,81 @@ function Escolas() {
 
   const updateMut = useMutation({
     mutationFn: async ({ id, vals }: { id: string; vals: Record<string, string> }) => {
-      const { error } = await supabase.from("schools").update(formValuesToSchoolRow(vals)).eq("id", id);
+      const row = await formValuesToSchoolRowWithCoords(vals, { schoolId: id });
+      const { error } = await supabase.from("schools").update(row).eq("id", id);
       if (error) throw error;
+      return row;
     },
-    onSuccess: () => {
-      toast.success("Escola atualizada");
+    onSuccess: (row) => {
+      if (row.geocode_status === "manual_required") {
+        toast.warning("Escola atualizada — coordenadas pendentes", {
+          description: "Informe latitude e longitude manualmente (comum em zona rural).",
+        });
+      } else {
+        toast.success("Escola atualizada");
+      }
       qc.invalidateQueries({ queryKey: ["schools"] });
+      qc.invalidateQueries({ queryKey: ["dash-heatmap-schools"] });
       setEditingSchool(null);
     },
     onError: (e: Error) => toast.error("Erro ao atualizar", { description: e.message }),
+  });
+
+  const geocodePendingMut = useMutation({
+    mutationFn: async () => {
+      const pending = schools.filter(needsGeocode);
+      if (pending.length === 0) {
+        return { total: 0, ok: 0, stillPending: 0 };
+      }
+
+      const BATCH = 10;
+      let ok = 0;
+      let stillPending = 0;
+      setGeoProgress({ current: 0, total: pending.length, ok: 0, pending: 0 });
+
+      for (let i = 0; i < pending.length; i += BATCH) {
+        const chunk = pending.slice(i, i + BATCH).map((s) => ({
+          id: s.id,
+          nome: s.nome,
+          endereco: s.endereco,
+          bairro: s.bairro,
+          cep: s.cep,
+          regiao: s.regiao,
+        }));
+
+        const result = await geocodeSchoolsBatchFn({ data: { schools: chunk } });
+        ok += result.ok;
+        stillPending += result.stillPending;
+
+        setGeoProgress({
+          current: Math.min(i + chunk.length, pending.length),
+          total: pending.length,
+          ok,
+          pending: stillPending,
+        });
+
+        // Atualiza a lista parcial para o usuário ver badges mudando
+        qc.invalidateQueries({ queryKey: ["schools"] });
+      }
+
+      return { total: pending.length, ok, stillPending };
+    },
+    onSuccess: (r) => {
+      setGeoProgress(null);
+      if (r.total === 0) {
+        toast.message("Nenhuma escola pendente ou com coordenadas suspeitas.");
+        return;
+      }
+      toast.success(
+        `Localização concluída: ${r.ok} com coordenadas, ${r.stillPending} ainda pendente(s) (preencha manualmente).`,
+      );
+      qc.invalidateQueries({ queryKey: ["schools"] });
+      qc.invalidateQueries({ queryKey: ["dash-heatmap-schools"] });
+    },
+    onError: (e: Error) => {
+      setGeoProgress(null);
+      toast.error("Erro no geocoding", { description: e.message });
+    },
   });
 
   const deleteMut = useMutation({
@@ -203,6 +327,25 @@ function Escolas() {
         title="Escolas"
         description="Cadastro das unidades escolares atendidas pela CPAE."
         actions={
+          <div className="flex flex-wrap gap-2">
+            {pendingGeoCount > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={geocodePendingMut.isPending}
+                onClick={() => geocodePendingMut.mutate()}
+                title="Higieniza endereço e tenta localizar pendentes e coordenadas suspeitas (ponto genérico)"
+              >
+                {geocodePendingMut.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <MapPin className="mr-2 h-4 w-4" />
+                )}
+                {geocodePendingMut.isPending && geoProgress
+                  ? `Localizando ${geoProgress.current}/${geoProgress.total}…`
+                  : `Localizar pendentes (${pendingGeoCount})`}
+              </Button>
+            )}
           <Dialog open={open} onOpenChange={onDialogOpenChange}>
             <DialogTrigger asChild>
               <Button>
@@ -247,8 +390,23 @@ function Escolas() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
+
+      {geoProgress && (
+        <Card className="mb-4 border-sky-200 bg-sky-50/80">
+          <CardContent className="flex flex-col gap-1 p-4 text-sm text-sky-950 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Localizando escolas e salvando no banco… {geoProgress.current} de {geoProgress.total}
+            </div>
+            <div className="text-xs text-sky-800">
+              {geoProgress.ok} OK · {geoProgress.pending} pendente(s)
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={!!editingSchool} onOpenChange={(o) => !o && setEditingSchool(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -284,7 +442,10 @@ function Escolas() {
                   diretor_nome: editingSchool.diretor_nome ?? "",
                   diretor_celular: editingSchool.diretor_celular ?? "",
                   diretor_cpf: editingSchool.diretor_cpf ?? "",
+                  latitude: editingSchool.latitude != null ? String(editingSchool.latitude) : "",
+                  longitude: editingSchool.longitude != null ? String(editingSchool.longitude) : "",
                 }}
+                geocodeStatus={editingSchool.geocode_status}
               />
               <Button type="submit" className="w-full" disabled={updateMut.isPending}>
                 {updateMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -319,8 +480,8 @@ function Escolas() {
       </AlertDialog>
 
       <Card className="mb-4">
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_200px_180px]">
-          <div className="relative sm:col-span-1">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={q}
@@ -352,6 +513,17 @@ function Escolas() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filterGeo} onValueChange={(v) => setFilterGeo(v as typeof filterGeo)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Localização" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as localizações</SelectItem>
+              <SelectItem value="manual_required">Pendentes (mapa)</SelectItem>
+              <SelectItem value="ok">Geocodificadas</SelectItem>
+              <SelectItem value="manual">Manuais</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
@@ -366,6 +538,7 @@ function Escolas() {
                   <th className="px-4 py-3">SIGER</th>
                   <th className="px-4 py-3">INEP</th>
                   <th className="px-4 py-3">Região</th>
+                  <th className="px-4 py-3">Mapa</th>
                   <th className="px-4 py-3">Diretor(a)</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -374,7 +547,7 @@ function Escolas() {
               <tbody className="divide-y">
                 {paginated.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                       Nenhuma escola.
                     </td>
                   </tr>
@@ -388,6 +561,9 @@ function Escolas() {
                     <td className="px-4 py-3 text-muted-foreground">{s.codigo_siger ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.codigo_inep ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.regiao ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <GeoStatusBadge school={s} />
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{s.diretor_nome ?? "—"}</td>
                     <td className="px-4 py-3">
                       <Badge variant={s.status === "ativa" ? "default" : "secondary"}>{s.status}</Badge>
@@ -434,6 +610,7 @@ function Escolas() {
                       <Badge variant="outline" className="text-[10px]">
                         {schoolTipoLabels[s.tipo_escola ?? "escola"]}
                       </Badge>
+                      <GeoStatusBadge school={s} />
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       {s.regiao ?? "—"} • {s.diretor_nome ?? "Diretor não informado"}
@@ -511,15 +688,73 @@ function Escolas() {
   );
 }
 
+function GeoStatusBadge({
+  school,
+}: {
+  school: Pick<School, "latitude" | "longitude" | "geocode_status">;
+}) {
+  const pending =
+    school.geocode_status === "manual_required" ||
+    (school.latitude == null && school.longitude == null) ||
+    isSuspiciousStoredCoords(school.latitude, school.longitude);
+  if (pending) {
+    return (
+      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
+        {isSuspiciousStoredCoords(school.latitude, school.longitude) ? "Revisar" : "Pendente"}
+      </Badge>
+    );
+  }
+  if (school.geocode_status === "manual") {
+    return (
+      <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-800">
+        Manual
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">
+      OK
+    </Badge>
+  );
+}
+
+function parseLatLngPaste(raw: string): { lat: string; lng: string } | null {
+  const text = raw.trim().replace(/\s+/g, " ");
+  // Exemplos: "-20.51, -54.56" | "-20.51,-54.56" | "-20.51 -54.56"
+  const match = text.match(
+    /^([+-]?\d+(?:[.,]\d+)?)\s*[,;\s]\s*([+-]?\d+(?:[.,]\d+)?)$/,
+  );
+  if (!match) return null;
+  const lat = match[1].replace(",", ".");
+  const lng = match[2].replace(",", ".");
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+  return { lat, lng };
+}
+
 function SchoolFormFields({
   tipoEscola,
   onTipoEscolaChange,
   defaults = {},
+  geocodeStatus,
 }: {
   tipoEscola: "escola" | "emei";
   onTipoEscolaChange: (v: "escola" | "emei") => void;
   defaults?: Partial<Record<string, string>>;
+  geocodeStatus?: School["geocode_status"];
 }) {
+  const [latitude, setLatitude] = useState(defaults.latitude ?? "");
+  const [longitude, setLongitude] = useState(defaults.longitude ?? "");
+  const [pastePair, setPastePair] = useState("");
+
+  const applyPair = (raw: string) => {
+    const parsed = parseLatLngPaste(raw);
+    if (!parsed) return false;
+    setLatitude(parsed.lat);
+    setLongitude(parsed.lng);
+    setPastePair("");
+    return true;
+  };
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5 sm:col-span-2">
@@ -563,6 +798,96 @@ function SchoolFormFields({
         <Label>Região</Label>
         <Input name="regiao" defaultValue={defaults.regiao} />
       </div>
+
+      <div className="sm:col-span-2 rounded-lg border border-dashed bg-muted/20 p-3">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MapPin className="h-4 w-4 text-[#0F52BA]" />
+          <span className="text-sm font-medium">Localização no mapa</span>
+          {geocodeStatus === "manual_required" && (
+            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
+              Preenchimento manual necessário
+            </Badge>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Ao salvar, tentamos obter latitude/longitude pelo endereço. Se não for possível (comum em zona
+          rural), cole o par do Google Maps ou preencha manualmente.
+        </p>
+        <div className="mb-3 space-y-1.5">
+          <Label htmlFor="colar-lat-lng">Colar Lat e Long</Label>
+          <Input
+            id="colar-lat-lng"
+            value={pastePair}
+            placeholder="-20.511841589184204, -54.56990714242735"
+            onChange={(e) => {
+              const value = e.target.value;
+              setPastePair(value);
+              applyPair(value);
+            }}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text");
+              if (parseLatLngPaste(text)) {
+                e.preventDefault();
+                applyPair(text);
+              }
+            }}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Cole as duas coordenadas juntas (como no Google Maps) — elas serão separadas automaticamente.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Latitude</Label>
+            <Input
+              name="latitude"
+              inputMode="decimal"
+              placeholder="-20.4697"
+              value={latitude}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (parseLatLngPaste(value)) {
+                  applyPair(value);
+                  return;
+                }
+                setLatitude(value);
+              }}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                if (parseLatLngPaste(text)) {
+                  e.preventDefault();
+                  applyPair(text);
+                }
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Longitude</Label>
+            <Input
+              name="longitude"
+              inputMode="decimal"
+              placeholder="-54.6201"
+              value={longitude}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (parseLatLngPaste(value)) {
+                  applyPair(value);
+                  return;
+                }
+                setLongitude(value);
+              }}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                if (parseLatLngPaste(text)) {
+                  e.preventDefault();
+                  applyPair(text);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <Label>Tipologia</Label>
         <Input name="tipologia" defaultValue={defaults.tipologia} />
