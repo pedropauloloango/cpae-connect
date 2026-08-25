@@ -135,6 +135,12 @@ export function formatActivityLogDescription(log: ActivityLogRow, ctx: ActivityL
       if (resultado) parts.push(`Resultado: ${resultado}.`);
       return parts.join(" ") + actorSuffix;
     }
+    case "dados_aluno_editados": {
+      const nome = details.aluno_nome ? String(details.aluno_nome) : null;
+      return nome
+        ? `Dados do(a) aluno(a) atualizados (${nome}).${actorSuffix}`
+        : `Dados do(a) aluno(a) atualizados.${actorSuffix}`;
+    }
     default:
       return log.action.replace(/_/g, " ") + (actorSuffix || ".");
   }
@@ -182,6 +188,7 @@ export function activityLogTitle(action: string): string {
       aprovacao_rejeitado: "Relato rejeitado",
       aprovacao_correcao_solicitada: "Correção solicitada",
       caso_encerrado: "Caso encerrado",
+      dados_aluno_editados: "Dados do aluno editados",
     } as Record<string, string>
   )[action] ?? action.replace(/_/g, " ");
 }

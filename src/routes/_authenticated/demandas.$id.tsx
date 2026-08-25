@@ -12,6 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,6 +34,17 @@ import {
 import { PageHeader } from "@/components/layout/AppShell";
 import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits } from "@/lib/labels";
 import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
+import {
+  alunoSexoOptions,
+  periodoOptions,
+} from "@/lib/acolhimento-options";
+import { normalizeAcolhimentoPersonName } from "@/lib/acolhimento-submit";
+import {
+  fetchActiveSeries,
+  fetchActiveTurmas,
+  labelsMap,
+  type CatalogOption,
+} from "@/lib/serie-turma-catalog";
 import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
 import { MeetingCountIndicators, summarizeMeetings } from "@/components/requests/MeetingCountIndicators";
 import { ClosureTabIndicator } from "@/components/requests/ClosureTabIndicator";
@@ -39,7 +59,7 @@ import { EncontrosTab } from "@/components/meetings/EncontrosTab";
 import { getNextRegisterAction, getNextScheduleNumero, type RequestAppointment } from "@/lib/meeting-schedule";
 import { PENDING_ASSIGNMENTS_QUERY_KEY, PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
-import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar } from "lucide-react";
+import { ArrowLeft, UserPlus, UserMinus, Clock, FileText, Calendar, Pencil, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -55,6 +75,7 @@ function DemandaDetail() {
   const [activeTab, setActiveTab] = useState(tab ?? "info");
   const [openMeetingForm, setOpenMeetingForm] = useState(false);
   const [openScheduleForm, setOpenScheduleForm] = useState(false);
+  const [editAlunoOpen, setEditAlunoOpen] = useState(false);
 
   const { data: req, isLoading, isError, error } = useQuery({
     queryKey: ["request", id],
@@ -223,8 +244,32 @@ function DemandaDetail() {
               </Card>
 
               {formSections.map((section) => (
-                <FormSectionCard key={section.title} section={section} />
+                <FormSectionCard
+                  key={section.title}
+                  section={section}
+                  headerAction={
+                    section.title === "Dados do(a) aluno(a)" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditAlunoOpen(true)}
+                        title="Editar dados do aluno"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    ) : undefined
+                  }
+                />
               ))}
+
+              <EditAlunoDadosDialog
+                open={editAlunoOpen}
+                onOpenChange={setEditAlunoOpen}
+                requestId={id}
+                req={req}
+              />
             </>
           )}
         </TabsContent>
@@ -372,13 +417,22 @@ function formSectionRowGridClass(columnCount: number): string | undefined {
   return undefined;
 }
 
-function FormSectionCard({ section }: { section: AcolhimentoFormSection }) {
+function FormSectionCard({
+  section,
+  headerAction,
+}: {
+  section: AcolhimentoFormSection;
+  headerAction?: React.ReactNode;
+}) {
   const rows = getSectionLayoutRows(section);
   const itemByNumber = Object.fromEntries(section.items.map((i) => [i.number, i]));
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">{section.title}</CardTitle></CardHeader>
+      <CardHeader className={headerAction ? "flex flex-row items-center justify-between space-y-0" : undefined}>
+        <CardTitle className="text-base">{section.title}</CardTitle>
+        {headerAction}
+      </CardHeader>
       <CardContent className="space-y-4">
         {rows.map((row, idx) => (
           <div key={idx} className={formSectionRowGridClass(row.length)}>
@@ -411,6 +465,328 @@ function FormAnswerField({
         {answerSlot ?? item.answer}
       </div>
     </div>
+  );
+}
+
+function toDateInputValue(value: string | null | undefined): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function serieToOptionValue(stored: string | null | undefined, options: CatalogOption[]): string {
+  if (!stored) return "";
+  const byValue = options.find((o) => o.value === stored);
+  if (byValue) return byValue.value;
+  const byLabel = options.find((o) => o.label === stored);
+  return byLabel ? byLabel.value : stored;
+}
+
+function turmaToOptionValue(stored: string | null | undefined, options: CatalogOption[]): string {
+  if (!stored) return "";
+  const byValue = options.find((o) => o.value === stored);
+  if (byValue) return byValue.value;
+  const byLabel = options.find((o) => o.label === stored);
+  if (byLabel) return byLabel.value;
+  const letter = stored.match(/\b([A-J])\b/i)?.[1];
+  if (letter) {
+    const byLetter = options.find((o) => o.value === letter.toUpperCase() || o.label === letter.toUpperCase());
+    if (byLetter) return byLetter.value;
+  }
+  return stored;
+}
+
+type AlunoEditForm = {
+  aluno_nome: string;
+  aluno_nascimento: string;
+  aluno_sexo: string;
+  educacao_especial: "sim" | "nao" | "";
+  aluno_serie: string;
+  aluno_turma: string;
+  periodo: string;
+};
+
+const EMPTY_CATALOG: CatalogOption[] = [];
+
+function selectValueInOptions(value: string, options: { value: string }[]): string | undefined {
+  if (!value) return undefined;
+  return options.some((o) => o.value === value) ? value : undefined;
+}
+
+function EditAlunoDadosDialog({
+  open,
+  onOpenChange,
+  requestId,
+  req,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  requestId: string;
+  req: {
+    aluno_nome: string;
+    aluno_nascimento: string | null;
+    aluno_sexo: string | null;
+    educacao_especial: boolean | null;
+    aluno_serie: string | null;
+    aluno_turma: string | null;
+    aluno_turma_ano: string | null;
+    periodo: string | null;
+  };
+}) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  const { data: serieData } = useQuery({
+    queryKey: ["catalog-series"],
+    queryFn: fetchActiveSeries,
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  });
+  const { data: turmaData } = useQuery({
+    queryKey: ["catalog-turmas"],
+    queryFn: fetchActiveTurmas,
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  });
+  const serieOptions = serieData ?? EMPTY_CATALOG;
+  const turmaOptions = turmaData ?? EMPTY_CATALOG;
+
+  const [form, setForm] = useState<AlunoEditForm>({
+    aluno_nome: "",
+    aluno_nascimento: "",
+    aluno_sexo: "",
+    educacao_especial: "",
+    aluno_serie: "",
+    aluno_turma: "",
+    periodo: "",
+  });
+
+  useEffect(() => {
+    if (!open) return;
+
+    const serieStored =
+      req.aluno_serie ??
+      req.aluno_turma_ano?.replace(/\s+[A-J]$/i, "").trim() ??
+      null;
+    const turmaStored =
+      req.aluno_turma ??
+      req.aluno_turma_ano?.match(/\s([A-J])$/i)?.[1]?.toUpperCase() ??
+      null;
+
+    setForm({
+      aluno_nome: req.aluno_nome ?? "",
+      aluno_nascimento: toDateInputValue(req.aluno_nascimento),
+      aluno_sexo: req.aluno_sexo ?? "",
+      educacao_especial:
+        req.educacao_especial == null ? "" : req.educacao_especial ? "sim" : "nao",
+      aluno_serie: serieOptions.length ? serieToOptionValue(serieStored, serieOptions) : "",
+      aluno_turma: turmaOptions.length ? turmaToOptionValue(turmaStored, turmaOptions) : "",
+      periodo: req.periodo ?? "",
+    });
+  }, [
+    open,
+    req.aluno_nome,
+    req.aluno_nascimento,
+    req.aluno_sexo,
+    req.educacao_especial,
+    req.aluno_serie,
+    req.aluno_turma,
+    req.aluno_turma_ano,
+    req.periodo,
+    serieData,
+    turmaData,
+  ]);
+
+  const patch = (partial: Partial<AlunoEditForm>) => setForm((current) => ({ ...current, ...partial }));
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const nome = normalizeAcolhimentoPersonName(form.aluno_nome);
+      if (nome.length < 2) throw new Error("Informe o nome do aluno.");
+      if (!form.aluno_nascimento) throw new Error("Informe a data de nascimento.");
+      if (!form.aluno_sexo) throw new Error("Selecione o sexo.");
+      if (!form.educacao_especial) throw new Error("Informe se é público-alvo da Educação Especial.");
+      if (!form.aluno_serie) throw new Error("Selecione a série.");
+      if (!form.aluno_turma) throw new Error("Selecione a turma.");
+      if (!form.periodo) throw new Error("Selecione o período.");
+
+      const serieLabels = labelsMap(serieOptions);
+      const turmaLabels = labelsMap(turmaOptions);
+      const serieLabel = serieLabels[form.aluno_serie] ?? form.aluno_serie;
+      const turmaLabel = turmaLabels[form.aluno_turma] ?? form.aluno_turma;
+
+      const payload = {
+        aluno_nome: nome,
+        aluno_nascimento: form.aluno_nascimento,
+        aluno_sexo: form.aluno_sexo,
+        educacao_especial: form.educacao_especial === "sim",
+        aluno_serie: serieLabel,
+        aluno_turma: turmaLabel,
+        aluno_turma_ano: `${serieLabel} ${turmaLabel}`,
+        periodo: form.periodo,
+      };
+
+      const { error } = await supabase.from("requests").update(payload).eq("id", requestId);
+      if (error) throw error;
+
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: "dados_aluno_editados",
+        details: payload,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Dados do aluno atualizados.");
+      qc.invalidateQueries({ queryKey: ["request", requestId] });
+      qc.invalidateQueries({ queryKey: ["logs", requestId] });
+      qc.invalidateQueries({ queryKey: ["demandas"] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editar dados do(a) aluno(a)</DialogTitle>
+          <DialogDescription>Atualize as informações do estudante nesta demanda.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-aluno-nome">Nome do(a) aluno(a)</Label>
+            <Input
+              id="edit-aluno-nome"
+              value={form.aluno_nome}
+              onChange={(e) => patch({ aluno_nome: e.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-aluno-nascimento">Data de Nascimento</Label>
+              <Input
+                id="edit-aluno-nascimento"
+                type="date"
+                value={form.aluno_nascimento}
+                onChange={(e) => patch({ aluno_nascimento: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sexo</Label>
+              <Select
+                value={selectValueInOptions(form.aluno_sexo, alunoSexoOptions)}
+                onValueChange={(v) => patch({ aluno_sexo: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {alunoSexoOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Educação Especial</Label>
+              <RadioGroup
+                value={form.educacao_especial || undefined}
+                onValueChange={(v) => patch({ educacao_especial: v as "sim" | "nao" })}
+                className="flex flex-wrap gap-3 pt-1"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="sim" /> Sim
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="nao" /> Não
+                </label>
+              </RadioGroup>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label>Série</Label>
+              <Select
+                value={selectValueInOptions(form.aluno_serie, serieOptions)}
+                onValueChange={(v) => patch({ aluno_serie: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {serieOptions
+                    .filter((o) => o.value)
+                    .map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Turma</Label>
+              <Select
+                value={selectValueInOptions(form.aluno_turma, turmaOptions)}
+                onValueChange={(v) => patch({ aluno_turma: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {turmaOptions
+                    .filter((o) => o.value)
+                    .map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Período</Label>
+              <Select
+                value={selectValueInOptions(form.periodo, periodoOptions)}
+                onValueChange={(v) => patch({ periodo: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodoOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saveMut.isPending}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+            {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
