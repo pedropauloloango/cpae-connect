@@ -1291,6 +1291,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_presenca_ip_saude_mental: {
+        Args: { p_client_ip: string; p_cpf: string; p_token: string }
+        Returns: boolean
+      }
       confirmar_presenca_saude_mental: {
         Args: { p_client_ip?: string; p_cpf: string; p_token: string }
         Returns: {

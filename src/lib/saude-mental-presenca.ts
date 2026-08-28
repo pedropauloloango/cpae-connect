@@ -88,24 +88,6 @@ export async function validarInscritoPresencaQr(
   return mapPresencaRpcRow(row as Record<string, unknown>);
 }
 
-function isPresencaTransportError(error: unknown): boolean {
-  if (!error) return false;
-  const msg =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" && error !== null && "message" in error
-        ? String((error as { message: unknown }).message)
-        : String(error);
-  const lower = msg.toLowerCase();
-  return (
-    (error instanceof TypeError && lower.includes("fetch")) ||
-    lower.includes("failed to fetch") ||
-    lower.includes("fetch failed") ||
-    lower.includes("network") ||
-    lower.includes("load failed")
-  );
-}
-
 /** Confirma presença via RPC no browser (mesmo padrão de validação e inscrição). */
 async function confirmarPresencaPorQrBrowser(
   token: string,
@@ -129,23 +111,29 @@ async function confirmarPresencaPorQrBrowser(
   return mapPresencaRpcRow(row as Record<string, unknown>);
 }
 
+async function registrarIpPresencaQr(token: string, cpf: string): Promise<void> {
+  try {
+    const { registrarIpPresencaSaudeMentalQr } = await import("@/lib/saude-mental-presenca.functions");
+    await registrarIpPresencaSaudeMentalQr({ data: { token, cpf } });
+  } catch {
+    /* IP opcional; presença já confirmada no browser */
+  }
+}
+
 /**
- * Confirma presença via QR. Tenta server function (captura IP); se falhar na rede,
- * usa RPC direta no browser — mesmo padrão de acolhimento/inscrição.
+ * Confirma presença via QR no browser e registra o IP no servidor (headers da Vercel).
  */
 export async function confirmarPresencaPorQr(
   token: string,
   cpf: string,
 ): Promise<ConfirmPresencaResult> {
-  try {
-    const { confirmarPresencaSaudeMentalQr } = await import("@/lib/saude-mental-presenca.functions");
-    return await confirmarPresencaSaudeMentalQr({ data: { token, cpf } });
-  } catch (error) {
-    const missingEnv =
-      error instanceof Error && error.message.includes("Missing Supabase environment variable");
-    if (!isPresencaTransportError(error) && !missingEnv) throw error;
-    return confirmarPresencaPorQrBrowser(token, cpf);
+  const result = await confirmarPresencaPorQrBrowser(token, cpf);
+
+  if (result.ok && !result.ja_registrado) {
+    await registrarIpPresencaQr(token, cpf);
   }
+
+  return result;
 }
 
 /** Origem pública do app (QR Codes). Evita gerar link localhost ao testar no celular. */
