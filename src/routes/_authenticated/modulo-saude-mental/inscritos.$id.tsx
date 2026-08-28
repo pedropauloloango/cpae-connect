@@ -188,11 +188,7 @@ function SaudeMentalInscritoDetail() {
 
   const deleteMut = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("saude_mental_inscritos")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id)
-        .is("deleted_at", null);
+      const { error } = await supabase.rpc("excluir_saude_mental_inscrito", { p_id: id });
       if (error) throw error;
     },
     onSuccess: () => {

@@ -1362,6 +1362,10 @@ export type Database = {
         Args: { payload: Json }
         Returns: { id: string; numero: string }[]
       }
+      excluir_saude_mental_inscrito: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       submit_vivencia_request: {
         Args: { payload: Json }
         Returns: { id: string; numero: string; alert_emails: string[] }[]
