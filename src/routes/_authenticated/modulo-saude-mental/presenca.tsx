@@ -11,6 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -31,7 +41,8 @@ import {
   isRecebimentoPresencaAtivo,
 } from "@/lib/saude-mental-presenca";
 import { exportListaPresencaPrint } from "@/lib/saude-mental-lista-presenca";
-import { Check, Copy, Download, FileDown, Loader2, QrCode, Search } from "lucide-react";
+import { Check, Copy, Download, FileDown, Loader2, QrCode, Search, Trash2, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +77,7 @@ type Presenca = {
   inscrito_id: string;
   origem: string;
   registrado_em: string;
+  registrado_ip: string | null;
 };
 
 function formatHorario(value: string): string {
@@ -78,10 +90,24 @@ function formatDataBr(value: string): string {
   return d.toLocaleDateString("pt-BR");
 }
 
+type PresencaFilter = "todos" | "presentes" | "ausentes" | "ip_duplicado";
+
+const presencaFilterOptions: { value: PresencaFilter; label: string }[] = [
+  { value: "todos", label: "Todos os inscritos" },
+  { value: "presentes", label: "Com presença registrada" },
+  { value: "ausentes", label: "Sem presença registrada" },
+  { value: "ip_duplicado", label: "Mesmo IP em vários CPFs" },
+];
+
 function SaudeMentalPresencaPage() {
   const qc = useQueryClient();
   const [encontroId, setEncontroId] = useState<string>("");
   const [filterNome, setFilterNome] = useState("");
+  const [filterPresenca, setFilterPresenca] = useState<PresencaFilter>("todos");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    presencaId: string;
+    nome: string;
+  } | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [draftSelected, setDraftSelected] = useState<Set<string>>(new Set());
   const [draftSyncedKey, setDraftSyncedKey] = useState<string>("");
@@ -126,7 +152,7 @@ function SaudeMentalPresencaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("saude_mental_presencas")
-        .select("id, encontro_id, inscrito_id, origem, registrado_em")
+        .select("id, encontro_id, inscrito_id, origem, registrado_em, registrado_ip")
         .eq("encontro_id", encontroId);
       if (error) throw error;
       return (data ?? []) as Presenca[];
@@ -149,15 +175,43 @@ function SaudeMentalPresencaPage() {
 
   useEffect(() => {
     setFilterNome("");
+    setFilterPresenca("todos");
     setDraftSyncedKey("");
     setDraftSelected(new Set());
   }, [encontroId]);
 
+  const ipUsageByEncontro = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of presencas) {
+      const ip = p.registrado_ip?.trim();
+      if (!ip) continue;
+      map.set(ip, (map.get(ip) ?? 0) + 1);
+    }
+    return map;
+  }, [presencas]);
+
+  const duplicateIps = useMemo(
+    () => [...ipUsageByEncontro.entries()].filter(([, count]) => count > 1).map(([ip]) => ip),
+    [ipUsageByEncontro],
+  );
+
   const filtered = useMemo(() => {
+    let list = inscritos;
+    if (filterPresenca === "presentes") {
+      list = list.filter((i) => savedPresentIds.has(i.id));
+    } else if (filterPresenca === "ausentes") {
+      list = list.filter((i) => !savedPresentIds.has(i.id));
+    } else if (filterPresenca === "ip_duplicado") {
+      list = list.filter((i) => {
+        const presenca = presencas.find((p) => p.inscrito_id === i.id);
+        const ip = presenca?.registrado_ip?.trim();
+        return ip ? (ipUsageByEncontro.get(ip) ?? 0) > 1 : false;
+      });
+    }
     const t = filterNome.trim().toLowerCase();
-    if (!t) return inscritos;
-    return inscritos.filter((i) => i.nome_completo.toLowerCase().includes(t));
-  }, [inscritos, filterNome]);
+    if (t) list = list.filter((i) => i.nome_completo.toLowerCase().includes(t));
+    return list;
+  }, [inscritos, filterNome, filterPresenca, savedPresentIds, presencas, ipUsageByEncontro]);
 
   const qrUrl = encontro ? buildPresencaQrUrl(encontro.qr_token) : "";
   const recebimentoAberto = encontro ? isRecebimentoPresencaAtivo(encontro) : false;
@@ -205,6 +259,24 @@ function SaudeMentalPresencaPage() {
       setDraftSyncedKey("");
     },
     onError: (e: Error) => toast.error("Erro ao confirmar", { description: e.message }),
+  });
+
+  const deletePresencaMut = useMutation({
+    mutationFn: async (presencaId: string) => {
+      const { error } = await supabase
+        .from("saude_mental_presencas")
+        .delete()
+        .eq("id", presencaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Presença excluída.");
+      setDeleteTarget(null);
+      setDraftSyncedKey("");
+      void qc.invalidateQueries({ queryKey: ["saude-mental-presencas", encontroId] });
+    },
+    onError: (e: Error) =>
+      toast.error("Erro ao excluir presença", { description: e.message }),
   });
 
   const toggleDraft = (inscritoId: string, checked: boolean) => {
@@ -258,6 +330,7 @@ function SaudeMentalPresencaPage() {
   };
 
   const presentesCount = draftSelected.size;
+  const registradosCount = savedPresentIds.size;
   const isLoading = loadingEncontros || (!!encontro && (loadingInscritos || loadingPresencas));
 
   return (
@@ -314,7 +387,7 @@ function SaudeMentalPresencaPage() {
                   Recebimento {recebimentoAberto ? "aberto" : "fechado"}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {presentesCount}/{inscritos.length} selecionados
+                  {registradosCount} registrados · {presentesCount}/{inscritos.length} selecionados
                   {hasPendingChanges ? " · alterações pendentes" : ""}
                 </span>
               </div>
@@ -327,15 +400,47 @@ function SaudeMentalPresencaPage() {
             </p>
           ) : (
             <>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="relative w-full max-w-sm">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Filtrar por nome…"
-                    value={filterNome}
-                    onChange={(e) => setFilterNome(e.target.value)}
-                  />
+              {duplicateIps.length > 0 ? (
+                <Alert variant="destructive" className="border-amber-300 bg-amber-50 text-amber-950">
+                  <AlertTriangle className="h-4 w-4 text-amber-700" />
+                  <AlertTitle className="text-amber-950">IPs com múltiplos CPFs</AlertTitle>
+                  <AlertDescription className="text-amber-900/90">
+                    {duplicateIps.length} endereço(s) IP registraram presença para mais de um CPF neste
+                    encontro: {duplicateIps.join(", ")}. Use o filtro «Mesmo IP em vários CPFs» para
+                    revisar.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      placeholder="Filtrar por nome…"
+                      value={filterNome}
+                      onChange={(e) => setFilterNome(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-full space-y-1.5 sm:w-[240px]">
+                    <Label className="text-xs text-muted-foreground">Presença</Label>
+                    <Select
+                      value={filterPresenca}
+                      onValueChange={(v) => setFilterPresenca(v as PresencaFilter)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {presencaFilterOptions.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={selectAllFiltered}>
@@ -370,28 +475,36 @@ function SaudeMentalPresencaPage() {
               </div>
 
               <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <table className="w-full min-w-[920px] text-left text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="w-14 px-3 py-2 font-medium">Presença</th>
                       <th className="px-3 py-2 font-medium">Nome</th>
                       <th className="px-3 py-2 font-medium">CPF</th>
                       <th className="px-3 py-2 font-medium">Escola</th>
-                      <th className="px-3 py-2 font-medium">Salvo</th>
+                      <th className="px-3 py-2 font-medium">Registro</th>
+                      <th className="px-3 py-2 font-medium">IP</th>
+                      <th className="w-16 px-3 py-2 font-medium">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                           Carregando…
                         </td>
                       </tr>
                     ) : filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
-                          Nenhum inscrito encontrado para o ano {encontro?.ano_curso}.
+                        <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                          {filterPresenca === "presentes"
+                            ? "Nenhum participante com presença registrada neste encontro."
+                            : filterPresenca === "ausentes"
+                              ? "Todos os inscritos filtrados já possuem presença registrada."
+                              : filterPresenca === "ip_duplicado"
+                                ? "Nenhum IP duplicado encontrado neste encontro."
+                                : `Nenhum inscrito encontrado para o ano ${encontro?.ano_curso}.`}
                         </td>
                       </tr>
                     ) : (
@@ -399,6 +512,8 @@ function SaudeMentalPresencaPage() {
                         const selected = draftSelected.has(i.id);
                         const saved = savedPresentIds.has(i.id);
                         const presenca = presencas.find((p) => p.inscrito_id === i.id);
+                        const ip = presenca?.registrado_ip?.trim() ?? null;
+                        const ipDuplicado = ip ? (ipUsageByEncontro.get(ip) ?? 0) > 1 : false;
                         return (
                           <tr
                             key={i.id}
@@ -406,6 +521,7 @@ function SaudeMentalPresencaPage() {
                               "border-t",
                               selected && "bg-emerald-50/40",
                               selected !== saved && "bg-amber-50/50",
+                              ipDuplicado && "bg-red-50/40",
                             )}
                           >
                             <td className="px-3 py-2">
@@ -426,11 +542,54 @@ function SaudeMentalPresencaPage() {
                               {i.school_nome_snapshot ?? i.escola_texto ?? "—"}
                             </td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">
-                              {saved
-                                ? presenca?.origem === "qrcode"
-                                  ? "QR Code"
-                                  : "Manual"
-                                : "—"}
+                              {saved ? (
+                                <div className="space-y-0.5">
+                                  <Badge variant="secondary" className="font-normal">
+                                    {presenca?.origem === "qrcode" ? "QR Code" : "Manual"}
+                                  </Badge>
+                                  {presenca?.registrado_em ? (
+                                    <p className="text-[10px]">
+                                      {new Date(presenca.registrado_em).toLocaleString("pt-BR")}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {ip ? (
+                                <div className="space-y-1">
+                                  <span className="font-mono text-muted-foreground">{ip}</span>
+                                  {ipDuplicado ? (
+                                    <Badge variant="destructive" className="font-normal">
+                                      IP repetido
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {saved && presenca ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  disabled={deletePresencaMut.isPending || confirmMut.isPending}
+                                  title="Excluir presença"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      presencaId: presenca.id,
+                                      nome: i.nome_completo,
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
                             </td>
                           </tr>
                         );
@@ -522,6 +681,43 @@ function SaudeMentalPresencaPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir presença?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A presença de <strong>{deleteTarget?.nome}</strong> neste encontro será removida.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePresencaMut.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletePresencaMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deletePresencaMut.mutate(deleteTarget.presencaId);
+              }}
+            >
+              {deletePresencaMut.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo…
+                </>
+              ) : (
+                "Excluir presença"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

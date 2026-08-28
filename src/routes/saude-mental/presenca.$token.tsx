@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Brain, CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,10 @@ import {
   getEncontroByQrToken,
 } from "@/lib/saude-mental-presenca";
 import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
+import {
+  SaudeMentalPresencaEncontroHero,
+  SaudeMentalPresencaFechadaAlert,
+} from "@/components/saude-mental/SaudeMentalPresencaEncontroHero";
 
 export const Route = createFileRoute("/saude-mental/presenca/$token")({
   head: () => ({
@@ -30,15 +34,8 @@ export const Route = createFileRoute("/saude-mental/presenca/$token")({
 const primaryBtn =
   "rounded-[14px] font-semibold text-white transition-all duration-300 ease-in-out shadow-[0_10px_30px_rgba(123,44,191,0.25)] bg-[#7B2CBF] hover:bg-[#5B21B6]";
 
-function formatHorario(value: string): string {
-  return String(value).slice(0, 5);
-}
-
-function formatDataBr(value: string): string {
-  const d = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("pt-BR");
-}
+const formCard =
+  "overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-[0_10px_60px_rgba(15,82,186,0.08)]";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -46,25 +43,18 @@ function Shell({ children }: { children: React.ReactNode }) {
       className="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased"
       style={{ fontFamily: "Inter, system-ui, sans-serif" }}
     >
-      <header className="sticky top-0 z-50 h-20 border-b border-slate-200/80 bg-white">
-        <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between gap-4 px-4 lg:px-8">
-          <Link to="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
+      <header className="sticky top-0 z-50 h-20 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex h-full max-w-[640px] items-center px-4 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             <img src="/logo_CPAE.png" alt="CPAE" className="h-12 w-auto object-contain" />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold tracking-tight">CPAE</p>
-              <p className="truncate text-xs text-slate-500">Confirmação de presença</p>
+              <p className="truncate text-xs text-slate-500">Saúde Mental na Educação</p>
             </div>
-          </Link>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#7B2CBF] hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Início
-          </Link>
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-[480px] px-4 py-8 lg:px-8 lg:py-12">{children}</main>
+      <main className="mx-auto max-w-[640px] px-4 py-6 lg:px-8 lg:py-10">{children}</main>
       <DalealDeveloperBanner className="pt-4" />
       <footer className="mt-2 bg-[#083D8C] px-4 py-6 text-center text-sm text-white/90">
         © {new Date().getFullYear()} CPAE — Coordenadoria Municipal de Psicologia e Assistência
@@ -104,8 +94,8 @@ function PresencaPublicaPage() {
   if (encontroQuery.isLoading) {
     return (
       <Shell>
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        <div className="flex items-center justify-center rounded-[24px] border border-slate-100 bg-white py-20 text-muted-foreground shadow-sm">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#7B2CBF]" />
           Carregando encontro…
         </div>
       </Shell>
@@ -115,17 +105,15 @@ function PresencaPublicaPage() {
   if (encontroQuery.isError || !encontroQuery.data) {
     return (
       <Shell>
-        <Card className="rounded-[20px] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.05)]">
+        <Card className={formCard}>
           <CardHeader>
             <CardTitle className="text-lg">QR Code inválido</CardTitle>
             <CardDescription>
               Este link de presença não corresponde a um encontro válido.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" className="w-full rounded-[14px]">
-              <Link to="/">Voltar ao início</Link>
-            </Button>
+          <CardContent className="text-sm text-muted-foreground">
+            Entre em contato com a equipe do CPAE se precisar de ajuda.
           </CardContent>
         </Card>
       </Shell>
@@ -135,52 +123,60 @@ function PresencaPublicaPage() {
   const e = encontroQuery.data;
   const aberto = Boolean(e.recebimento_aberto);
 
+  const hero = (
+    <SaudeMentalPresencaEncontroHero
+      moduloCurso={e.modulo_curso}
+      data={e.data}
+      horario={String(e.horario)}
+      local={e.local}
+    />
+  );
+
   if (done) {
     return (
       <Shell>
-        <Card className="rounded-[20px] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.05)]">
-          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-            <CheckCircle2 className="h-14 w-14 text-emerald-500" />
+        <article className={formCard}>
+          {hero}
+          <div className="flex flex-col items-center gap-4 px-5 py-10 text-center sm:px-8">
+            <CheckCircle2 className="h-16 w-16 text-emerald-500" />
             <div>
-              <p className="text-xl font-bold text-[#0F172A]">
-                {done.ja ? "Presença já registrada" : "Presença confirmada"}
+              <p className="text-2xl font-bold text-[#0F172A]">
+                {done.ja ? "Presença já registrada" : "Presença confirmada!"}
               </p>
               {done.nome && (
-                <p className="mt-2 text-sm text-[#64748B]">
-                  Olá, <strong>{done.nome}</strong>
+                <p className="mt-2 text-base text-[#64748B]">
+                  Olá, <strong className="text-[#0F52BA]">{done.nome}</strong>
                 </p>
               )}
-              <p className="mt-1 text-sm text-[#64748B]">{done.mensagem}</p>
+              <p className="mt-2 text-sm text-[#64748B]">{done.mensagem}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </article>
       </Shell>
     );
   }
 
   return (
     <Shell>
-      <Card className="rounded-[20px] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.05)]">
-        <CardHeader>
-          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-            <Brain className="h-5 w-5" />
+      <article className={formCard}>
+        {hero}
+
+        <section className="space-y-5 px-5 py-8 sm:px-8">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-[#0F172A]">Confirmar presença</h2>
+            <p className="mt-1 text-sm text-[#64748B]">
+              Informe o CPF utilizado na inscrição do curso.
+            </p>
           </div>
-          <CardTitle className="text-xl">Confirmar presença</CardTitle>
-          <CardDescription>
-            {e.modulo_curso} · {formatDataBr(e.data)} · {formatHorario(String(e.horario))} ·{" "}
-            {e.local}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+
           {!aberto ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              O recebimento de presença ainda não foi liberado ou a janela já encerrou. Aguarde a
-              liberação pela equipe do CPAE.
-            </div>
+            <SaudeMentalPresencaFechadaAlert />
           ) : (
-            <>
+            <div className="space-y-4 rounded-2xl border border-violet-100 bg-violet-50/40 p-5">
               <div className="space-y-1.5">
-                <Label htmlFor="cpf">CPF do inscrito</Label>
+                <Label htmlFor="cpf" className="font-semibold text-[#0F172A]">
+                  CPF do inscrito *
+                </Label>
                 <Input
                   id="cpf"
                   inputMode="numeric"
@@ -188,6 +184,7 @@ function PresencaPublicaPage() {
                   placeholder="000.000.000-00"
                   value={cpf}
                   onChange={(ev) => setCpf(formatCpfMask(ev.target.value))}
+                  className="rounded-xl border-slate-200 bg-white"
                 />
               </div>
               <Button
@@ -199,10 +196,10 @@ function PresencaPublicaPage() {
                 {confirmMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Confirmar presença
               </Button>
-            </>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </section>
+      </article>
     </Shell>
   );
 }

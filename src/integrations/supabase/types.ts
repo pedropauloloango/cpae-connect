@@ -823,6 +823,7 @@ export type Database = {
           inscrito_id: string
           origem: string
           registrado_em: string
+          registrado_ip: string | null
         }
         Insert: {
           cpf_informado?: string | null
@@ -832,6 +833,7 @@ export type Database = {
           inscrito_id: string
           origem?: string
           registrado_em?: string
+          registrado_ip?: string | null
         }
         Update: {
           cpf_informado?: string | null
@@ -841,6 +843,7 @@ export type Database = {
           inscrito_id?: string
           origem?: string
           registrado_em?: string
+          registrado_ip?: string | null
         }
         Relationships: [
           {
@@ -1289,7 +1292,7 @@ export type Database = {
     }
     Functions: {
       confirmar_presenca_saude_mental: {
-        Args: { p_cpf: string; p_token: string }
+        Args: { p_client_ip?: string; p_cpf: string; p_token: string }
         Returns: {
           ja_registrado: boolean
           mensagem: string

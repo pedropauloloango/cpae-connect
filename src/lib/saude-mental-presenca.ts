@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { digitsOnly } from "@/lib/saude-mental-options";
 
 export type EncontroQrInfo = {
   id: string;
@@ -61,26 +60,8 @@ export async function confirmarPresencaPorQr(
   token: string,
   cpf: string,
 ): Promise<ConfirmPresencaResult> {
-  const { data, error } = await supabase.rpc("confirmar_presenca_saude_mental", {
-    p_token: token,
-    p_cpf: digitsOnly(cpf),
-  });
-  if (error) throw new Error(mapError(error));
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) {
-    return {
-      ok: false,
-      mensagem: "Resposta inválida do servidor.",
-      nome_completo: null,
-      ja_registrado: false,
-    };
-  }
-  return {
-    ok: Boolean(row.ok),
-    mensagem: String(row.mensagem ?? ""),
-    nome_completo: (row.nome_completo as string | null) ?? null,
-    ja_registrado: Boolean(row.ja_registrado),
-  };
+  const { confirmarPresencaSaudeMentalQr } = await import("@/lib/saude-mental-presenca.functions");
+  return confirmarPresencaSaudeMentalQr({ data: { token, cpf } });
 }
 
 /** Origem pública do app (QR Codes). Evita gerar link localhost ao testar no celular. */
