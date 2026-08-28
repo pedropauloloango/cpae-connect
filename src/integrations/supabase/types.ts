@@ -775,6 +775,7 @@ export type Database = {
           horario: string
           id: string
           local: string
+          lista_presenca_fechada: boolean
           modulo_curso: string
           qr_ativo: boolean
           qr_expires_at: string | null
@@ -790,6 +791,7 @@ export type Database = {
           horario: string
           id?: string
           local: string
+          lista_presenca_fechada?: boolean
           modulo_curso: string
           qr_ativo?: boolean
           qr_expires_at?: string | null
@@ -805,6 +807,7 @@ export type Database = {
           horario?: string
           id?: string
           local?: string
+          lista_presenca_fechada?: boolean
           modulo_curso?: string
           qr_ativo?: boolean
           qr_expires_at?: string | null
@@ -1329,6 +1332,7 @@ export type Database = {
           horario: string
           id: string
           local: string
+          lista_presenca_fechada: boolean
           modulo_curso: string
           qr_ativo: boolean
           qr_expires_at: string | null
