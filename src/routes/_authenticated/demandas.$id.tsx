@@ -32,10 +32,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
-import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits } from "@/lib/labels";
+import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits, schoolTipoLabels } from "@/lib/labels";
 import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
 import {
   alunoSexoOptions,
+  normalizeRegiaoFromSchool,
   periodoOptions,
 } from "@/lib/acolhimento-options";
 import { normalizeAcolhimentoPersonName } from "@/lib/acolhimento-submit";
@@ -45,6 +46,8 @@ import {
   labelsMap,
   type CatalogOption,
 } from "@/lib/serie-turma-catalog";
+import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schools";
+import { SchoolSearchSelect } from "@/components/schools/SchoolSearchSelect";
 import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
 import { MeetingCountIndicators, summarizeMeetings } from "@/components/requests/MeetingCountIndicators";
 import { ClosureTabIndicator } from "@/components/requests/ClosureTabIndicator";
@@ -76,6 +79,7 @@ function DemandaDetail() {
   const [openMeetingForm, setOpenMeetingForm] = useState(false);
   const [openScheduleForm, setOpenScheduleForm] = useState(false);
   const [editAlunoOpen, setEditAlunoOpen] = useState(false);
+  const [editEscolaOpen, setEditEscolaOpen] = useState(false);
 
   const { data: req, isLoading, isError, error } = useQuery({
     queryKey: ["request", id],
@@ -132,7 +136,7 @@ function DemandaDetail() {
   const registerNumero = nextRegister?.numero ?? null;
   const registerAppointment = nextRegister?.appointment ?? null;
   const { registered: registeredMeetingsCount } = summarizeMeetings(meetings);
-  const encontrosLockedForProfessional = !isAdmin && isRequestLockedForMeetingEdits(req?.status ?? null);
+  const encontrosLocked = isRequestLockedForMeetingEdits(req?.status ?? null);
 
   useEffect(() => {
     if (tab) setActiveTab(tab);
@@ -178,7 +182,7 @@ function DemandaDetail() {
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
-          {activeTab === "encontros" && !encontrosLockedForProfessional && (scheduleNumero || registerNumero) && !openScheduleForm && !openMeetingForm && (
+          {activeTab === "encontros" && !encontrosLocked && (scheduleNumero || registerNumero) && !openScheduleForm && !openMeetingForm && (
             <div className="flex shrink-0 flex-wrap justify-end gap-2 self-end sm:self-auto">
               {scheduleNumero && (
                 <Button onClick={() => setOpenScheduleForm(true)}>
@@ -259,6 +263,17 @@ function DemandaDetail() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                    ) : section.title === "Identificação" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditEscolaOpen(true)}
+                        title="Editar escola / EMEI"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     ) : undefined
                   }
                 />
@@ -267,6 +282,12 @@ function DemandaDetail() {
               <EditAlunoDadosDialog
                 open={editAlunoOpen}
                 onOpenChange={setEditAlunoOpen}
+                requestId={id}
+                req={req}
+              />
+              <EditEscolaDialog
+                open={editEscolaOpen}
+                onOpenChange={setEditEscolaOpen}
                 requestId={id}
                 req={req}
               />
@@ -387,7 +408,10 @@ function TimelineTab({
       <CardContent>
         {logs.length === 0 && <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>}
         <ol className="space-y-4">
-          {logs.map((l) => (
+          {logs.map((l) => {
+            const actorDisplay =
+              (l.actor_id && actorNames[l.actor_id]) || l.actor_label || "Sistema";
+            return (
             <li key={l.id} className="flex gap-3">
               <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                 <Clock className="h-3.5 w-3.5" />
@@ -395,14 +419,15 @@ function TimelineTab({
               <div className="min-w-0 flex-1 border-l-2 border-border pl-4 pb-2">
                 <div className="text-sm font-medium">{activityLogTitle(l.action)}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(l.created_at).toLocaleString("pt-BR")} • {l.actor_label ?? "Sistema"}
+                  {new Date(l.created_at).toLocaleString("pt-BR")} • {actorDisplay}
                 </div>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                   {formatActivityLogDescription(l, ctx)}
                 </p>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ol>
       </CardContent>
     </Card>
@@ -781,6 +806,155 @@ function EditAlunoDadosDialog({
             Cancelar
           </Button>
           <Button type="button" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+            {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditEscolaDialog({
+  open,
+  onOpenChange,
+  requestId,
+  req,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  requestId: string;
+  req: {
+    school_id: string | null;
+    school_nome_snapshot: string | null;
+    tipo_escola: string | null;
+    regiao_escola: string | null;
+    school?: { id: string; nome: string; tipo_escola: string | null; regiao: string | null } | null;
+  };
+}) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [schoolNome, setSchoolNome] = useState("");
+  const [tipoEscola, setTipoEscola] = useState<"escola" | "emei" | "">("");
+  const [regiao, setRegiao] = useState("");
+
+  const schoolsQuery = useQuery({
+    queryKey: ["public-schools"],
+    queryFn: loadPublicSchools,
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const id = req.school_id ?? req.school?.id ?? null;
+    setSchoolId(id);
+    setSchoolNome(req.school_nome_snapshot ?? req.school?.nome ?? "");
+    setTipoEscola((req.tipo_escola as "escola" | "emei" | null) ?? (req.school?.tipo_escola as "escola" | "emei" | null) ?? "");
+    setRegiao(req.regiao_escola ?? req.school?.regiao ?? "");
+  }, [
+    open,
+    req.school_id,
+    req.school_nome_snapshot,
+    req.tipo_escola,
+    req.regiao_escola,
+    req.school?.id,
+    req.school?.nome,
+    req.school?.tipo_escola,
+    req.school?.regiao,
+  ]);
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      if (!schoolId || !schoolNome.trim()) throw new Error("Selecione a escola ou EMEI.");
+      if (!tipoEscola) throw new Error("Tipo da escola não informado.");
+
+      const payload = {
+        school_id: schoolId,
+        school_nome_snapshot: schoolNome.trim(),
+        tipo_escola: tipoEscola,
+        regiao_escola: regiao.trim() || null,
+      };
+
+      const { error } = await supabase.from("requests").update(payload).eq("id", requestId);
+      if (error) throw error;
+
+      await supabase.from("activity_logs").insert({
+        request_id: requestId,
+        actor_id: user?.id,
+        action: "escola_editada",
+        details: {
+          school_id: schoolId,
+          school_nome: schoolNome.trim(),
+          tipo_escola: tipoEscola,
+          regiao_escola: regiao.trim() || null,
+          previous_school_id: req.school_id,
+          previous_school_nome: req.school_nome_snapshot,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Escola atualizada.");
+      qc.invalidateQueries({ queryKey: ["request", requestId] });
+      qc.invalidateQueries({ queryKey: ["logs", requestId] });
+      qc.invalidateQueries({ queryKey: ["demandas"] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error("Erro ao salvar", { description: e.message }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editar escola / EMEI</DialogTitle>
+          <DialogDescription>
+            Altere a unidade vinculada a esta demanda. Tipo e região são preenchidos automaticamente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-w-0 space-y-4 py-1">
+          <div className="min-w-0 space-y-1.5">
+            <Label>Nome da Escola / EMEI</Label>
+            <SchoolSearchSelect
+              schools={schoolsQuery.data ?? []}
+              value={schoolId}
+              onSelect={(school) => {
+                setSchoolId(school.id);
+                setSchoolNome(school.nome);
+                setTipoEscola(school.tipo_escola ?? "escola");
+                setRegiao(normalizeRegiaoFromSchool(school.regiao));
+              }}
+              loading={schoolsQuery.isLoading}
+              error={
+                schoolsQuery.isError ? publicSchoolsErrorMessage(schoolsQuery.error) : null
+              }
+              onRetry={() => void schoolsQuery.refetch()}
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Tipo Escola</Label>
+              <Input
+                value={tipoEscola ? schoolTipoLabels[tipoEscola] ?? tipoEscola : ""}
+                disabled
+                className="bg-muted/40"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Região</Label>
+              <Input value={regiao || "—"} disabled className="bg-muted/40" />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saveMut.isPending}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !schoolId}>
             {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
           </Button>

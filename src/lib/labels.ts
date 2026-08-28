@@ -20,7 +20,7 @@ export const requestStatusLabels: Record<string, string> = {
 };
 
 export function isRequestLockedForMeetingEdits(status: string | null | undefined): boolean {
-  return status === "aguardando_aprovacao" || status === "concluida";
+  return status === "concluida" || status === "cancelada";
 }
 
 export const requestStatusTone: Record<string, string> = {

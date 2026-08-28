@@ -19,6 +19,8 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SaudeMentalCursoButton } from "@/components/saude-mental/SaudeMentalCursoButton";
+import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
   Sheet,
   SheetClose,
@@ -206,6 +208,8 @@ export function LandingPage() {
                   Solicitar Vivência / Palestra
                 </Link>
               </div>
+
+              <SaudeMentalCursoButton />
             </div>
 
             <div className="flex flex-col items-center lg:items-end">
@@ -357,7 +361,9 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="bg-[#083D8C] px-4 py-10 text-center text-sm text-white/90">
+      <DalealDeveloperBanner className="pt-8" />
+
+      <footer className="mt-6 bg-[#083D8C] px-4 py-10 text-center text-sm text-white/90">
         © {new Date().getFullYear()} CPAE — Coordenadoria Municipal de Psicologia e Assistência Educacional
       </footer>
     </div>

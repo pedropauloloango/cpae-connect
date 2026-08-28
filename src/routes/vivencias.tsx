@@ -43,6 +43,7 @@ import {
   type SolicitanteCargo,
 } from "@/lib/acolhimento-options";
 import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
+import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
   palestraTemaOptions,
   vivenciaTemaOptions,
@@ -347,7 +348,8 @@ function VivenciasShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       {children}
-      <footer className="mt-12 bg-[#083D8C] px-4 py-8 text-center text-sm text-white/90">
+      <DalealDeveloperBanner />
+      <footer className="mt-6 bg-[#083D8C] px-4 py-8 text-center text-sm text-white/90">
         © {new Date().getFullYear()} CPAE — Coordenadoria Municipal de Psicologia e Assistência Educacional
       </footer>
     </div>

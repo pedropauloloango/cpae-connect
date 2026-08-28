@@ -29,6 +29,7 @@ interface AuthState {
   modules: ProfessionalModules;
   canAccessAcolhimento: boolean;
   canAccessVivencias: boolean;
+  canAccessSaudeMental: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -95,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = isSuperAdminRole(roles);
   const canAccessAcolhimento = isAdmin || modules.atendeAcolhimento;
   const canAccessVivencias = isAdmin || modules.atendeVivencias;
+  const canAccessSaudeMental = isAdmin || modules.atendeSaudeMental;
 
   const value: AuthState = {
     user: session?.user ?? null,
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     modules,
     canAccessAcolhimento,
     canAccessVivencias,
+    canAccessSaudeMental,
     signOut,
   };
 

@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VivenciasRouteImport } from './routes/vivencias'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
+import { Route as SaudeMentalRouteRouteImport } from './routes/saude-mental/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SaudeMentalIndexRouteImport } from './routes/saude-mental/index'
+import { Route as SaudeMentalCursoRouteImport } from './routes/saude-mental/curso'
 import { Route as AuthenticatedProfissionaisRouteImport } from './routes/_authenticated/profissionais'
 import { Route as AuthenticatedDemandasRouteImport } from './routes/_authenticated/demandas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -21,20 +24,29 @@ import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAguardandoAprovacaoRouteImport } from './routes/_authenticated/aguardando-aprovacao'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/_authenticated/modulo-vivencias/route'
+import { Route as AuthenticatedModuloSaudeMentalRouteRouteImport } from './routes/_authenticated/modulo-saude-mental/route'
 import { Route as AuthenticatedEscolasRouteRouteImport } from './routes/_authenticated/escolas/route'
 import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
 import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
+import { Route as AuthenticatedModuloSaudeMentalIndexRouteImport } from './routes/_authenticated/modulo-saude-mental/index'
 import { Route as AuthenticatedEscolasIndexRouteImport } from './routes/_authenticated/escolas/index'
 import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
+import { Route as SaudeMentalPresencaTokenRouteImport } from './routes/saude-mental/presenca.$token'
 import { Route as AuthenticatedModuloVivenciasVisitasTecnicasRouteImport } from './routes/_authenticated/modulo-vivencias/visitas-tecnicas'
 import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
 import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
 import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
+import { Route as AuthenticatedModuloSaudeMentalPresencaRouteImport } from './routes/_authenticated/modulo-saude-mental/presenca'
+import { Route as AuthenticatedModuloSaudeMentalModulosRouteImport } from './routes/_authenticated/modulo-saude-mental/modulos'
+import { Route as AuthenticatedModuloSaudeMentalInscritosRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos'
+import { Route as AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport } from './routes/_authenticated/modulo-saude-mental/inscricoes-periodo'
 import { Route as AuthenticatedEscolasSerieTurmaRouteImport } from './routes/_authenticated/escolas/serie-turma'
 import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 import { Route as AuthenticatedConfiguracoesUsuariosRouteImport } from './routes/_authenticated/configuracoes/usuarios'
 import { Route as AuthenticatedModuloVivenciasDemandasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.index'
+import { Route as AuthenticatedModuloSaudeMentalInscritosIndexRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos.index'
 import { Route as AuthenticatedModuloVivenciasDemandasIdRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.$id'
+import { Route as AuthenticatedModuloSaudeMentalInscritosIdRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos.$id'
 
 const VivenciasRoute = VivenciasRouteImport.update({
   id: '/vivencias',
@@ -51,6 +63,11 @@ const AcolhimentoRoute = AcolhimentoRouteImport.update({
   path: '/acolhimento',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SaudeMentalRouteRoute = SaudeMentalRouteRouteImport.update({
+  id: '/saude-mental',
+  path: '/saude-mental',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -59,6 +76,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SaudeMentalIndexRoute = SaudeMentalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SaudeMentalRouteRoute,
+} as any)
+const SaudeMentalCursoRoute = SaudeMentalCursoRouteImport.update({
+  id: '/curso',
+  path: '/curso',
+  getParentRoute: () => SaudeMentalRouteRoute,
 } as any)
 const AuthenticatedProfissionaisRoute =
   AuthenticatedProfissionaisRouteImport.update({
@@ -98,6 +125,12 @@ const AuthenticatedModuloVivenciasRouteRoute =
     path: '/modulo-vivencias',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalRouteRoute =
+  AuthenticatedModuloSaudeMentalRouteRouteImport.update({
+    id: '/modulo-saude-mental',
+    path: '/modulo-saude-mental',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEscolasRouteRoute =
   AuthenticatedEscolasRouteRouteImport.update({
     id: '/escolas',
@@ -116,6 +149,12 @@ const AuthenticatedModuloVivenciasIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalIndexRoute =
+  AuthenticatedModuloSaudeMentalIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
 const AuthenticatedEscolasIndexRoute =
   AuthenticatedEscolasIndexRouteImport.update({
     id: '/',
@@ -127,6 +166,12 @@ const AuthenticatedDemandasIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedDemandasRoute,
+  } as any)
+const SaudeMentalPresencaTokenRoute =
+  SaudeMentalPresencaTokenRouteImport.update({
+    id: '/presenca/$token',
+    path: '/presenca/$token',
+    getParentRoute: () => SaudeMentalRouteRoute,
   } as any)
 const AuthenticatedModuloVivenciasVisitasTecnicasRoute =
   AuthenticatedModuloVivenciasVisitasTecnicasRouteImport.update({
@@ -152,6 +197,30 @@ const AuthenticatedModuloVivenciasAgendaRoute =
     path: '/agenda',
     getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalPresencaRoute =
+  AuthenticatedModuloSaudeMentalPresencaRouteImport.update({
+    id: '/presenca',
+    path: '/presenca',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
+const AuthenticatedModuloSaudeMentalModulosRoute =
+  AuthenticatedModuloSaudeMentalModulosRouteImport.update({
+    id: '/modulos',
+    path: '/modulos',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
+const AuthenticatedModuloSaudeMentalInscritosRoute =
+  AuthenticatedModuloSaudeMentalInscritosRouteImport.update({
+    id: '/inscritos',
+    path: '/inscritos',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
+const AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute =
+  AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport.update({
+    id: '/inscricoes-periodo',
+    path: '/inscricoes-periodo',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
 const AuthenticatedEscolasSerieTurmaRoute =
   AuthenticatedEscolasSerieTurmaRouteImport.update({
     id: '/serie-turma',
@@ -175,20 +244,34 @@ const AuthenticatedModuloVivenciasDemandasIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalInscritosIndexRoute =
+  AuthenticatedModuloSaudeMentalInscritosIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalInscritosRoute,
+  } as any)
 const AuthenticatedModuloVivenciasDemandasIdRoute =
   AuthenticatedModuloVivenciasDemandasIdRouteImport.update({
     id: '/$id',
     path: '/$id',
     getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalInscritosIdRoute =
+  AuthenticatedModuloSaudeMentalInscritosIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalInscritosRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/saude-mental': typeof SaudeMentalRouteRouteWithChildren
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
   '/vivencias': typeof VivenciasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
   '/escolas': typeof AuthenticatedEscolasRouteRouteWithChildren
+  '/modulo-saude-mental': typeof AuthenticatedModuloSaudeMentalRouteRouteWithChildren
   '/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/agenda': typeof AuthenticatedAgendaRoute
   '/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
@@ -196,17 +279,27 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/demandas': typeof AuthenticatedDemandasRouteWithChildren
   '/profissionais': typeof AuthenticatedProfissionaisRoute
+  '/saude-mental/curso': typeof SaudeMentalCursoRoute
+  '/saude-mental/': typeof SaudeMentalIndexRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
+  '/modulo-saude-mental/inscritos': typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
+  '/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
+  '/modulo-saude-mental/presenca': typeof AuthenticatedModuloSaudeMentalPresencaRoute
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
+  '/saude-mental/presenca/$token': typeof SaudeMentalPresencaTokenRoute
   '/demandas/': typeof AuthenticatedDemandasIndexRoute
   '/escolas/': typeof AuthenticatedEscolasIndexRoute
+  '/modulo-saude-mental/': typeof AuthenticatedModuloSaudeMentalIndexRoute
   '/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/modulo-saude-mental/inscritos/$id': typeof AuthenticatedModuloSaudeMentalInscritosIdRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/modulo-saude-mental/inscritos/': typeof AuthenticatedModuloSaudeMentalInscritosIndexRoute
   '/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRoutesByTo {
@@ -220,27 +313,38 @@ export interface FileRoutesByTo {
   '/aprovacoes': typeof AuthenticatedAprovacoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profissionais': typeof AuthenticatedProfissionaisRoute
+  '/saude-mental/curso': typeof SaudeMentalCursoRoute
+  '/saude-mental': typeof SaudeMentalIndexRoute
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
+  '/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
+  '/modulo-saude-mental/presenca': typeof AuthenticatedModuloSaudeMentalPresencaRoute
   '/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
+  '/saude-mental/presenca/$token': typeof SaudeMentalPresencaTokenRoute
   '/demandas': typeof AuthenticatedDemandasIndexRoute
   '/escolas': typeof AuthenticatedEscolasIndexRoute
+  '/modulo-saude-mental': typeof AuthenticatedModuloSaudeMentalIndexRoute
   '/modulo-vivencias': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/modulo-saude-mental/inscritos/$id': typeof AuthenticatedModuloSaudeMentalInscritosIdRoute
   '/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/modulo-saude-mental/inscritos': typeof AuthenticatedModuloSaudeMentalInscritosIndexRoute
   '/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/saude-mental': typeof SaudeMentalRouteRouteWithChildren
   '/acolhimento': typeof AcolhimentoRoute
   '/auth': typeof AuthRoute
   '/vivencias': typeof VivenciasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRouteRouteWithChildren
   '/_authenticated/escolas': typeof AuthenticatedEscolasRouteRouteWithChildren
+  '/_authenticated/modulo-saude-mental': typeof AuthenticatedModuloSaudeMentalRouteRouteWithChildren
   '/_authenticated/modulo-vivencias': typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/aguardando-aprovacao': typeof AuthenticatedAguardandoAprovacaoRoute
@@ -248,28 +352,40 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/demandas': typeof AuthenticatedDemandasRouteWithChildren
   '/_authenticated/profissionais': typeof AuthenticatedProfissionaisRoute
+  '/saude-mental/curso': typeof SaudeMentalCursoRoute
+  '/saude-mental/': typeof SaudeMentalIndexRoute
   '/_authenticated/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/_authenticated/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/_authenticated/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/_authenticated/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
+  '/_authenticated/modulo-saude-mental/inscritos': typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
+  '/_authenticated/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
+  '/_authenticated/modulo-saude-mental/presenca': typeof AuthenticatedModuloSaudeMentalPresencaRoute
   '/_authenticated/modulo-vivencias/agenda': typeof AuthenticatedModuloVivenciasAgendaRoute
   '/_authenticated/modulo-vivencias/dashboard': typeof AuthenticatedModuloVivenciasDashboardRoute
   '/_authenticated/modulo-vivencias/demandas': typeof AuthenticatedModuloVivenciasDemandasRouteWithChildren
   '/_authenticated/modulo-vivencias/visitas-tecnicas': typeof AuthenticatedModuloVivenciasVisitasTecnicasRoute
+  '/saude-mental/presenca/$token': typeof SaudeMentalPresencaTokenRoute
   '/_authenticated/demandas/': typeof AuthenticatedDemandasIndexRoute
   '/_authenticated/escolas/': typeof AuthenticatedEscolasIndexRoute
+  '/_authenticated/modulo-saude-mental/': typeof AuthenticatedModuloSaudeMentalIndexRoute
   '/_authenticated/modulo-vivencias/': typeof AuthenticatedModuloVivenciasIndexRoute
+  '/_authenticated/modulo-saude-mental/inscritos/$id': typeof AuthenticatedModuloSaudeMentalInscritosIdRoute
   '/_authenticated/modulo-vivencias/demandas/$id': typeof AuthenticatedModuloVivenciasDemandasIdRoute
+  '/_authenticated/modulo-saude-mental/inscritos/': typeof AuthenticatedModuloSaudeMentalInscritosIndexRoute
   '/_authenticated/modulo-vivencias/demandas/': typeof AuthenticatedModuloVivenciasDemandasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/saude-mental'
     | '/acolhimento'
     | '/auth'
     | '/vivencias'
     | '/configuracoes'
     | '/escolas'
+    | '/modulo-saude-mental'
     | '/modulo-vivencias'
     | '/agenda'
     | '/aguardando-aprovacao'
@@ -277,17 +393,27 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demandas'
     | '/profissionais'
+    | '/saude-mental/curso'
+    | '/saude-mental/'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
     | '/escolas/serie-turma'
+    | '/modulo-saude-mental/inscricoes-periodo'
+    | '/modulo-saude-mental/inscritos'
+    | '/modulo-saude-mental/modulos'
+    | '/modulo-saude-mental/presenca'
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
     | '/modulo-vivencias/demandas'
     | '/modulo-vivencias/visitas-tecnicas'
+    | '/saude-mental/presenca/$token'
     | '/demandas/'
     | '/escolas/'
+    | '/modulo-saude-mental/'
     | '/modulo-vivencias/'
+    | '/modulo-saude-mental/inscritos/$id'
     | '/modulo-vivencias/demandas/$id'
+    | '/modulo-saude-mental/inscritos/'
     | '/modulo-vivencias/demandas/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -301,26 +427,37 @@ export interface FileRouteTypes {
     | '/aprovacoes'
     | '/dashboard'
     | '/profissionais'
+    | '/saude-mental/curso'
+    | '/saude-mental'
     | '/configuracoes/usuarios'
     | '/demandas/$id'
     | '/escolas/serie-turma'
+    | '/modulo-saude-mental/inscricoes-periodo'
+    | '/modulo-saude-mental/modulos'
+    | '/modulo-saude-mental/presenca'
     | '/modulo-vivencias/agenda'
     | '/modulo-vivencias/dashboard'
     | '/modulo-vivencias/visitas-tecnicas'
+    | '/saude-mental/presenca/$token'
     | '/demandas'
     | '/escolas'
+    | '/modulo-saude-mental'
     | '/modulo-vivencias'
+    | '/modulo-saude-mental/inscritos/$id'
     | '/modulo-vivencias/demandas/$id'
+    | '/modulo-saude-mental/inscritos'
     | '/modulo-vivencias/demandas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/saude-mental'
     | '/acolhimento'
     | '/auth'
     | '/vivencias'
     | '/_authenticated/configuracoes'
     | '/_authenticated/escolas'
+    | '/_authenticated/modulo-saude-mental'
     | '/_authenticated/modulo-vivencias'
     | '/_authenticated/agenda'
     | '/_authenticated/aguardando-aprovacao'
@@ -328,23 +465,34 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/demandas'
     | '/_authenticated/profissionais'
+    | '/saude-mental/curso'
+    | '/saude-mental/'
     | '/_authenticated/configuracoes/usuarios'
     | '/_authenticated/demandas/$id'
     | '/_authenticated/escolas/serie-turma'
+    | '/_authenticated/modulo-saude-mental/inscricoes-periodo'
+    | '/_authenticated/modulo-saude-mental/inscritos'
+    | '/_authenticated/modulo-saude-mental/modulos'
+    | '/_authenticated/modulo-saude-mental/presenca'
     | '/_authenticated/modulo-vivencias/agenda'
     | '/_authenticated/modulo-vivencias/dashboard'
     | '/_authenticated/modulo-vivencias/demandas'
     | '/_authenticated/modulo-vivencias/visitas-tecnicas'
+    | '/saude-mental/presenca/$token'
     | '/_authenticated/demandas/'
     | '/_authenticated/escolas/'
+    | '/_authenticated/modulo-saude-mental/'
     | '/_authenticated/modulo-vivencias/'
+    | '/_authenticated/modulo-saude-mental/inscritos/$id'
     | '/_authenticated/modulo-vivencias/demandas/$id'
+    | '/_authenticated/modulo-saude-mental/inscritos/'
     | '/_authenticated/modulo-vivencias/demandas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  SaudeMentalRouteRoute: typeof SaudeMentalRouteRouteWithChildren
   AcolhimentoRoute: typeof AcolhimentoRoute
   AuthRoute: typeof AuthRoute
   VivenciasRoute: typeof VivenciasRoute
@@ -373,6 +521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcolhimentoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saude-mental': {
+      id: '/saude-mental'
+      path: '/saude-mental'
+      fullPath: '/saude-mental'
+      preLoaderRoute: typeof SaudeMentalRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -386,6 +541,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/saude-mental/': {
+      id: '/saude-mental/'
+      path: '/'
+      fullPath: '/saude-mental/'
+      preLoaderRoute: typeof SaudeMentalIndexRouteImport
+      parentRoute: typeof SaudeMentalRouteRoute
+    }
+    '/saude-mental/curso': {
+      id: '/saude-mental/curso'
+      path: '/curso'
+      fullPath: '/saude-mental/curso'
+      preLoaderRoute: typeof SaudeMentalCursoRouteImport
+      parentRoute: typeof SaudeMentalRouteRoute
     }
     '/_authenticated/profissionais': {
       id: '/_authenticated/profissionais'
@@ -436,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloVivenciasRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/modulo-saude-mental': {
+      id: '/_authenticated/modulo-saude-mental'
+      path: '/modulo-saude-mental'
+      fullPath: '/modulo-saude-mental'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/escolas': {
       id: '/_authenticated/escolas'
       path: '/escolas'
@@ -457,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloVivenciasIndexRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
     }
+    '/_authenticated/modulo-saude-mental/': {
+      id: '/_authenticated/modulo-saude-mental/'
+      path: '/'
+      fullPath: '/modulo-saude-mental/'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
     '/_authenticated/escolas/': {
       id: '/_authenticated/escolas/'
       path: '/'
@@ -470,6 +653,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/demandas/'
       preLoaderRoute: typeof AuthenticatedDemandasIndexRouteImport
       parentRoute: typeof AuthenticatedDemandasRoute
+    }
+    '/saude-mental/presenca/$token': {
+      id: '/saude-mental/presenca/$token'
+      path: '/presenca/$token'
+      fullPath: '/saude-mental/presenca/$token'
+      preLoaderRoute: typeof SaudeMentalPresencaTokenRouteImport
+      parentRoute: typeof SaudeMentalRouteRoute
     }
     '/_authenticated/modulo-vivencias/visitas-tecnicas': {
       id: '/_authenticated/modulo-vivencias/visitas-tecnicas'
@@ -499,6 +689,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloVivenciasAgendaRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
     }
+    '/_authenticated/modulo-saude-mental/presenca': {
+      id: '/_authenticated/modulo-saude-mental/presenca'
+      path: '/presenca'
+      fullPath: '/modulo-saude-mental/presenca'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalPresencaRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
+    '/_authenticated/modulo-saude-mental/modulos': {
+      id: '/_authenticated/modulo-saude-mental/modulos'
+      path: '/modulos'
+      fullPath: '/modulo-saude-mental/modulos'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalModulosRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
+    '/_authenticated/modulo-saude-mental/inscritos': {
+      id: '/_authenticated/modulo-saude-mental/inscritos'
+      path: '/inscritos'
+      fullPath: '/modulo-saude-mental/inscritos'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
+    '/_authenticated/modulo-saude-mental/inscricoes-periodo': {
+      id: '/_authenticated/modulo-saude-mental/inscricoes-periodo'
+      path: '/inscricoes-periodo'
+      fullPath: '/modulo-saude-mental/inscricoes-periodo'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
     '/_authenticated/escolas/serie-turma': {
       id: '/_authenticated/escolas/serie-turma'
       path: '/serie-turma'
@@ -527,12 +745,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIndexRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
     }
+    '/_authenticated/modulo-saude-mental/inscritos/': {
+      id: '/_authenticated/modulo-saude-mental/inscritos/'
+      path: '/'
+      fullPath: '/modulo-saude-mental/inscritos/'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalInscritosRoute
+    }
     '/_authenticated/modulo-vivencias/demandas/$id': {
       id: '/_authenticated/modulo-vivencias/demandas/$id'
       path: '/$id'
       fullPath: '/modulo-vivencias/demandas/$id'
       preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIdRouteImport
       parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
+    }
+    '/_authenticated/modulo-saude-mental/inscritos/$id': {
+      id: '/_authenticated/modulo-saude-mental/inscritos/$id'
+      path: '/$id'
+      fullPath: '/modulo-saude-mental/inscritos/$id'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosIdRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalInscritosRoute
     }
   }
 }
@@ -566,6 +798,51 @@ const AuthenticatedEscolasRouteRouteChildren: AuthenticatedEscolasRouteRouteChil
 const AuthenticatedEscolasRouteRouteWithChildren =
   AuthenticatedEscolasRouteRoute._addFileChildren(
     AuthenticatedEscolasRouteRouteChildren,
+  )
+
+interface AuthenticatedModuloSaudeMentalInscritosRouteChildren {
+  AuthenticatedModuloSaudeMentalInscritosIdRoute: typeof AuthenticatedModuloSaudeMentalInscritosIdRoute
+  AuthenticatedModuloSaudeMentalInscritosIndexRoute: typeof AuthenticatedModuloSaudeMentalInscritosIndexRoute
+}
+
+const AuthenticatedModuloSaudeMentalInscritosRouteChildren: AuthenticatedModuloSaudeMentalInscritosRouteChildren =
+  {
+    AuthenticatedModuloSaudeMentalInscritosIdRoute:
+      AuthenticatedModuloSaudeMentalInscritosIdRoute,
+    AuthenticatedModuloSaudeMentalInscritosIndexRoute:
+      AuthenticatedModuloSaudeMentalInscritosIndexRoute,
+  }
+
+const AuthenticatedModuloSaudeMentalInscritosRouteWithChildren =
+  AuthenticatedModuloSaudeMentalInscritosRoute._addFileChildren(
+    AuthenticatedModuloSaudeMentalInscritosRouteChildren,
+  )
+
+interface AuthenticatedModuloSaudeMentalRouteRouteChildren {
+  AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
+  AuthenticatedModuloSaudeMentalInscritosRoute: typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
+  AuthenticatedModuloSaudeMentalModulosRoute: typeof AuthenticatedModuloSaudeMentalModulosRoute
+  AuthenticatedModuloSaudeMentalPresencaRoute: typeof AuthenticatedModuloSaudeMentalPresencaRoute
+  AuthenticatedModuloSaudeMentalIndexRoute: typeof AuthenticatedModuloSaudeMentalIndexRoute
+}
+
+const AuthenticatedModuloSaudeMentalRouteRouteChildren: AuthenticatedModuloSaudeMentalRouteRouteChildren =
+  {
+    AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute:
+      AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute,
+    AuthenticatedModuloSaudeMentalInscritosRoute:
+      AuthenticatedModuloSaudeMentalInscritosRouteWithChildren,
+    AuthenticatedModuloSaudeMentalModulosRoute:
+      AuthenticatedModuloSaudeMentalModulosRoute,
+    AuthenticatedModuloSaudeMentalPresencaRoute:
+      AuthenticatedModuloSaudeMentalPresencaRoute,
+    AuthenticatedModuloSaudeMentalIndexRoute:
+      AuthenticatedModuloSaudeMentalIndexRoute,
+  }
+
+const AuthenticatedModuloSaudeMentalRouteRouteWithChildren =
+  AuthenticatedModuloSaudeMentalRouteRoute._addFileChildren(
+    AuthenticatedModuloSaudeMentalRouteRouteChildren,
   )
 
 interface AuthenticatedModuloVivenciasDemandasRouteChildren {
@@ -631,6 +908,7 @@ const AuthenticatedDemandasRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRouteRoute: typeof AuthenticatedConfiguracoesRouteRouteWithChildren
   AuthenticatedEscolasRouteRoute: typeof AuthenticatedEscolasRouteRouteWithChildren
+  AuthenticatedModuloSaudeMentalRouteRoute: typeof AuthenticatedModuloSaudeMentalRouteRouteWithChildren
   AuthenticatedModuloVivenciasRouteRoute: typeof AuthenticatedModuloVivenciasRouteRouteWithChildren
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAguardandoAprovacaoRoute: typeof AuthenticatedAguardandoAprovacaoRoute
@@ -644,6 +922,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRouteRoute:
     AuthenticatedConfiguracoesRouteRouteWithChildren,
   AuthenticatedEscolasRouteRoute: AuthenticatedEscolasRouteRouteWithChildren,
+  AuthenticatedModuloSaudeMentalRouteRoute:
+    AuthenticatedModuloSaudeMentalRouteRouteWithChildren,
   AuthenticatedModuloVivenciasRouteRoute:
     AuthenticatedModuloVivenciasRouteRouteWithChildren,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
@@ -657,9 +937,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface SaudeMentalRouteRouteChildren {
+  SaudeMentalCursoRoute: typeof SaudeMentalCursoRoute
+  SaudeMentalIndexRoute: typeof SaudeMentalIndexRoute
+  SaudeMentalPresencaTokenRoute: typeof SaudeMentalPresencaTokenRoute
+}
+
+const SaudeMentalRouteRouteChildren: SaudeMentalRouteRouteChildren = {
+  SaudeMentalCursoRoute: SaudeMentalCursoRoute,
+  SaudeMentalIndexRoute: SaudeMentalIndexRoute,
+  SaudeMentalPresencaTokenRoute: SaudeMentalPresencaTokenRoute,
+}
+
+const SaudeMentalRouteRouteWithChildren =
+  SaudeMentalRouteRoute._addFileChildren(SaudeMentalRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  SaudeMentalRouteRoute: SaudeMentalRouteRouteWithChildren,
   AcolhimentoRoute: AcolhimentoRoute,
   AuthRoute: AuthRoute,
   VivenciasRoute: VivenciasRoute,

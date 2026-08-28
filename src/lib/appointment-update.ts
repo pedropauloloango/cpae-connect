@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { insertRequestActivityLog } from "@/lib/activity-log";
 import { toDatetimeLocalValue, prepareAppointmentDatetimes, type VisitScheduleFormValues } from "@/lib/appointment-utils";
 import { buildAppointmentTitle, type MeetingNumber } from "@/lib/meeting-schedule";
 
@@ -45,9 +46,9 @@ export async function updateVisitAppointment(params: {
   if (!data) throw new Error("Não foi possível atualizar o agendamento.");
 
   if (requestId) {
-    await supabase.from("activity_logs").insert({
-      request_id: requestId,
-      actor_id: actorId ?? null,
+    await insertRequestActivityLog({
+      requestId,
+      actorId,
       action: "visita_agendada_editada",
       details: {
         appointment_id: appointmentId,

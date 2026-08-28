@@ -1,6 +1,6 @@
 /** Módulo ativo na UI (shell / notificações), inclusive em rotas compartilhadas. */
 
-export type AppModule = "acolhimento" | "vivencias";
+export type AppModule = "acolhimento" | "vivencias" | "saude-mental";
 
 const STORAGE_KEY = "cpae-active-module";
 
@@ -21,7 +21,7 @@ function persistModule(module: AppModule): void {
 function readPersistedModule(): AppModule | null {
   try {
     const value = sessionStorage.getItem(STORAGE_KEY);
-    if (value === "vivencias" || value === "acolhimento") return value;
+    if (value === "vivencias" || value === "acolhimento" || value === "saude-mental") return value;
   } catch {
     /* ignore */
   }
@@ -36,6 +36,11 @@ export function resolveActiveModule(pathname: string): AppModule {
   if (pathname.startsWith("/modulo-vivencias")) {
     persistModule("vivencias");
     return "vivencias";
+  }
+
+  if (pathname.startsWith("/modulo-saude-mental")) {
+    persistModule("saude-mental");
+    return "saude-mental";
   }
 
   if (
@@ -57,4 +62,8 @@ export function resolveActiveModule(pathname: string): AppModule {
 
 export function isVivenciasModuleActive(pathname: string): boolean {
   return resolveActiveModule(pathname) === "vivencias";
+}
+
+export function isSaudeMentalModuleActive(pathname: string): boolean {
+  return resolveActiveModule(pathname) === "saude-mental";
 }

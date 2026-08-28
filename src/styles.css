@@ -248,6 +248,12 @@
   box-shadow: 0 4px 24px -8px rgb(5 150 105 / 0.16);
 }
 
+.cpae-app-header--saude-mental {
+  background: linear-gradient(135deg, #f5f3ff 0%, #faf5ff 45%, #fdf4ff 100%);
+  border-bottom: 1px solid rgb(139 92 246 / 0.18);
+  box-shadow: 0 4px 24px -8px rgb(109 40 217 / 0.16);
+}
+
 .cpae-app-header::after {
   content: "";
   position: absolute;
@@ -259,6 +265,11 @@
   opacity: 0.55;
 }
 
+.cpae-app-header--saude-mental::after {
+  background: linear-gradient(90deg, #c4b5fd 0%, #8b5cf6 40%, #7c3aed 70%, #6d28d9 100%);
+  opacity: 0.7;
+}
+
 .cpae-sidebar {
   background: linear-gradient(180deg, #0a2560 0%, #061838 50%, #081e47 100%);
   box-shadow: 4px 0 28px rgb(6 24 56 / 0.22);
@@ -268,6 +279,11 @@
 .cpae-sidebar--vivencias {
   background: linear-gradient(180deg, #065f46 0%, #022c22 48%, #064e3b 100%);
   box-shadow: 4px 0 28px rgb(2 44 34 / 0.28);
+}
+
+.cpae-sidebar--saude-mental {
+  background: linear-gradient(180deg, #5b21b6 0%, #3b0764 48%, #4c1d95 100%);
+  box-shadow: 4px 0 28px rgb(59 7 100 / 0.32);
 }
 
 .cpae-sidebar-glow {
@@ -288,6 +304,13 @@
     radial-gradient(ellipse 50% 30% at 50% 40%, rgb(5 150 105 / 0.14), transparent 60%);
 }
 
+.cpae-sidebar--saude-mental .cpae-sidebar-glow {
+  background:
+    radial-gradient(ellipse 90% 55% at -10% 0%, rgb(167 139 250 / 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 110% 100%, rgb(192 132 252 / 0.28), transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 40%, rgb(124 58 237 / 0.18), transparent 60%);
+}
+
 .cpae-rainbow-border--vivencias {
   background: linear-gradient(
     180deg,
@@ -296,5 +319,16 @@
     #059669 55%,
     #047857 78%,
     #065f46 100%
+  );
+}
+
+.cpae-rainbow-border--saude-mental {
+  background: linear-gradient(
+    180deg,
+    #c4b5fd 0%,
+    #a78bfa 28%,
+    #8b5cf6 55%,
+    #7c3aed 78%,
+    #6d28d9 100%
   );
 }

@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import {
   homePathForModules,
   isAcolhimentoPath,
+  isSaudeMentalPath,
   isVivenciasPath,
   resolveUserModulesAccess,
 } from "@/lib/professional-modules";
@@ -56,6 +57,9 @@ export const Route = createFileRoute("/_authenticated")({
 
     if (!onWaitingPage) {
       if (isVivenciasPath(location.pathname) && !isAdmin && !modules.atendeVivencias) {
+        throw redirect({ to: home });
+      }
+      if (isSaudeMentalPath(location.pathname) && !isAdmin && !modules.atendeSaudeMental) {
         throw redirect({ to: home });
       }
       if (isAcolhimentoPath(location.pathname) && !isAdmin && !modules.atendeAcolhimento) {

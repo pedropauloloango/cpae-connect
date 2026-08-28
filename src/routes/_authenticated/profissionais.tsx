@@ -29,7 +29,7 @@ import type { Database } from "@/integrations/supabase/types";
 export const Route = createFileRoute("/_authenticated/profissionais")({ component: Profissionais });
 
 type ProfessionalStatus = Database["public"]["Enums"]["professional_status"];
-type ModuleFilter = "todos" | "acolhimento" | "vivencias" | "ambos";
+type ModuleFilter = "todos" | "acolhimento" | "vivencias" | "saude-mental" | "ambos";
 type StatusFilter = "todos" | ProfessionalStatus;
 
 interface Pro {
@@ -45,6 +45,7 @@ interface Pro {
   status: ProfessionalStatus;
   atende_acolhimento: boolean;
   atende_vivencias: boolean;
+  atende_saude_mental: boolean;
 }
 
 function formDataToRecord(form: FormData): Record<string, string> {
@@ -67,6 +68,7 @@ function professionalFromForm(vals: Record<string, string>, status?: Professiona
     regiao_atuacao: vals.regiao_atuacao?.trim() || null,
     atende_acolhimento: vals.atende_acolhimento === "true",
     atende_vivencias: vals.atende_vivencias === "true",
+    atende_saude_mental: vals.atende_saude_mental === "true",
     ...(status ? { status } : {}),
   };
 }
@@ -119,6 +121,7 @@ function Profissionais() {
       if (filterCargo !== "todos" && (p.cargo?.trim() ?? "") !== filterCargo) return false;
       if (filterModulo === "acolhimento" && !p.atende_acolhimento) return false;
       if (filterModulo === "vivencias" && !p.atende_vivencias) return false;
+      if (filterModulo === "saude-mental" && !p.atende_saude_mental) return false;
       if (filterModulo === "ambos" && !(p.atende_acolhimento && p.atende_vivencias)) return false;
       return true;
     });
@@ -241,6 +244,7 @@ function Profissionais() {
                 moduleDefaults={{
                   acolhimento: editingPro.atende_acolhimento,
                   vivencias: editingPro.atende_vivencias,
+                  saudeMental: editingPro.atende_saude_mental,
                 }}
                 status={editStatus}
                 onStatusChange={setEditStatus}
@@ -310,6 +314,7 @@ function Profissionais() {
               <SelectItem value="todos">Todos os módulos</SelectItem>
               <SelectItem value="acolhimento">Acolhimento</SelectItem>
               <SelectItem value="vivencias">Vivências</SelectItem>
+              <SelectItem value="saude-mental">Saúde Mental</SelectItem>
               <SelectItem value="ambos">Acolhimento e Vivências</SelectItem>
             </SelectContent>
           </Select>
@@ -364,6 +369,7 @@ function Profissionais() {
                       <div className="flex flex-wrap gap-1">
                         {p.atende_acolhimento && <Badge variant="secondary">Acolhimento</Badge>}
                         {p.atende_vivencias && <Badge variant="secondary">Vivências</Badge>}
+                        {p.atende_saude_mental && <Badge variant="secondary">Saúde Mental</Badge>}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -418,6 +424,7 @@ function Profissionais() {
                     <div className="mt-2 flex flex-wrap gap-1">
                       {p.atende_acolhimento && <Badge variant="secondary">Acolhimento</Badge>}
                       {p.atende_vivencias && <Badge variant="secondary">Vivências</Badge>}
+                      {p.atende_saude_mental && <Badge variant="secondary">Saúde Mental</Badge>}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">
@@ -454,17 +461,19 @@ function Profissionais() {
 
 function ProfessionalFormFields({
   defaults = {},
-  moduleDefaults = { acolhimento: true, vivencias: true },
+  moduleDefaults = { acolhimento: true, vivencias: true, saudeMental: false },
   status,
   onStatusChange,
 }: {
   defaults?: Partial<Record<string, string>>;
-  moduleDefaults?: { acolhimento: boolean; vivencias: boolean };
+  moduleDefaults?: { acolhimento: boolean; vivencias: boolean; saudeMental: boolean };
   status?: ProfessionalStatus;
   onStatusChange?: (status: ProfessionalStatus) => void;
 }) {
   const [acolhimento, setAcolhimento] = useState(moduleDefaults.acolhimento);
   const [vivencias, setVivencias] = useState(moduleDefaults.vivencias);
+  const [saudeMental, setSaudeMental] = useState(moduleDefaults.saudeMental);
+  const selectedCount = Number(acolhimento) + Number(vivencias) + Number(saudeMental);
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -505,11 +514,12 @@ function ProfessionalFormFields({
         <p className="text-xs text-muted-foreground">Selecione pelo menos um módulo.</p>
         <input type="hidden" name="atende_acolhimento" value={String(acolhimento)} />
         <input type="hidden" name="atende_vivencias" value={String(vivencias)} />
+        <input type="hidden" name="atende_saude_mental" value={String(saudeMental)} />
         <div className="flex flex-wrap gap-5 rounded-md border p-3">
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox
               checked={acolhimento}
-              disabled={acolhimento && !vivencias}
+              disabled={acolhimento && selectedCount === 1}
               onCheckedChange={(checked) => setAcolhimento(checked === true)}
             />
             Acolhimento
@@ -517,10 +527,18 @@ function ProfessionalFormFields({
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox
               checked={vivencias}
-              disabled={vivencias && !acolhimento}
+              disabled={vivencias && selectedCount === 1}
               onCheckedChange={(checked) => setVivencias(checked === true)}
             />
             Vivências
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={saudeMental}
+              disabled={saudeMental && selectedCount === 1}
+              onCheckedChange={(checked) => setSaudeMental(checked === true)}
+            />
+            Saúde Mental
           </label>
         </div>
       </div>

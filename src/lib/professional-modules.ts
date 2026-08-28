@@ -4,18 +4,21 @@ export type ProfessionalModules = {
   professionalId: string | null;
   atendeAcolhimento: boolean;
   atendeVivencias: boolean;
+  atendeSaudeMental: boolean;
 };
 
 export const DEFAULT_ADMIN_MODULES: ProfessionalModules = {
   professionalId: null,
   atendeAcolhimento: true,
   atendeVivencias: true,
+  atendeSaudeMental: true,
 };
 
 export const EMPTY_MODULES: ProfessionalModules = {
   professionalId: null,
   atendeAcolhimento: false,
   atendeVivencias: false,
+  atendeSaudeMental: false,
 };
 
 /** Rotas que pertencem ao módulo Acolhimento (não compartilhadas com admin genérico). */
@@ -29,27 +32,52 @@ export function isVivenciasPath(pathname: string): boolean {
   return pathname === "/modulo-vivencias" || pathname.startsWith("/modulo-vivencias/");
 }
 
+export function isSaudeMentalPath(pathname: string): boolean {
+  return pathname === "/modulo-saude-mental" || pathname.startsWith("/modulo-saude-mental/");
+}
+
 export function homePathForModules(modules: ProfessionalModules, isAdmin: boolean): string {
   if (isAdmin || modules.atendeAcolhimento) return "/dashboard";
   if (modules.atendeVivencias) return "/modulo-vivencias/dashboard";
+  if (modules.atendeSaudeMental) return "/modulo-saude-mental/inscritos";
   return "/aguardando-aprovacao";
 }
 
 export async function fetchProfessionalModules(userId: string): Promise<ProfessionalModules> {
   const { data, error } = await supabase
     .from("professionals")
-    .select("id, atende_acolhimento, atende_vivencias")
+    .select("id, atende_acolhimento, atende_vivencias, atende_saude_mental")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    // Coluna ainda não migrada: fallback sem Saúde Mental
+    if (error.message?.includes("atende_saude_mental") || error.code === "PGRST204") {
+      const { data: legacy, error: legacyErr } = await supabase
+        .from("professionals")
+        .select("id, atende_acolhimento, atende_vivencias")
+        .eq("user_id", userId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (legacyErr) throw legacyErr;
+      if (!legacy) return EMPTY_MODULES;
+      return {
+        professionalId: legacy.id,
+        atendeAcolhimento: legacy.atende_acolhimento !== false,
+        atendeVivencias: legacy.atende_vivencias !== false,
+        atendeSaudeMental: false,
+      };
+    }
+    throw error;
+  }
   if (!data) return EMPTY_MODULES;
 
   return {
     professionalId: data.id,
     atendeAcolhimento: data.atende_acolhimento !== false,
     atendeVivencias: data.atende_vivencias !== false,
+    atendeSaudeMental: data.atende_saude_mental === true,
   };
 }
 

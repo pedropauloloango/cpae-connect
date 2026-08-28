@@ -365,6 +365,7 @@ export type Database = {
       professionals: {
         Row: {
           atende_acolhimento: boolean
+          atende_saude_mental: boolean
           atende_vivencias: boolean
           cargo: string | null
           cpf: string | null
@@ -383,6 +384,7 @@ export type Database = {
         }
         Insert: {
           atende_acolhimento?: boolean
+          atende_saude_mental?: boolean
           atende_vivencias?: boolean
           cargo?: string | null
           cpf?: string | null
@@ -401,6 +403,7 @@ export type Database = {
         }
         Update: {
           atende_acolhimento?: boolean
+          atende_saude_mental?: boolean
           atende_vivencias?: boolean
           cargo?: string | null
           cpf?: string | null
@@ -658,6 +661,203 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      saude_mental_inscricao_config: {
+        Row: {
+          encerramento_em: string | null
+          id: number
+          inscricoes_habilitadas: boolean
+          mensagem_encerrada: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          encerramento_em?: string | null
+          id?: number
+          inscricoes_habilitadas?: boolean
+          mensagem_encerrada?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          encerramento_em?: string | null
+          id?: number
+          inscricoes_habilitadas?: boolean
+          mensagem_encerrada?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      saude_mental_inscritos: {
+        Row: {
+          ano_curso: number
+          cpf: string | null
+          created_at: string
+          data_nascimento: string | null
+          deleted_at: string | null
+          email: string | null
+          email_formulario: string | null
+          escola_texto: string | null
+          funcao: string | null
+          id: string
+          inscrito_em: string | null
+          nivel_escolaridade: string | null
+          nome_completo: string
+          numero: string
+          origem: string
+          school_id: string | null
+          school_nome_snapshot: string | null
+          status: string
+          telefone_whatsapp: string | null
+          updated_at: string
+        }
+        Insert: {
+          ano_curso?: number
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          email_formulario?: string | null
+          escola_texto?: string | null
+          funcao?: string | null
+          id?: string
+          inscrito_em?: string | null
+          nivel_escolaridade?: string | null
+          nome_completo: string
+          numero?: string
+          origem?: string
+          school_id?: string | null
+          school_nome_snapshot?: string | null
+          status?: string
+          telefone_whatsapp?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ano_curso?: number
+          cpf?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          email_formulario?: string | null
+          escola_texto?: string | null
+          funcao?: string | null
+          id?: string
+          inscrito_em?: string | null
+          nivel_escolaridade?: string | null
+          nome_completo?: string
+          numero?: string
+          origem?: string
+          school_id?: string | null
+          school_nome_snapshot?: string | null
+          status?: string
+          telefone_whatsapp?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saude_mental_inscritos_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saude_mental_encontros: {
+        Row: {
+          ano_curso: number
+          created_at: string
+          data: string
+          deleted_at: string | null
+          horario: string
+          id: string
+          local: string
+          modulo_curso: string
+          qr_ativo: boolean
+          qr_expires_at: string | null
+          qr_token: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ano_curso?: number
+          created_at?: string
+          data: string
+          deleted_at?: string | null
+          horario: string
+          id?: string
+          local: string
+          modulo_curso: string
+          qr_ativo?: boolean
+          qr_expires_at?: string | null
+          qr_token?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ano_curso?: number
+          created_at?: string
+          data?: string
+          deleted_at?: string | null
+          horario?: string
+          id?: string
+          local?: string
+          modulo_curso?: string
+          qr_ativo?: boolean
+          qr_expires_at?: string | null
+          qr_token?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      saude_mental_presencas: {
+        Row: {
+          cpf_informado: string | null
+          created_at: string
+          encontro_id: string
+          id: string
+          inscrito_id: string
+          origem: string
+          registrado_em: string
+        }
+        Insert: {
+          cpf_informado?: string | null
+          created_at?: string
+          encontro_id: string
+          id?: string
+          inscrito_id: string
+          origem?: string
+          registrado_em?: string
+        }
+        Update: {
+          cpf_informado?: string | null
+          created_at?: string
+          encontro_id?: string
+          id?: string
+          inscrito_id?: string
+          origem?: string
+          registrado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saude_mental_presencas_encontro_id_fkey"
+            columns: ["encontro_id"]
+            isOneToOne: false
+            referencedRelation: "saude_mental_encontros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saude_mental_presencas_inscrito_id_fkey"
+            columns: ["inscrito_id"]
+            isOneToOne: false
+            referencedRelation: "saude_mental_inscritos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       schools: {
         Row: {
@@ -1088,6 +1288,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirmar_presenca_saude_mental: {
+        Args: { p_cpf: string; p_token: string }
+        Returns: {
+          ja_registrado: boolean
+          mensagem: string
+          nome_completo: string
+          ok: boolean
+        }[]
+      }
       get_notification_recipient_emails: {
         Args: { p_module: string }
         Returns: { email: string }[]
@@ -1095,6 +1304,20 @@ export type Database = {
       get_palestra_occupied_dates: {
         Args: { p_regiao: string }
         Returns: { data_preferivel: string }[]
+      }
+      get_saude_mental_encontro_qr: {
+        Args: { p_token: string }
+        Returns: {
+          ano_curso: number
+          data: string
+          horario: string
+          id: string
+          local: string
+          modulo_curso: string
+          qr_ativo: boolean
+          qr_expires_at: string | null
+          recebimento_aberto: boolean
+        }[]
       }
       get_vivencia_occupied_dates: {
         Args: { p_periodo: string; p_regiao: string }
@@ -1110,6 +1333,14 @@ export type Database = {
       submit_acolhimento_request: {
         Args: { payload: Json }
         Returns: { id: string; numero: string; alert_emails: string[] }[]
+      }
+      get_saude_mental_inscricao_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      submit_saude_mental_inscricao: {
+        Args: { payload: Json }
+        Returns: { id: string; numero: string }[]
       }
       submit_vivencia_request: {
         Args: { payload: Json }

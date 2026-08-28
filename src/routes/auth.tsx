@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
+import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 
 async function navigateHome(userId: string, navigate: ReturnType<typeof useNavigate>) {
   const { isAdmin, modules } = await resolveUserModulesAccess(userId);
@@ -209,8 +210,9 @@ function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-soft via-background to-accent/10 p-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-primary-soft via-background to-accent/10 p-4">
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-md">
         <Link
           to="/"
           className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
@@ -424,7 +426,9 @@ function AuthPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      <DalealDeveloperBanner className="pb-4 pt-2" />
     </div>
   );
 }

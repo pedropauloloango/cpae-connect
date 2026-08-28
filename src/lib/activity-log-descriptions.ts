@@ -77,8 +77,12 @@ export function formatActivityLogDescription(log: ActivityLogRow, ctx: ActivityL
       const label = (meetingNumberLabels[numero] ?? numero) || "encontro";
       return `${label} registrado.${actorSuffix}`;
     }
-    case "encontro_atualizado":
-      return `Relato do encontro atualizado.${actorSuffix}`;
+    case "encontro_atualizado": {
+      const numero = String(details.numero ?? "");
+      const label = (meetingNumberLabels[numero] ?? numero) || "Encontro";
+      const por = actor ? ` Por ${actor}.` : "";
+      return `${label} editado pelo técnico.${por}`;
+    }
     case "relatorio_consolidado_salvo":
       return `Relatório circunstanciado salvo.${details.com_anexo ? " Com anexo." : ""}${actorSuffix}`;
     case "relatorio_enviado_aprovacao":
@@ -95,11 +99,12 @@ export function formatActivityLogDescription(log: ActivityLogRow, ctx: ActivityL
       const tipo = details.tipo ? meetingTypeLabels[String(details.tipo)] ?? String(details.tipo) : null;
       const inicio = details.inicio ? new Date(String(details.inicio)).toLocaleString("pt-BR") : null;
       const representante = details.representante_nome ? String(details.representante_nome) : null;
-      let text = `Agendamento da visita (${label}) foi atualizado.`;
+      let text = `Visita (${label}) editada pelo técnico.`;
       if (representante) text += ` Contato: ${representante}.`;
       if (tipo) text += ` Tipo: ${tipo}.`;
       if (inicio) text += ` Data/hora: ${inicio}.`;
-      return text + actorSuffix;
+      const por = actor ? ` Por ${actor}.` : "";
+      return text + por;
     }
     case "visita_agendada": {
       const numero = String(details.numero ?? "");
@@ -141,6 +146,12 @@ export function formatActivityLogDescription(log: ActivityLogRow, ctx: ActivityL
         ? `Dados do(a) aluno(a) atualizados (${nome}).${actorSuffix}`
         : `Dados do(a) aluno(a) atualizados.${actorSuffix}`;
     }
+    case "escola_editada": {
+      const escola = details.school_nome ? String(details.school_nome) : null;
+      return escola
+        ? `Escola / EMEI atualizada para ${escola}.${actorSuffix}`
+        : `Escola / EMEI atualizada.${actorSuffix}`;
+    }
     default:
       return log.action.replace(/_/g, " ") + (actorSuffix || ".");
   }
@@ -174,14 +185,14 @@ export function activityLogTitle(action: string): string {
       atribuicao: "Profissional atribuído",
       atribuicao_desfeita: "Atribuição desfeita",
       encontro_registrado: "Encontro registrado",
-      encontro_atualizado: "Encontro atualizado",
+      encontro_atualizado: "Encontro editado pelo técnico",
       relatorio_consolidado_salvo: "Relatório circunstanciado salvo",
       relatorio_enviado_aprovacao: "Relatório enviado para aprovação",
       aprovacao_relatorio_aprovado: "Relatório aprovado",
       aprovacao_relatorio_rejeitado: "Relatório rejeitado",
       aprovacao_relatorio_correcao_solicitada: "Correção solicitada no relatório",
       visita_agendada: "Visita agendada",
-      visita_agendada_editada: "Agendamento editado",
+      visita_agendada_editada: "Visita editada pelo técnico",
       encontro_enviado_aprovacao: "Encontro enviado para aprovação",
       encontro_corrigido: "Relato corrigido",
       aprovacao_aprovado: "Relato aprovado",
@@ -189,6 +200,7 @@ export function activityLogTitle(action: string): string {
       aprovacao_correcao_solicitada: "Correção solicitada",
       caso_encerrado: "Caso encerrado",
       dados_aluno_editados: "Dados do aluno editados",
+      escola_editada: "Escola editada",
     } as Record<string, string>
   )[action] ?? action.replace(/_/g, " ");
 }
