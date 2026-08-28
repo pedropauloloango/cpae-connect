@@ -1300,6 +1300,15 @@ export type Database = {
           ok: boolean
         }[]
       }
+      validar_inscrito_presenca_qr: {
+        Args: { p_cpf: string; p_token: string }
+        Returns: {
+          ja_registrado: boolean
+          mensagem: string
+          nome_completo: string
+          ok: boolean
+        }[]
+      }
       get_notification_recipient_emails: {
         Args: { p_module: string }
         Returns: { email: string }[]

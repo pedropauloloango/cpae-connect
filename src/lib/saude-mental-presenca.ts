@@ -19,6 +19,8 @@ export type ConfirmPresencaResult = {
   ja_registrado: boolean;
 };
 
+export type ValidarInscritoPresencaResult = ConfirmPresencaResult;
+
 export type EncontroQrState = {
   qr_ativo: boolean;
   qr_expires_at: string | null;
@@ -56,12 +58,94 @@ export async function getEncontroByQrToken(token: string): Promise<EncontroQrInf
   return row as EncontroQrInfo;
 }
 
+function mapPresencaRpcRow(row: Record<string, unknown>): ConfirmPresencaResult {
+  return {
+    ok: Boolean(row.ok),
+    mensagem: String(row.mensagem ?? ""),
+    nome_completo: (row.nome_completo as string | null) ?? null,
+    ja_registrado: Boolean(row.ja_registrado),
+  };
+}
+
+export async function validarInscritoPresencaQr(
+  token: string,
+  cpf: string,
+): Promise<ValidarInscritoPresencaResult> {
+  const { data, error } = await supabase.rpc("validar_inscrito_presenca_qr", {
+    p_token: token,
+    p_cpf: cpf.replace(/\D/g, ""),
+  });
+  if (error) throw new Error(mapError(error));
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return {
+      ok: false,
+      mensagem: "Resposta inválida do servidor.",
+      nome_completo: null,
+      ja_registrado: false,
+    };
+  }
+  return mapPresencaRpcRow(row as Record<string, unknown>);
+}
+
+function isPresencaTransportError(error: unknown): boolean {
+  if (!error) return false;
+  const msg =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error);
+  const lower = msg.toLowerCase();
+  return (
+    (error instanceof TypeError && lower.includes("fetch")) ||
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network") ||
+    lower.includes("load failed")
+  );
+}
+
+/** Confirma presença via RPC no browser (mesmo padrão de validação e inscrição). */
+async function confirmarPresencaPorQrBrowser(
+  token: string,
+  cpf: string,
+): Promise<ConfirmPresencaResult> {
+  const { data, error } = await supabase.rpc("confirmar_presenca_saude_mental", {
+    p_token: token,
+    p_cpf: cpf.replace(/\D/g, ""),
+    p_client_ip: null,
+  });
+  if (error) throw new Error(mapError(error));
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return {
+      ok: false,
+      mensagem: "Resposta inválida do servidor.",
+      nome_completo: null,
+      ja_registrado: false,
+    };
+  }
+  return mapPresencaRpcRow(row as Record<string, unknown>);
+}
+
+/**
+ * Confirma presença via QR. Tenta server function (captura IP); se falhar na rede,
+ * usa RPC direta no browser — mesmo padrão de acolhimento/inscrição.
+ */
 export async function confirmarPresencaPorQr(
   token: string,
   cpf: string,
 ): Promise<ConfirmPresencaResult> {
-  const { confirmarPresencaSaudeMentalQr } = await import("@/lib/saude-mental-presenca.functions");
-  return confirmarPresencaSaudeMentalQr({ data: { token, cpf } });
+  try {
+    const { confirmarPresencaSaudeMentalQr } = await import("@/lib/saude-mental-presenca.functions");
+    return await confirmarPresencaSaudeMentalQr({ data: { token, cpf } });
+  } catch (error) {
+    const missingEnv =
+      error instanceof Error && error.message.includes("Missing Supabase environment variable");
+    if (!isPresencaTransportError(error) && !missingEnv) throw error;
+    return confirmarPresencaPorQrBrowser(token, cpf);
+  }
 }
 
 /** Origem pública do app (QR Codes). Evita gerar link localhost ao testar no celular. */

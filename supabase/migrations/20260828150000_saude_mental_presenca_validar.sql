@@ -1,21 +1,8 @@
--- IP do cliente no registro de presença via QR Code
+-- Pré-validação de CPF antes de confirmar presença via QR (sem gravar)
 
-ALTER TABLE public.saude_mental_presencas
-  ADD COLUMN IF NOT EXISTS registrado_ip TEXT;
-
-COMMENT ON COLUMN public.saude_mental_presencas.registrado_ip IS
-  'Endereço IP capturado no servidor quando a presença é registrada via QR Code.';
-
-CREATE INDEX IF NOT EXISTS idx_saude_mental_presencas_ip_encontro
-  ON public.saude_mental_presencas(encontro_id, registrado_ip)
-  WHERE registrado_ip IS NOT NULL;
-
-DROP FUNCTION IF EXISTS public.confirmar_presenca_saude_mental(UUID, TEXT);
-
-CREATE OR REPLACE FUNCTION public.confirmar_presenca_saude_mental(
+CREATE OR REPLACE FUNCTION public.validar_inscrito_presenca_qr(
   p_token UUID,
-  p_cpf TEXT,
-  p_client_ip TEXT DEFAULT NULL
+  p_cpf TEXT
 )
 RETURNS TABLE (
   ok BOOLEAN,
@@ -36,17 +23,11 @@ DECLARE
   v_inscrito_id UUID;
   v_nome TEXT;
   v_existing UUID;
-  v_ip TEXT;
 BEGIN
   v_cpf := regexp_replace(COALESCE(p_cpf, ''), '[^0-9]', '', 'g');
   IF length(v_cpf) <> 11 THEN
     RETURN QUERY SELECT false, 'Informe um CPF válido com 11 dígitos.'::TEXT, NULL::TEXT, false;
     RETURN;
-  END IF;
-
-  v_ip := NULLIF(trim(COALESCE(p_client_ip, '')), '');
-  IF v_ip IS NOT NULL AND length(v_ip) > 45 THEN
-    v_ip := left(v_ip, 45);
   END IF;
 
   SELECT e.id, e.ano_curso, e.qr_ativo, e.qr_expires_at
@@ -104,23 +85,9 @@ BEGIN
     RETURN;
   END IF;
 
-  INSERT INTO public.saude_mental_presencas (
-    encontro_id,
-    inscrito_id,
-    cpf_informado,
-    origem,
-    registrado_ip
-  ) VALUES (
-    v_encontro_id,
-    v_inscrito_id,
-    v_cpf,
-    'qrcode',
-    v_ip
-  );
-
-  RETURN QUERY SELECT true, 'Presença confirmada com sucesso.'::TEXT, v_nome, false;
+  RETURN QUERY SELECT true, 'Inscrito encontrado.'::TEXT, v_nome, false;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.confirmar_presenca_saude_mental(UUID, TEXT, TEXT) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.confirmar_presenca_saude_mental(UUID, TEXT, TEXT) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.validar_inscrito_presenca_qr(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.validar_inscrito_presenca_qr(UUID, TEXT) TO anon, authenticated, service_role;

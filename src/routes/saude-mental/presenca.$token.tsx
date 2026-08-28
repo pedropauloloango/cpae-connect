@@ -1,16 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatCpfMask } from "@/lib/saude-mental-options";
 import {
   confirmarPresencaPorQr,
   getEncontroByQrToken,
+  validarInscritoPresencaQr,
 } from "@/lib/saude-mental-presenca";
 import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
@@ -36,6 +45,21 @@ const primaryBtn =
 
 const formCard =
   "overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-[0_10px_60px_rgba(15,82,186,0.08)]";
+
+function formatHorario(value: string): string {
+  return String(value).slice(0, 5);
+}
+
+function formatDataBr(value: string): string {
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -67,6 +91,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 function PresencaPublicaPage() {
   const { token } = Route.useParams();
   const [cpf, setCpf] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewNome, setPreviewNome] = useState<string | null>(null);
   const [done, setDone] = useState<{ nome: string | null; ja: boolean; mensagem: string } | null>(
     null,
   );
@@ -78,6 +104,28 @@ function PresencaPublicaPage() {
     refetchInterval: (q) => (q.state.data?.recebimento_aberto ? false : 5_000),
   });
 
+  const validateMut = useMutation({
+    mutationFn: () => validarInscritoPresencaQr(token, cpf),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.mensagem);
+        return;
+      }
+      if (res.ja_registrado) {
+        setDone({
+          nome: res.nome_completo,
+          ja: true,
+          mensagem: res.mensagem,
+        });
+        toast.info(res.mensagem);
+        return;
+      }
+      setPreviewNome(res.nome_completo);
+      setConfirmOpen(true);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const confirmMut = useMutation({
     mutationFn: () => confirmarPresencaPorQr(token, cpf),
     onSuccess: (res) => {
@@ -85,11 +133,16 @@ function PresencaPublicaPage() {
         toast.error(res.mensagem);
         return;
       }
+      setConfirmOpen(false);
+      setPreviewNome(null);
       setDone({ nome: res.nome_completo, ja: res.ja_registrado, mensagem: res.mensagem });
       toast.success(res.mensagem);
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const cpfValido = cpf.replace(/\D/g, "").length === 11;
+  const formBusy = validateMut.isPending || confirmMut.isPending;
 
   if (encontroQuery.isLoading) {
     return (
@@ -190,16 +243,78 @@ function PresencaPublicaPage() {
               <Button
                 type="button"
                 className={`w-full ${primaryBtn}`}
-                disabled={confirmMut.isPending || cpf.replace(/\D/g, "").length < 11}
-                onClick={() => confirmMut.mutate()}
+                disabled={formBusy || !cpfValido}
+                onClick={() => validateMut.mutate()}
               >
-                {confirmMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirmar presença
+                {validateMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Continuar
               </Button>
             </div>
           )}
         </section>
       </article>
+
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (!open) setPreviewNome(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-[#7B2CBF]">
+              <UserCheck className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center">Confirmar presença?</DialogTitle>
+            <DialogDescription className="text-center">
+              Verifique se os dados abaixo estão corretos antes de registrar sua presença.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 rounded-xl border border-violet-100 bg-violet-50/50 p-4 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                Participante
+              </p>
+              <p className="mt-0.5 text-base font-bold text-[#0F172A]">{previewNome}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                Módulo
+              </p>
+              <p className="mt-0.5 font-semibold text-[#7B2CBF]">{e.modulo_curso}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">Data</p>
+              <p className="mt-0.5 font-medium capitalize text-[#0F172A]">
+                {formatDataBr(e.data)} · {formatHorario(String(e.horario))}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              type="button"
+              className={`w-full ${primaryBtn}`}
+              disabled={confirmMut.isPending}
+              onClick={() => confirmMut.mutate()}
+            >
+              {confirmMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sim, confirmar presença
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={confirmMut.isPending}
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Shell>
   );
 }
