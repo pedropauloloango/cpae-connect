@@ -11,11 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { submitAcolhimentoRequest } from "@/lib/acolhimento-submit";
 import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schools";
-import { schoolTipoLabels } from "@/lib/labels";
+import { schoolTipoLabels, schoolTipoOptions } from "@/lib/labels";
 import { SchoolSearchSelect } from "@/components/schools/SchoolSearchSelect";
 import type { PublicSchoolOption } from "@/lib/public-schools";
 import {
@@ -30,6 +31,7 @@ import {
   solicitanteCargoOptions,
   solicitanteCargoValues,
   situacaoObservadaOptions,
+  situacaoObservadaValues,
   type AlunoSexo,
   type AutorizacaoAta,
   type ComunicouAbuso,
@@ -54,7 +56,7 @@ export const Route = createFileRoute("/acolhimento")({
 const schema = z.object({
   school_id: z.string().uuid("Selecione a escola ou EMEI"),
   school_nome: z.string().min(2, "Selecione a escola ou EMEI"),
-  tipo_escola: z.enum(["escola", "emei"], { required_error: "Selecione a escola ou EMEI" }),
+  tipo_escola: z.enum(["escola", "emei", "cpae", "semed", "outros"], { required_error: "Selecione a escola ou EMEI" }),
   regiao_escola: z.string().optional(),
   solicitante_email: z.string().email("Informe um e-mail válido"),
   solicitante_nome: z.string().min(2, "Informe o nome completo do solicitante"),
@@ -71,9 +73,20 @@ const schema = z.object({
   aluno_turma: z.string().min(1, "Selecione a turma"),
   periodo: z.enum(["matutino", "vespertino", "integral", "noturno"], { required_error: "Selecione o período" }),
   comunicou_abuso: z.array(z.string()).min(1, "Selecione ao menos uma opção"),
-  situacao_observada: z.array(z.string()).min(1, "Selecione ao menos uma situação"),
+  situacao_observada: z
+    .array(z.enum(situacaoObservadaValues))
+    .min(1, "Selecione ao menos uma situação"),
+  situacao_observada_outro: z.string().optional(),
   acolhido_anteriormente: z.enum(["sim", "nao"], { required_error: "Selecione uma opção" }),
   autorizacao_ata: z.enum(["ja_temos", "ainda_nao"], { required_error: "Selecione uma opção" }),
+}).superRefine((values, ctx) => {
+  if (values.situacao_observada.includes("outro") && !values.situacao_observada_outro?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["situacao_observada_outro"],
+      message: "Descreva a situação observada",
+    });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -189,6 +202,7 @@ function AcolhimentoPublico() {
       school_nome: "",
       comunicou_abuso: [],
       situacao_observada: [],
+      situacao_observada_outro: "",
       regiao_escola: "",
     },
   });
@@ -196,6 +210,8 @@ function AcolhimentoPublico() {
   const selectedSchoolId = form.watch("school_id");
   const regiaoValue = form.watch("regiao_escola");
   const tipoEscolaValue = form.watch("tipo_escola");
+  const situacaoObservada = form.watch("situacao_observada");
+  const outroSelecionado = situacaoObservada.includes("outro");
   const regiaoKnown = regiaoEscolaOptions.some((o) => o.value === regiaoValue);
 
   const handleSchoolSelect = (school: PublicSchoolOption) => {
@@ -226,6 +242,7 @@ function AcolhimentoPublico() {
         periodo: values.periodo as PeriodoEscolar,
         comunicou_abuso: values.comunicou_abuso as ComunicouAbuso[],
         situacao_observada: values.situacao_observada as SituacaoObservada[],
+        situacao_observada_outro: values.situacao_observada_outro?.trim() || null,
         acolhido_anteriormente: values.acolhido_anteriormente,
         autorizacao_ata: values.autorizacao_ata as AutorizacaoAta,
         serieLabels: labelsMap(serieOptions),
@@ -317,8 +334,11 @@ function AcolhimentoPublico() {
                       <SelectValue placeholder="Selecione a escola acima" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="escola">Escola</SelectItem>
-                      <SelectItem value="emei">EMEI</SelectItem>
+                      {schoolTipoOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {tipoEscolaValue && (
@@ -542,26 +562,48 @@ function AcolhimentoPublico() {
 
               <Field
                 label="17. Selecione a situação observada *"
-                error={form.formState.errors.situacao_observada?.message}
+                error={
+                  form.formState.errors.situacao_observada?.message ??
+                  form.formState.errors.situacao_observada_outro?.message
+                }
               >
                 <div className="grid gap-2">
                   {situacaoObservadaOptions.map((o) => {
-                    const checked = form.watch("situacao_observada").includes(o.value);
+                    const checked = situacaoObservada.includes(o.value);
                     return (
-                    <label
-                      key={o.value}
-                      className={`${checkboxOptionLabel}${checked ? " border-[#0F52BA] bg-[#EAF2FF]/50" : ""}`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(c) => toggleArrayValue("situacao_observada", o.value, c === true)}
-                        className="mt-0.5"
-                      />
-                      <span>{o.label}</span>
-                    </label>
+                      <label
+                        key={o.value}
+                        className={`${checkboxOptionLabel}${checked ? " border-[#0F52BA] bg-[#EAF2FF]/50" : ""}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(c) => {
+                            const on = c === true;
+                            toggleArrayValue("situacao_observada", o.value, on);
+                            if (o.value === "outro" && !on) {
+                              form.setValue("situacao_observada_outro", "", {
+                                shouldValidate: true,
+                              });
+                            }
+                          }}
+                          className="mt-0.5"
+                        />
+                        <span>{o.label}</span>
+                      </label>
                     );
                   })}
                 </div>
+                {outroSelecionado ? (
+                  <div className="mt-3 space-y-1.5">
+                    <Label htmlFor="situacao_observada_outro">Descreva a situação *</Label>
+                    <Textarea
+                      id="situacao_observada_outro"
+                      rows={3}
+                      placeholder="Descreva a situação observada…"
+                      {...form.register("situacao_observada_outro")}
+                    />
+                  </div>
+                ) : null}
               </Field>
 
               <Field label="18. O(a) aluno(a) já foi acolhido pela CPAE anteriormente? *" error={form.formState.errors.acolhido_anteriormente?.message}>

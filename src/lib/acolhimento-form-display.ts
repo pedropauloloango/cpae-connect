@@ -157,7 +157,13 @@ export function buildAcolhimentoFormSections(req: RequestFormData): AcolhimentoF
         {
           number: 17,
           question: "Situação observada",
-          answer: formatList(req.situacao_observada, situacaoObservadaLabels),
+          answer: (() => {
+            const base = formatList(req.situacao_observada, situacaoObservadaLabels);
+            if (req.situacao_observada?.includes("outro") && req.descricao?.trim()) {
+              return `${base} — ${req.descricao.trim()}`;
+            }
+            return base;
+          })(),
         },
         {
           number: 18,
@@ -173,7 +179,7 @@ export function buildAcolhimentoFormSections(req: RequestFormData): AcolhimentoF
     },
   ];
 
-  if (req.descricao?.trim()) {
+  if (req.descricao?.trim() && !req.situacao_observada?.includes("outro")) {
     sections[sections.length - 1].items.push({
       number: 20,
       question: "Observações adicionais",

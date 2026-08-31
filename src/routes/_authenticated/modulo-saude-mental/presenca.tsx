@@ -46,6 +46,7 @@ import {
   buildPresencaSet,
   calcParticipacao,
   calcPresencaTotais,
+  calcPresencaTotaisEncontro,
   escolaInscritoLabel,
   filterEncontros,
   formatDataBr,
@@ -114,11 +115,8 @@ const ANO_ATUAL = String(new Date().getFullYear());
 function SaudeMentalPresencaPage() {
   const qc = useQueryClient();
   const [filterNome, setFilterNome] = useState("");
-  const [filterEscola, setFilterEscola] = useState("todas");
   const [filterModulo, setFilterModulo] = useState("todos");
   const [filterAno, setFilterAno] = useState(ANO_ATUAL);
-  const [filterDataDe, setFilterDataDe] = useState("");
-  const [filterDataAte, setFilterDataAte] = useState("");
   const [filterPresenca, setFilterPresenca] = useState<PresencaFilter>("todos");
   const [encontroManualId, setEncontroManualId] = useState("");
   const [draftSelected, setDraftSelected] = useState<Set<string>>(new Set());
@@ -185,10 +183,8 @@ function SaudeMentalPresencaPage() {
       filterEncontros(encontros, {
         modulo: filterModulo,
         ano: filterAno,
-        dataDe: filterDataDe || undefined,
-        dataAte: filterDataAte || undefined,
       }),
-    [encontros, filterModulo, filterAno, filterDataDe, filterDataAte],
+    [encontros, filterModulo, filterAno],
   );
 
   const encontroManual = encontros.find((e) => e.id === encontroManualId) ?? null;
@@ -235,19 +231,6 @@ function SaudeMentalPresencaPage() {
     [ipUsageByEncontroManual],
   );
 
-  const escolasOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          inscritos
-            .filter((i) => filterAno === "todos" || String(i.ano_curso) === filterAno)
-            .map((i) => escolaInscritoLabel(i))
-            .filter(Boolean),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [inscritos, filterAno],
-  );
-
   const anosOptions = useMemo(
     () =>
       Array.from(
@@ -264,9 +247,6 @@ function SaudeMentalPresencaPage() {
   const inscritosFiltrados = useMemo(() => {
     let list = inscritos;
     if (filterAno !== "todos") list = list.filter((i) => String(i.ano_curso) === filterAno);
-    if (filterEscola !== "todas") {
-      list = list.filter((i) => escolaInscritoLabel(i) === filterEscola);
-    }
     const t = filterNome.trim().toLowerCase();
     if (t) list = list.filter((i) => i.nome_completo.toLowerCase().includes(t));
 
@@ -288,7 +268,6 @@ function SaudeMentalPresencaPage() {
   }, [
     inscritos,
     filterAno,
-    filterEscola,
     filterNome,
     filterPresenca,
     encontroManualId,
@@ -297,10 +276,12 @@ function SaudeMentalPresencaPage() {
     ipUsageByEncontroManual,
   ]);
 
-  const totais = useMemo(
-    () => calcPresencaTotais(inscritosFiltrados, encontrosFiltrados, presencaSet),
-    [inscritosFiltrados, encontrosFiltrados, presencaSet],
-  );
+  const totais = useMemo(() => {
+    if (encontroManual) {
+      return calcPresencaTotaisEncontro(inscritos, encontroManual, presencaSet);
+    }
+    return calcPresencaTotais(inscritosFiltrados, encontrosFiltrados, presencaSet);
+  }, [encontroManual, inscritos, inscritosFiltrados, encontrosFiltrados, presencaSet]);
 
   const encontrosDotsCols = useMemo(
     () => encontrosFiltrados.slice(0, ENCONTROS_CURSO_COLS),
@@ -316,8 +297,8 @@ function SaudeMentalPresencaPage() {
     [draftSelected, savedPresentIds],
   );
   const hasPendingChanges = encontroManualId.length > 0 && (toAdd.length > 0 || toRemove.length > 0);
-  const podeConfirmarLista =
-    !!encontroManualId && (hasPendingChanges || !encontroManual?.lista_presenca_fechada);
+  const podeSalvarPresencas = hasPendingChanges;
+  const podeFecharLista = !!encontroManualId && !encontroManual?.lista_presenca_fechada;
 
   const inscritosAnoManual = useMemo(() => {
     if (!encontroManual) return [];
@@ -328,11 +309,8 @@ function SaudeMentalPresencaPage() {
     setPage(1);
   }, [
     filterNome,
-    filterEscola,
     filterModulo,
     filterAno,
-    filterDataDe,
-    filterDataAte,
     filterPresenca,
     encontroManualId,
   ]);
@@ -342,32 +320,59 @@ function SaudeMentalPresencaPage() {
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const paginated = inscritosFiltrados.slice(pageStart, pageStart + PAGE_SIZE);
 
+  const syncDraftPresencas = async () => {
+    if (!encontroManualId) throw new Error("Selecione um encontro para registrar presenças.");
+
+    if (toRemove.length > 0) {
+      const { error } = await supabase
+        .from("saude_mental_presencas")
+        .delete()
+        .eq("encontro_id", encontroManualId)
+        .in("inscrito_id", toRemove);
+      if (error) throw error;
+    }
+
+    if (toAdd.length > 0) {
+      const payload = toAdd.map((inscritoId) => {
+        const inscrito = inscritos.find((i) => i.id === inscritoId);
+        return {
+          encontro_id: encontroManualId,
+          inscrito_id: inscritoId,
+          cpf_informado: inscrito?.cpf ?? null,
+          origem: "manual" as const,
+        };
+      });
+      const { error } = await supabase.from("saude_mental_presencas").insert(payload);
+      if (error) throw error;
+    }
+  };
+
+  const savePresencasMut = useMutation({
+    mutationFn: async () => {
+      if (!hasPendingChanges) throw new Error("Não há alterações para salvar.");
+      const added = toAdd.length;
+      const removed = toRemove.length;
+      await syncDraftPresencas();
+      return { added, removed };
+    },
+    onSuccess: (result) => {
+      toast.success("Presenças salvas.", {
+        description: `${result.added > 0 ? `+${result.added} presente(s)` : ""}${
+          result.added && result.removed ? " · " : ""
+        }${result.removed > 0 ? `−${result.removed} removido(s)` : ""}${
+          result.added || result.removed ? ". " : ""
+        }Lista permanece aberta para QR Code e novos registros.`,
+      });
+      void qc.invalidateQueries({ queryKey: ["saude-mental-presencas-all"] });
+      setDraftSyncedKey("");
+    },
+    onError: (e: Error) => toast.error("Erro ao salvar presenças", { description: e.message }),
+  });
+
   const confirmMut = useMutation({
     mutationFn: async () => {
       if (!encontroManualId) throw new Error("Selecione um encontro para registrar presenças.");
-
-      if (toRemove.length > 0) {
-        const { error } = await supabase
-          .from("saude_mental_presencas")
-          .delete()
-          .eq("encontro_id", encontroManualId)
-          .in("inscrito_id", toRemove);
-        if (error) throw error;
-      }
-
-      if (toAdd.length > 0) {
-        const payload = toAdd.map((inscritoId) => {
-          const inscrito = inscritos.find((i) => i.id === inscritoId);
-          return {
-            encontro_id: encontroManualId,
-            inscrito_id: inscritoId,
-            cpf_informado: inscrito?.cpf ?? null,
-            origem: "manual" as const,
-          };
-        });
-        const { error } = await supabase.from("saude_mental_presencas").insert(payload);
-        if (error) throw error;
-      }
+      await syncDraftPresencas();
 
       const { error: fechadaError } = await supabase
         .from("saude_mental_encontros")
@@ -378,15 +383,17 @@ function SaudeMentalPresencaPage() {
     onSuccess: () => {
       const presentes = draftSelected.size;
       const ausentes = Math.max(0, inscritosAnoManual.length - presentes);
-      toast.success("Lista de presença confirmada.", {
-        description: `${presentes} presente(s) e ${ausentes} ausente(s) registrados para este encontro.`,
+      toast.success("Lista de presença fechada.", {
+        description: `${presentes} presente(s) e ${ausentes} ausente(s) para este encontro.`,
       });
       void qc.invalidateQueries({ queryKey: ["saude-mental-presencas-all"] });
       void qc.invalidateQueries({ queryKey: ["saude-mental-encontros"] });
       setDraftSyncedKey("");
     },
-    onError: (e: Error) => toast.error("Erro ao confirmar", { description: e.message }),
+    onError: (e: Error) => toast.error("Erro ao fechar lista", { description: e.message }),
   });
+
+  const listaActionsPending = savePresencasMut.isPending || confirmMut.isPending;
 
   const deletePresencaMut = useMutation({
     mutationFn: async ({ presencaId, encontroId }: { presencaId: string; encontroId: string }) => {
@@ -571,11 +578,8 @@ function SaudeMentalPresencaPage() {
 
   const clearFilters = () => {
     setFilterNome("");
-    setFilterEscola("todas");
     setFilterModulo("todos");
     setFilterAno(ANO_ATUAL);
-    setFilterDataDe("");
-    setFilterDataAte("");
     setFilterPresenca("todos");
     setEncontroManualId("");
     setPage(1);
@@ -584,21 +588,15 @@ function SaudeMentalPresencaPage() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filterNome.trim()) count++;
-    if (filterEscola !== "todas") count++;
     if (filterModulo !== "todos") count++;
     if (filterAno !== ANO_ATUAL) count++;
-    if (filterDataDe) count++;
-    if (filterDataAte) count++;
     if (filterPresenca !== "todos") count++;
     if (encontroManualId) count++;
     return count;
   }, [
     filterNome,
-    filterEscola,
     filterModulo,
     filterAno,
-    filterDataDe,
-    filterDataAte,
     filterPresenca,
     encontroManualId,
   ]);
@@ -648,7 +646,9 @@ function SaudeMentalPresencaPage() {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Inscritos</p>
+              <p className="text-xs text-muted-foreground">
+                {encontroManual ? "Inscritos do encontro" : "Inscritos"}
+              </p>
               <p className="text-2xl font-bold tabular-nums">{totais.inscritos}</p>
             </div>
           </CardContent>
@@ -659,13 +659,21 @@ function SaudeMentalPresencaPage() {
               <CalendarDays className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Listas fechadas no filtro</p>
-              <p className="text-2xl font-bold tabular-nums">
-                {totais.encontrosRealizados}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                  / {totais.encontros}
-                </span>
+              <p className="text-xs text-muted-foreground">
+                {encontroManual ? "Status da lista" : "Listas fechadas no filtro"}
               </p>
+              {encontroManual ? (
+                <p className="text-2xl font-bold tabular-nums">
+                  {encontroManual.lista_presenca_fechada ? "Fechada" : "Aberta"}
+                </p>
+              ) : (
+                <p className="text-2xl font-bold tabular-nums">
+                  {totais.encontrosRealizados}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    / {totais.encontros}
+                  </span>
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -675,8 +683,17 @@ function SaudeMentalPresencaPage() {
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Presenças registradas</p>
-              <p className="text-2xl font-bold tabular-nums">{totais.presencasRegistradas}</p>
+              <p className="text-xs text-muted-foreground">
+                {encontroManual ? "Presenças neste encontro" : "Presenças registradas"}
+              </p>
+              <p className="text-2xl font-bold tabular-nums">
+                {totais.presencasRegistradas}
+                {encontroManual ? (
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    / {totais.inscritos}
+                  </span>
+                ) : null}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -686,7 +703,9 @@ function SaudeMentalPresencaPage() {
               <Percent className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Média de participação</p>
+              <p className="text-xs text-muted-foreground">
+                {encontroManual ? "Participação do encontro" : "Média de participação"}
+              </p>
               <p className="text-2xl font-bold tabular-nums">{totais.mediaParticipacaoPct}%</p>
             </div>
           </CardContent>
@@ -737,31 +756,18 @@ function SaudeMentalPresencaPage() {
             </div>
 
             <CollapsibleContent className="space-y-4 pt-4 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <div className="relative sm:col-span-2 lg:col-span-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="Filtrar por nome…"
-                value={filterNome}
-                onChange={(e) => setFilterNome(e.target.value)}
-              />
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Escola</Label>
-              <Select value={filterEscola} onValueChange={setFilterEscola}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as escolas</SelectItem>
-                  {escolasOptions.map((e) => (
-                    <SelectItem key={e} value={e}>
-                      {e}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs text-muted-foreground">Nome</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Filtrar por nome…"
+                  value={filterNome}
+                  onChange={(e) => setFilterNome(e.target.value)}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Módulo</Label>
@@ -794,14 +800,6 @@ function SaudeMentalPresencaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Data de</Label>
-              <Input type="date" value={filterDataDe} onChange={(e) => setFilterDataDe(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Data até</Label>
-              <Input type="date" value={filterDataAte} onChange={(e) => setFilterDataAte(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Situação de presença</Label>
@@ -856,8 +854,10 @@ function SaudeMentalPresencaPage() {
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              Marque apenas quem compareceu. Ao confirmar a lista, os demais inscritos do ano serão
-              registrados como <strong>ausentes</strong> (bolinha vermelha na coluna Encontros).
+              Use <strong>Salvar presenças</strong> para gravar só os marcados (ex.: atestado
+              antecipado) sem marcar os demais como ausentes — a lista fica aberta para o QR Code.
+              Use <strong>Fechar lista</strong> apenas ao final do encontro, quando os não
+              marcados devem contar como ausentes (bolinha vermelha).
             </p>
           </div>
             </CollapsibleContent>
@@ -914,20 +914,32 @@ function SaudeMentalPresencaPage() {
               <Button
                 type="button"
                 size="sm"
-                disabled={!podeConfirmarLista || confirmMut.isPending}
-                onClick={() => confirmMut.mutate()}
+                disabled={!podeSalvarPresencas || listaActionsPending}
+                onClick={() => savePresencasMut.mutate()}
               >
-                {confirmMut.isPending ? (
+                {savePresencasMut.isPending ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (
                   <Check className="mr-1.5 h-4 w-4" />
                 )}
-                Confirmar lista
+                Salvar presenças
                 {hasPendingChanges
                   ? ` (${toAdd.length > 0 ? `+${toAdd.length}` : ""}${
                       toAdd.length && toRemove.length ? " " : ""
                     }${toRemove.length > 0 ? `−${toRemove.length}` : ""})`
                   : ""}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={!podeFecharLista || listaActionsPending}
+                onClick={() => confirmMut.mutate()}
+              >
+                {confirmMut.isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : null}
+                Fechar lista
               </Button>
             </div>
           ) : null}
@@ -1021,7 +1033,7 @@ function SaudeMentalPresencaPage() {
                           <td className="px-3 py-2.5">
                             <Checkbox
                               checked={selected}
-                              disabled={confirmMut.isPending}
+                              disabled={listaActionsPending}
                               onCheckedChange={(checked) =>
                                 toggleDraft(inscrito.id, checked === true)
                               }
@@ -1080,7 +1092,7 @@ function SaudeMentalPresencaPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                disabled={deletePresencaMut.isPending || confirmMut.isPending}
+                                disabled={deletePresencaMut.isPending || listaActionsPending}
                                 title="Excluir presença"
                                 onClick={() =>
                                   setDeleteTarget({
@@ -1103,18 +1115,29 @@ function SaudeMentalPresencaPage() {
           </div>
 
           {encontroManualId ? (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
-                disabled={!podeConfirmarLista || confirmMut.isPending}
-                onClick={() => confirmMut.mutate()}
+                disabled={!podeSalvarPresencas || listaActionsPending}
+                onClick={() => savePresencasMut.mutate()}
               >
-                {confirmMut.isPending ? (
+                {savePresencasMut.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Check className="mr-2 h-4 w-4" />
                 )}
-                Confirmar lista
+                Salvar presenças
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!podeFecharLista || listaActionsPending}
+                onClick={() => confirmMut.mutate()}
+              >
+                {confirmMut.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Fechar lista
               </Button>
             </div>
           ) : null}

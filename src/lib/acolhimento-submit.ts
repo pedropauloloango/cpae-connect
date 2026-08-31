@@ -24,7 +24,7 @@ export function normalizeAcolhimentoPersonName(value: string): string {
 export type AcolhimentoSubmission = {
   school_id: string;
   school_nome: string;
-  tipo_escola: "escola" | "emei";
+  tipo_escola: "escola" | "emei" | "cpae" | "semed" | "outros";
   regiao_escola: string | null;
   solicitante_email: string;
   solicitante_nome: string;
@@ -40,6 +40,7 @@ export type AcolhimentoSubmission = {
   periodo: PeriodoEscolar;
   comunicou_abuso: ComunicouAbuso[];
   situacao_observada: SituacaoObservada[];
+  situacao_observada_outro?: string | null;
   acolhido_anteriormente: "sim" | "nao";
   autorizacao_ata: AutorizacaoAta;
   serieLabels?: Record<string, string>;
@@ -103,7 +104,10 @@ export async function submitAcolhimentoRequest(
     acolhido_anteriormente: data.acolhido_anteriormente === "sim",
     autorizacao_ata: data.autorizacao_ata,
     tipo_queixa,
-    descricao: "",
+    descricao:
+      data.situacao_observada.includes("outro") && data.situacao_observada_outro?.trim()
+        ? data.situacao_observada_outro.trim()
+        : "",
   };
 
   const { data: rows, error } = await supabase.rpc("submit_acolhimento_request", { payload });
@@ -145,6 +149,10 @@ export async function submitAcolhimentoRequest(
       periodo: data.periodo,
       comunicou_abuso: data.comunicou_abuso,
       situacao_observada: data.situacao_observada,
+      situacao_observada_outro:
+        data.situacao_observada.includes("outro") && data.situacao_observada_outro?.trim()
+          ? data.situacao_observada_outro.trim()
+          : null,
       acolhido_anteriormente: data.acolhido_anteriormente === "sim",
       autorizacao_ata: data.autorizacao_ata,
       tipo_queixa,

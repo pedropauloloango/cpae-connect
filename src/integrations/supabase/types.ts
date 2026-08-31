@@ -708,6 +708,7 @@ export type Database = {
           origem: string
           school_id: string | null
           school_nome_snapshot: string | null
+          sexo: string | null
           status: string
           telefone_whatsapp: string | null
           updated_at: string
@@ -730,6 +731,7 @@ export type Database = {
           origem?: string
           school_id?: string | null
           school_nome_snapshot?: string | null
+          sexo?: string | null
           status?: string
           telefone_whatsapp?: string | null
           updated_at?: string
@@ -752,6 +754,7 @@ export type Database = {
           origem?: string
           school_id?: string | null
           school_nome_snapshot?: string | null
+          sexo?: string | null
           status?: string
           telefone_whatsapp?: string | null
           updated_at?: string
@@ -1426,7 +1429,7 @@ export type Database = {
         | "coordenador_pedagogico"
         | "secretario"
       school_status: "ativa" | "inativa"
-      school_tipo: "escola" | "emei"
+      school_tipo: "escola" | "emei" | "cpae" | "semed" | "outros"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1610,7 +1613,7 @@ export const Constants = {
       ],
       school_representative_role: ["diretor", "adjunto", "coordenador_pedagogico", "secretario"],
       school_status: ["ativa", "inativa"],
-      school_tipo: ["escola", "emei"],
+      school_tipo: ["escola", "emei", "cpae", "semed", "outros"],
     },
   },
 } as const

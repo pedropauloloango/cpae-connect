@@ -39,6 +39,8 @@ import {
   formatCpfMask,
   nivelEscolaridadeLabels,
   nivelEscolaridadeOptions,
+  sexoLabels,
+  sexoOptions,
 } from "@/lib/saude-mental-options";
 import { ArrowLeft, Loader2, Pencil, Trash2, Unlink } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +55,7 @@ type Inscrito = {
   nome_completo: string;
   cpf: string | null;
   data_nascimento: string | null;
+  sexo: string | null;
   email: string | null;
   email_formulario: string | null;
   telefone_whatsapp: string | null;
@@ -72,6 +75,7 @@ type EditForm = {
   nome_completo: string;
   cpf: string;
   data_nascimento: string;
+  sexo: string;
   email: string;
   email_formulario: string;
   telefone_whatsapp: string;
@@ -93,6 +97,7 @@ function toEditForm(row: Inscrito): EditForm {
     nome_completo: row.nome_completo ?? "",
     cpf: row.cpf ? formatCpfMask(row.cpf) : "",
     data_nascimento: row.data_nascimento ?? "",
+    sexo: row.sexo ?? "",
     email: row.email ?? "",
     email_formulario: row.email_formulario ?? "",
     telefone_whatsapp: row.telefone_whatsapp ?? "",
@@ -164,6 +169,7 @@ function SaudeMentalInscritoDetail() {
           nome_completo: nome.toUpperCase(),
           cpf: form.cpf.replace(/\D/g, "") || null,
           data_nascimento: form.data_nascimento || null,
+          sexo: form.sexo || null,
           email: form.email.trim().toLowerCase() || null,
           email_formulario: form.email_formulario.trim().toLowerCase() || null,
           telefone_whatsapp: form.telefone_whatsapp.trim() || null,
@@ -249,6 +255,7 @@ function SaudeMentalInscritoDetail() {
           <CardContent className="space-y-3 text-sm">
             <Row label="CPF" value={row.cpf} />
             <Row label="Nascimento" value={formatDateBr(row.data_nascimento)} />
+            <Row label="Sexo" value={sexoLabels[row.sexo ?? ""] ?? row.sexo} />
             <Row label="E-mail" value={row.email} />
             <Row label="E-mail do formulário" value={row.email_formulario} />
             <Row label="WhatsApp" value={row.telefone_whatsapp} />
@@ -422,6 +429,24 @@ function SaudeMentalInscritoDetail() {
                       setEditForm((f) => (f ? { ...f, data_nascimento: e.target.value } : f))
                     }
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sexo</Label>
+                  <Select
+                    value={editForm.sexo || undefined}
+                    onValueChange={(v) => setEditForm((f) => (f ? { ...f, sexo: v } : f))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sexoOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-1.5">

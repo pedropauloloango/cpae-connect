@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SchoolTipo } from "@/lib/labels";
 
 export type PublicSchoolOption = {
   id: string;
   nome: string;
   regiao: string | null;
-  tipo_escola: "escola" | "emei" | null;
+  tipo_escola: SchoolTipo | null;
 };
 
 /** Lista escolas ativas (fallback servidor quando o browser não alcança o Supabase). */

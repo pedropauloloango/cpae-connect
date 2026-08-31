@@ -32,11 +32,40 @@ export const comunicouAbusoOptions = [
 export const situacaoObservadaOptions = [
   { value: "autolesao", label: "Autolesão" },
   { value: "ideacao_suicida", label: "Ideação suicida" },
-  { value: "ansiedade_depressao", label: "Ansiedade / depressão" },
+  {
+    value: "ansiedade",
+    label:
+      "Ansiedade (com diagnóstico oficial ou apresentação frequente de características no ambiente familiar e escolar).",
+  },
+  {
+    value: "depressao",
+    label:
+      "Depressão (com diagnóstico oficial ou apresentação frequente de características no ambiente familiar e escolar).",
+  },
+  {
+    value: "alteracoes_comportamento",
+    label:
+      "Alterações bruscas e significativas no comportamento (agitação, quietude, sonolência excessiva).",
+  },
+  {
+    value: "indisciplina",
+    label:
+      "Indisciplina no ambiente familiar ou escolar (não acata as regras previstas, agressividade).",
+  },
+  { value: "conflitos_familiares", label: "Conflitos familiares" },
   { value: "bullying", label: "Bullying" },
   { value: "luto", label: "Luto" },
+  {
+    value: "violacao_direitos",
+    label: "Violação de Direitos (Violência Física e Sexual)",
+  },
   { value: "outro", label: "Outro" },
 ] as const;
+
+export const situacaoObservadaValues = situacaoObservadaOptions.map((o) => o.value) as [
+  (typeof situacaoObservadaOptions)[number]["value"],
+  ...(typeof situacaoObservadaOptions)[number]["value"][],
+];
 
 export const autorizacaoAtaOptions = [
   { value: "ja_temos", label: "Já temos a autorização" },
@@ -109,7 +138,11 @@ export const regiaoEscolaLabels = Object.fromEntries(regiaoEscolaOptions.map((o)
 export const modalidadeLabels = Object.fromEntries(modalidadeOptions.map((o) => [o.value, o.label]));
 export const periodoLabels = Object.fromEntries(periodoOptions.map((o) => [o.value, o.label]));
 export const comunicouAbusoLabels = Object.fromEntries(comunicouAbusoOptions.map((o) => [o.value, o.label]));
-export const situacaoObservadaLabels = Object.fromEntries(situacaoObservadaOptions.map((o) => [o.value, o.label]));
+export const situacaoObservadaLabels = Object.fromEntries(
+  situacaoObservadaOptions.map((o) => [o.value, o.label]),
+);
+// Compatibilidade com solicitações antigas
+situacaoObservadaLabels.ansiedade_depressao = "Ansiedade / depressão";
 export const autorizacaoAtaLabels = Object.fromEntries(autorizacaoAtaOptions.map((o) => [o.value, o.label]));
 export const solicitanteCargoLabels = Object.fromEntries(solicitanteCargoOptions.map((o) => [o.value, o.label]));
 export const alunoSexoLabels = Object.fromEntries(alunoSexoOptions.map((o) => [o.value, o.label]));
@@ -142,19 +175,24 @@ export function regiaoEscolaLabel(value: string | null | undefined): string {
 
 /** Mantém compatibilidade com gráficos que usam tipo_queixa. */
 export function deriveTipoQueixa(situacoes: SituacaoObservada[]): string {
-  const priority: SituacaoObservada[] = [
-    "ideacao_suicida",
-    "ansiedade_depressao",
-    "bullying",
-    "autolesao",
-    "luto",
-    "outro",
+  const priority: Array<{ match: SituacaoObservada | "ansiedade_depressao"; tipo: string }> = [
+    { match: "ideacao_suicida", tipo: "ideacao_suicida" },
+    { match: "violacao_direitos", tipo: "violacao_direitos" },
+    { match: "ansiedade", tipo: "ansiedade_depressao" },
+    { match: "depressao", tipo: "ansiedade_depressao" },
+    { match: "bullying", tipo: "bullying" },
+    { match: "conflitos_familiares", tipo: "conflito_familiar" },
+    { match: "autolesao", tipo: "outros" },
+    { match: "alteracoes_comportamento", tipo: "outros" },
+    { match: "indisciplina", tipo: "outros" },
+    { match: "luto", tipo: "outros" },
+    { match: "outro", tipo: "outros" },
   ];
-  for (const key of priority) {
-    if (situacoes.includes(key)) {
-      if (key === "autolesao" || key === "luto" || key === "outro") return "outros";
-      return key;
-    }
+
+  for (const item of priority) {
+    if ((situacoes as string[]).includes(item.match)) return item.tipo;
   }
+  // legado
+  if ((situacoes as string[]).includes("ansiedade_depressao")) return "ansiedade_depressao";
   return "outros";
 }

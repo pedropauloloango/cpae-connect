@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { submitVivenciaRequest } from "@/lib/vivencias-submit";
 import { loadPublicSchools, publicSchoolsErrorMessage } from "@/lib/public-schools";
-import { schoolTipoLabels } from "@/lib/labels";
+import { schoolTipoLabels, schoolTipoOptions } from "@/lib/labels";
 import { SchoolSearchSelect } from "@/components/schools/SchoolSearchSelect";
 import { VivenciaDatePicker } from "@/components/vivencias/VivenciaDatePicker";
 import { VisitStartTimeSelect } from "@/components/vivencias/VisitStartTimeSelect";
@@ -45,7 +45,12 @@ import {
 import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
 import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
+  countTurmasMesmoDiaPeriodo,
+  datesAtTurmaLimitForPeriod,
+  MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+  mensagemLimiteTurmasDiaPeriodo,
   palestraTemaOptions,
+  vivenciaDiaPeriodoKey,
   vivenciaTemaOptions,
   type PalestraTema,
   type VivenciaTema,
@@ -127,7 +132,7 @@ const schema = z
   .object({
     school_id: z.string().uuid("Selecione a escola ou EMEI"),
     school_nome: z.string().min(2, "Selecione a escola ou EMEI"),
-    tipo_escola: z.enum(["escola", "emei"], { required_error: "Selecione a escola ou EMEI" }),
+    tipo_escola: z.enum(["escola", "emei", "cpae", "semed", "outros"], { required_error: "Selecione a escola ou EMEI" }),
     regiao_escola: z.string().optional(),
     solicitante_email: z.string().email("Informe um e-mail válido"),
     solicitante_nome: z.string().min(2, "Informe o nome completo do solicitante"),
@@ -182,6 +187,28 @@ const schema = z
         });
       }
     });
+
+    const turmasPorDiaPeriodo = new Map<string, number[]>();
+    val.groups.forEach((g, i) => {
+      if (!g.data_vivencia?.trim() || !g.periodo) return;
+      if (isGroupEmpty(g)) return;
+      const key = vivenciaDiaPeriodoKey(g.data_vivencia, g.periodo);
+      const list = turmasPorDiaPeriodo.get(key) ?? [];
+      list.push(i);
+      turmasPorDiaPeriodo.set(key, list);
+    });
+    for (const [key, indices] of turmasPorDiaPeriodo) {
+      if (indices.length <= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO) continue;
+      const [, periodo] = key.split("|");
+      const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
+      for (const i of indices) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: msg,
+          path: ["groups", i, "data_vivencia"],
+        });
+      }
+    }
 
     val.palestras.forEach((p, i) => {
       if (isPalestraEmpty(p)) return;
@@ -513,6 +540,54 @@ function VivenciasPublico() {
     );
   };
 
+  const applyGroupDataVivencia = (groupIndex: number, nextDate: string) => {
+    const groups = form.getValues("groups") ?? [];
+    const periodo = groups[groupIndex]?.periodo;
+    if (
+      nextDate &&
+      periodo &&
+      countTurmasMesmoDiaPeriodo(groups, groupIndex, nextDate, periodo) >=
+        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+    ) {
+      const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
+      form.setError(`groups.${groupIndex}.data_vivencia`, { type: "manual", message: msg });
+      toast.error("Limite de turmas", { description: msg });
+      return;
+    }
+    form.clearErrors(`groups.${groupIndex}.data_vivencia`);
+    form.setValue(`groups.${groupIndex}.data_vivencia`, nextDate, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const applyGroupPeriodo = (groupIndex: number, nextPeriodo: string) => {
+    const groups = form.getValues("groups") ?? [];
+    const data = groups[groupIndex]?.data_vivencia;
+    form.setValue(`groups.${groupIndex}.periodo`, nextPeriodo as PeriodoEscolar, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (
+      data &&
+      nextPeriodo &&
+      countTurmasMesmoDiaPeriodo(groups, groupIndex, data, nextPeriodo) >=
+        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+    ) {
+      const msg = mensagemLimiteTurmasDiaPeriodo(nextPeriodo);
+      form.setValue(`groups.${groupIndex}.data_vivencia`, "", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setError(`groups.${groupIndex}.data_vivencia`, { type: "manual", message: msg });
+      toast.error("Data removida", {
+        description: `${msg} A data desta turma foi limpa para você escolher outra.`,
+      });
+    } else {
+      form.clearErrors(`groups.${groupIndex}.data_vivencia`);
+    }
+  };
+
   if (successNumero) {
     return (
       <VivenciasShell>
@@ -583,8 +658,11 @@ function VivenciasPublico() {
                     <SelectValue placeholder="Selecione a escola acima" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="escola">Escola</SelectItem>
-                    <SelectItem value="emei">EMEI</SelectItem>
+                    {schoolTipoOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {tipoEscolaValue && (
@@ -658,7 +736,7 @@ function VivenciasPublico() {
 
           <FormSection
             title="Vivências para alunos"
-            description="Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas, se desejar."
+            description={`Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas. Limite: no máximo ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (ex.: 2 no matutino de um dia; para mais, use outro dia ou o vespertino).`}
             icon={Users}
           >
             {form.formState.errors.groups?.root?.message && (
@@ -674,13 +752,11 @@ function VivenciasPublico() {
                 const temas = form.watch(`groups.${index}.temas`) ?? [];
                 const periodo = form.watch(`groups.${index}.periodo`);
                 const groupsSnapshot = form.watch("groups") ?? [];
-                const extraOccupiedDates = groupsSnapshot
-                  .map((g, i) =>
-                    i !== index && g.periodo && periodo && g.periodo === periodo && g.data_vivencia
-                      ? g.data_vivencia
-                      : null,
-                  )
-                  .filter((d): d is string => Boolean(d));
+                const extraOccupiedDates = datesAtTurmaLimitForPeriod(
+                  groupsSnapshot,
+                  periodo,
+                  index,
+                );
 
                 const groupRequiredMark = " *";
 
@@ -756,7 +832,10 @@ function VivenciasPublico() {
                           control={form.control}
                           name={`groups.${index}.periodo`}
                           render={({ field: f }) => (
-                            <Select value={f.value} onValueChange={f.onChange}>
+                            <Select
+                              value={f.value}
+                              onValueChange={(v) => applyGroupPeriodo(index, v)}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecione o período" />
                               </SelectTrigger>
@@ -788,9 +867,13 @@ function VivenciasPublico() {
                       </Field>
 
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Data preferível da Vivência">
+                        <Field
+                          label="Data preferível da Vivência"
+                          error={groupErrors?.data_vivencia?.message}
+                        >
                           <p className="mb-2 text-xs text-[#64748B]">
-                            Dias úteis em verde; laranja = já há solicitação na mesma região e período. Sujeita à
+                            Dias úteis em verde. Laranja = limite de {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO}{" "}
+                            turmas no mesmo dia/período ou já há solicitação na região. Sujeita à
                             confirmação da equipe.
                           </p>
                           <Controller
@@ -799,7 +882,7 @@ function VivenciasPublico() {
                             render={({ field: f }) => (
                               <VivenciaDatePicker
                                 value={f.value}
-                                onChange={f.onChange}
+                                onChange={(v) => applyGroupDataVivencia(index, v)}
                                 regiao={regiaoValue}
                                 periodo={periodo}
                                 extraOccupiedDates={extraOccupiedDates}

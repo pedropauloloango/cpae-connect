@@ -23,7 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Plus, Search, Download, Upload, Loader2, AlertCircle, CheckCircle2, Pencil, Trash2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { schoolTipoLabels } from "@/lib/labels";
+import { schoolTipoLabels, schoolTipoOptions, type SchoolTipo } from "@/lib/labels";
 import {
   downloadSchoolImportTemplate,
   formValuesToSchoolRowWithCoords,
@@ -42,7 +42,7 @@ const PAGE_SIZE = 15;
 interface School {
   id: string;
   nome: string;
-  tipo_escola?: "escola" | "emei" | null;
+  tipo_escola?: SchoolTipo | null;
   codigo_siger: string | null;
   codigo_inep: string | null;
   regiao: string | null;
@@ -79,12 +79,12 @@ function Escolas() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
   const [regiao, setRegiao] = useState("todas");
-  const [filterTipo, setFilterTipo] = useState<"todos" | "escola" | "emei">("todos");
+  const [filterTipo, setFilterTipo] = useState<"todos" | SchoolTipo>("todos");
   const [filterGeo, setFilterGeo] = useState<"todas" | "manual_required" | "ok" | "manual">("todas");
   const [open, setOpen] = useState(false);
-  const [tipoEscola, setTipoEscola] = useState<"escola" | "emei">("escola");
+  const [tipoEscola, setTipoEscola] = useState<SchoolTipo>("escola");
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
-  const [editTipoEscola, setEditTipoEscola] = useState<"escola" | "emei">("escola");
+  const [editTipoEscola, setEditTipoEscola] = useState<SchoolTipo>("escola");
   const [deleteTarget, setDeleteTarget] = useState<School | null>(null);
   const [importPreview, setImportPreview] = useState<SchoolImportPreview | null>(null);
   const [parsingFile, setParsingFile] = useState(false);
@@ -496,8 +496,11 @@ function Escolas() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os tipos</SelectItem>
-              <SelectItem value="escola">Escola</SelectItem>
-              <SelectItem value="emei">EMEI</SelectItem>
+              {schoolTipoOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={regiao} onValueChange={setRegiao}>
@@ -737,8 +740,8 @@ function SchoolFormFields({
   defaults = {},
   geocodeStatus,
 }: {
-  tipoEscola: "escola" | "emei";
-  onTipoEscolaChange: (v: "escola" | "emei") => void;
+  tipoEscola: SchoolTipo;
+  onTipoEscolaChange: (v: SchoolTipo) => void;
   defaults?: Partial<Record<string, string>>;
   geocodeStatus?: School["geocode_status"];
 }) {
@@ -764,13 +767,16 @@ function SchoolFormFields({
       <div className="space-y-1.5 sm:col-span-2">
         <Label>Tipo Escola *</Label>
         <input type="hidden" name="tipo_escola" value={tipoEscola} />
-        <Select value={tipoEscola} onValueChange={(v) => onTipoEscolaChange(v as "escola" | "emei")}>
+        <Select value={tipoEscola} onValueChange={(v) => onTipoEscolaChange(v as SchoolTipo)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="escola">Escola</SelectItem>
-            <SelectItem value="emei">EMEI</SelectItem>
+            {schoolTipoOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

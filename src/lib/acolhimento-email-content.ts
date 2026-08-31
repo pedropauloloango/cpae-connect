@@ -32,6 +32,7 @@ export type AcolhimentoEmailPayload = {
   periodo: string;
   comunicou_abuso: string[];
   situacao_observada: string[];
+  situacao_observada_outro?: string | null;
   acolhido_anteriormente: boolean;
   autorizacao_ata: string;
   tipo_queixa: string;
@@ -78,7 +79,16 @@ function buildDetailRows(data: AcolhimentoEmailPayload): Array<{ label: string; 
     { label: "Educação especial", value: yesNo(data.educacao_especial) },
     { label: "Série / turma", value: `${data.aluno_serie} — turma ${data.aluno_turma}` },
     { label: "Período", value: periodoLabels[data.periodo] ?? data.periodo },
-    { label: "Situação observada", value: labelList(data.situacao_observada, situacaoObservadaLabels) },
+    {
+      label: "Situação observada",
+      value: (() => {
+        const base = labelList(data.situacao_observada, situacaoObservadaLabels);
+        if (data.situacao_observada.includes("outro") && data.situacao_observada_outro?.trim()) {
+          return `${base} — ${data.situacao_observada_outro.trim()}`;
+        }
+        return base;
+      })(),
+    },
     { label: "Tipo de queixa (derivado)", value: complaintTypeLabels[data.tipo_queixa] ?? data.tipo_queixa },
     { label: "Comunicou abuso", value: labelList(data.comunicou_abuso, comunicouAbusoLabels) },
     { label: "Acolhido anteriormente", value: yesNo(data.acolhido_anteriormente) },

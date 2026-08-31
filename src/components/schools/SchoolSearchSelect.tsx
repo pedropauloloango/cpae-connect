@@ -12,13 +12,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { schoolTipoLabels } from "@/lib/labels";
+import { schoolTipoLabels, type SchoolTipo } from "@/lib/labels";
 
 export type PublicSchoolOption = {
   id: string;
   nome: string;
   regiao: string | null;
-  tipo_escola: "escola" | "emei" | null;
+  tipo_escola: SchoolTipo | null;
 };
 
 type SchoolSearchSelectProps = {

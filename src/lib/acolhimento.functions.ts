@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { deriveTipoQueixa, solicitanteCargoLabels, solicitanteCargoValues } from "./acolhimento-options";
+import { deriveTipoQueixa, solicitanteCargoLabels, solicitanteCargoValues, situacaoObservadaValues } from "./acolhimento-options";
 import { sendAcolhimentoCreatedEmails } from "./acolhimento-notify.server";
 import { normalizeAcolhimentoPersonName } from "./acolhimento-submit";
 import type { Database } from "@/integrations/supabase/types";
@@ -11,7 +11,7 @@ const submissionSchema = z.object({
   solicitante_email: z.string().email("Informe um e-mail válido"),
   school_id: z.string().uuid("Selecione a escola ou EMEI"),
   school_nome: z.string().min(2, "Informe o nome da escola").max(200),
-  tipo_escola: z.enum(["escola", "emei"]),
+  tipo_escola: z.enum(["escola", "emei", "cpae", "semed", "outros"]),
   regiao_escola: z.string().max(50).optional().nullable(),
   solicitante_nome: z.string().min(2, "Informe o nome completo").max(200),
   solicitante_cargo: z.enum(solicitanteCargoValues),
@@ -28,12 +28,21 @@ const submissionSchema = z.object({
     .array(z.enum(["conselho_tutelar", "orgao_semed", "nao_se_aplica", "outra_rede", "outro"]))
     .min(1, "Selecione ao menos uma opção"),
   situacao_observada: z
-    .array(z.enum(["autolesao", "ideacao_suicida", "ansiedade_depressao", "bullying", "luto", "outro"]))
+    .array(z.enum(situacaoObservadaValues))
     .min(1, "Selecione ao menos uma situação"),
+  situacao_observada_outro: z.string().optional().nullable(),
   acolhido_anteriormente: z.enum(["sim", "nao"]),
   autorizacao_ata: z.enum(["ja_temos", "ainda_nao"]),
   serieLabels: z.record(z.string()).optional(),
   turmaLabels: z.record(z.string()).optional(),
+}).superRefine((values, ctx) => {
+  if (values.situacao_observada.includes("outro") && !values.situacao_observada_outro?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["situacao_observada_outro"],
+      message: "Descreva a situação observada",
+    });
+  }
 });
 
 export const submitAcolhimento = createServerFn({ method: "POST" })
@@ -77,7 +86,10 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
         acolhido_anteriormente: data.acolhido_anteriormente === "sim",
         autorizacao_ata: data.autorizacao_ata,
         tipo_queixa,
-        descricao: "",
+        descricao:
+          data.situacao_observada.includes("outro") && data.situacao_observada_outro?.trim()
+            ? data.situacao_observada_outro.trim()
+            : "",
         status: "recebida",
       })
       .select("id, numero")
@@ -117,6 +129,10 @@ export const submitAcolhimento = createServerFn({ method: "POST" })
         periodo: data.periodo,
         comunicou_abuso: data.comunicou_abuso,
         situacao_observada: data.situacao_observada,
+        situacao_observada_outro:
+          data.situacao_observada.includes("outro") && data.situacao_observada_outro?.trim()
+            ? data.situacao_observada_outro.trim()
+            : null,
         acolhido_anteriormente: data.acolhido_anteriormente === "sim",
         autorizacao_ata: data.autorizacao_ata,
         tipo_queixa,

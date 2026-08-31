@@ -191,3 +191,25 @@ export function calcPresencaTotais(
       inscritos.length > 0 ? Math.round(somaPct / inscritos.length) : 0,
   };
 }
+
+/** Totais focados em um encontro (inclui presenças mesmo com lista ainda aberta). */
+export function calcPresencaTotaisEncontro(
+  inscritos: PresencaInscritoRef[],
+  encontro: PresencaEncontroRef,
+  presencaSet: Set<string>,
+): PresencaTotais {
+  const elegiveis = inscritos.filter((i) => i.ano_curso === encontro.ano_curso);
+  let presentes = 0;
+  for (const i of elegiveis) {
+    if (presencaSet.has(buildPresencaKey(i.id, encontro.id))) presentes += 1;
+  }
+
+  return {
+    inscritos: elegiveis.length,
+    encontros: 1,
+    encontrosRealizados: isListaPresencaFechada(encontro) ? 1 : 0,
+    presencasRegistradas: presentes,
+    mediaParticipacaoPct:
+      elegiveis.length > 0 ? Math.round((presentes / elegiveis.length) * 100) : 0,
+  };
+}

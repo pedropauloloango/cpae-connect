@@ -24,7 +24,7 @@ const notificationSchema = z.object({
   requestId: z.string().uuid(),
   numero: z.string().min(1),
   school_nome: z.string().min(1),
-  tipo_escola: z.enum(["escola", "emei"]),
+  tipo_escola: z.enum(["escola", "emei", "cpae", "semed", "outros"]),
   regiao_escola: z.string().nullable(),
   solicitante_email: z.string().email(),
   solicitante_nome: z.string().min(1),

@@ -19,6 +19,7 @@ import {
   digitsOnly,
   formatCpfMask,
   nivelEscolaridadeOptions,
+  sexoOptions,
 } from "@/lib/saude-mental-options";
 import { SaudeMentalCursoHero } from "@/components/saude-mental/SaudeMentalCursoHero";
 import { fetchSaudeMentalInscricaoStatus } from "@/lib/saude-mental-inscricao-config";
@@ -46,6 +47,10 @@ const schema = z.object({
     .min(1, "Informe o CPF")
     .refine((v) => digitsOnly(v).length === 11, "Informe um CPF válido com 11 dígitos"),
   data_nascimento: z.string().min(1, "Informe a data de nascimento"),
+  sexo: z
+    .string()
+    .min(1, "Selecione o sexo")
+    .refine((v) => sexoOptions.some((o) => o.value === v), "Selecione o sexo"),
   telefone_whatsapp: z
     .string()
     .min(1, "Informe o telefone (WhatsApp)")
@@ -133,6 +138,7 @@ function SaudeMentalPublico() {
       nome_completo: "",
       cpf: "",
       data_nascimento: "",
+      sexo: "",
       telefone_whatsapp: "",
       email: "",
       funcao: "",
@@ -157,6 +163,7 @@ function SaudeMentalPublico() {
       nome_completo: vals.nome_completo,
       cpf: vals.cpf,
       data_nascimento: vals.data_nascimento,
+      sexo: vals.sexo,
       telefone_whatsapp: vals.telefone_whatsapp,
       email: vals.email,
       funcao: vals.funcao,
@@ -241,7 +248,7 @@ function SaudeMentalPublico() {
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="cpf">CPF *</Label>
                 <Controller
@@ -274,6 +281,30 @@ function SaudeMentalPublico() {
                   <p className="text-xs text-destructive">
                     {form.formState.errors.data_nascimento.message}
                   </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Sexo *</Label>
+                <Controller
+                  control={form.control}
+                  name="sexo"
+                  render={({ field }) => (
+                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sexoOptions.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {form.formState.errors.sexo && (
+                  <p className="text-xs text-destructive">{form.formState.errors.sexo.message}</p>
                 )}
               </div>
             </div>

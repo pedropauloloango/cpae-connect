@@ -120,7 +120,7 @@ type Preferida = {
   data_preferivel_palestra: string | null;
   hora_inicio_palestra: string | null;
   palestra_tema: string | null;
-  school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | null } | null;
+  school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | "cpae" | "semed" | "outros" | null } | null;
   groups: PreferidaGroup[] | null;
   palestras: PreferidaPalestra[] | null;
   assignees: Assignee[] | null;
@@ -229,14 +229,14 @@ type AgendaAppt = {
   school_id: string | null;
   vivencia_request_id: string | null;
   professional: { id: string; nome: string } | null;
-  school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | null } | null;
+  school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | "cpae" | "semed" | "outros" | null } | null;
   vivencia_request: {
     id: string;
     numero: string;
     school_id: string | null;
     school_nome_snapshot: string | null;
     regiao_escola: string | null;
-    school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | null } | null;
+    school: { id: string; nome: string; regiao: string | null; tipo_escola: "escola" | "emei" | "cpae" | "semed" | "outros" | null } | null;
     groups: { periodo: string }[] | null;
     assignees: Assignee[] | null;
   } | null;

@@ -98,10 +98,16 @@ export function VivenciaDatePicker({
                 onChange("");
                 return;
               }
-              onChange(toDateKey(date));
+              const key = toDateKey(date);
+              if (canColorize && occupiedSet.has(key)) {
+                return;
+              }
+              onChange(key);
               setOpen(false);
             }}
-            disabled={(date) => date < today}
+            disabled={(date) =>
+              date < today || (canColorize && occupiedSet.has(toDateKey(date)))
+            }
             modifiers={{
               available: (date) =>
                 canColorize &&
@@ -150,8 +156,8 @@ export function VivenciaDatePicker({
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-orange-200 ring-1 ring-orange-300" />
                     {isPalestra
-                      ? "Já há vivência ou palestra nesta região"
-                      : "Já há solicitação neste período"}
+                      ? "Já há vivência ou palestra nesta região (não selecionável)"
+                      : "Limite de 2 turmas neste dia/período ou já há solicitação (não selecionável)"}
                   </span>
                 </div>
                 {isFetching && <p>Atualizando datas…</p>}

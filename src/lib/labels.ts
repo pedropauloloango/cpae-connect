@@ -40,10 +40,19 @@ export const professionalStatusLabels: Record<string, string> = {
   inativo: "Inativo",
 };
 
-export const schoolTipoLabels: Record<string, string> = {
-  escola: "Escola",
-  emei: "EMEI",
-};
+export const schoolTipoOptions = [
+  { value: "escola", label: "Escola" },
+  { value: "emei", label: "EMEI" },
+  { value: "cpae", label: "CPAE" },
+  { value: "semed", label: "SEMED" },
+  { value: "outros", label: "Outros" },
+] as const;
+
+export type SchoolTipo = (typeof schoolTipoOptions)[number]["value"];
+
+export const schoolTipoLabels: Record<string, string> = Object.fromEntries(
+  schoolTipoOptions.map((o) => [o.value, o.label]),
+);
 
 export const meetingNumberLabels: Record<string, string> = {
   primeiro: "1º Encontro",

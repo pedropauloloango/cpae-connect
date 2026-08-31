@@ -31,7 +31,7 @@ export type VivenciaPalestraSubmission = {
 export type VivenciaSubmission = {
   school_id: string;
   school_nome: string;
-  tipo_escola: "escola" | "emei";
+  tipo_escola: "escola" | "emei" | "cpae" | "semed" | "outros";
   regiao_escola: string | null;
   solicitante_email: string;
   solicitante_nome: string;

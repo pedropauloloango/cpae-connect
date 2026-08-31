@@ -8,6 +8,7 @@ export type SaudeMentalSubmission = {
   nome_completo: string;
   cpf: string;
   data_nascimento: string;
+  sexo: string;
   telefone_whatsapp: string;
   email: string;
   email_formulario?: string | null;
@@ -36,6 +37,7 @@ export async function submitSaudeMentalInscricao(
     nome_completo: data.nome_completo.trim(),
     cpf: data.cpf.trim(),
     data_nascimento: data.data_nascimento,
+    sexo: data.sexo,
     telefone_whatsapp: data.telefone_whatsapp.trim(),
     email: data.email.trim().toLowerCase(),
     email_formulario: data.email_formulario?.trim().toLowerCase() || data.email.trim().toLowerCase(),

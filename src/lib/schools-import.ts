@@ -1,4 +1,7 @@
 import { sanitizeSchoolAddressFields } from "@/lib/school-address-sanitize";
+import type { SchoolTipo } from "@/lib/labels";
+
+export type { SchoolTipo };
 
 export const SCHOOL_IMPORT_COLUMNS = [
   { key: "nome", label: "Nome", required: true },
@@ -16,8 +19,6 @@ export const SCHOOL_IMPORT_COLUMNS = [
   { key: "diretor_celular", label: "Celular diretor(a)", required: false },
   { key: "diretor_cpf", label: "CPF/Matrícula diretor(a)", required: false },
 ] as const;
-
-export type SchoolTipo = "escola" | "emei";
 
 export type SchoolImportRow = {
   nome: string;
@@ -137,6 +138,9 @@ function parseTipoEscola(value: string | null | undefined): SchoolTipo | null {
   if (!v) return null;
   if (v === "emei") return "emei";
   if (v === "escola") return "escola";
+  if (v === "cpae") return "cpae";
+  if (v === "semed") return "semed";
+  if (v === "outros" || v === "outro") return "outros";
   return null;
 }
 
@@ -211,7 +215,10 @@ export async function parseSchoolImportFile(file: File): Promise<SchoolImportPre
     const tipoRaw = row.tipo_escola;
     const tipo_escola = parseTipoEscola(typeof tipoRaw === "string" ? tipoRaw : null);
     if (!tipo_escola) {
-      errors.push({ line: lineNumber, message: 'Tipo Escola inválido. Use "Escola" ou "EMEI".' });
+      errors.push({
+        line: lineNumber,
+        message: 'Tipo Escola inválido. Use "Escola", "EMEI", "CPAE", "SEMED" ou "Outros".',
+      });
       continue;
     }
 
@@ -247,7 +254,7 @@ export async function parseSchoolImportFile(file: File): Promise<SchoolImportPre
 export function formValuesToSchoolRow(vals: Record<string, string>): SchoolImportRow {
   const tipo_escola = parseTipoEscola(vals.tipo_escola);
   if (!tipo_escola) {
-    throw new Error('Tipo Escola inválido. Use "Escola" ou "EMEI".');
+    throw new Error('Tipo Escola inválido. Use "Escola", "EMEI", "CPAE", "SEMED" ou "Outros".');
   }
 
   const clean = sanitizeSchoolAddressFields({

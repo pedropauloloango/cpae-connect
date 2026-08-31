@@ -1,6 +1,7 @@
 import {
   alunoSerieOptions,
   alunoTurmaOptions,
+  periodoLabels,
   periodoOptions,
   solicitanteCargoOptions,
   type AlunoSerie,
@@ -11,6 +12,58 @@ import {
 
 export { alunoSerieOptions, alunoTurmaOptions, periodoOptions, solicitanteCargoOptions };
 export type { AlunoSerie, AlunoTurma, PeriodoEscolar, SolicitanteCargo };
+
+/** Máximo de turmas de vivência na mesma data e período (por solicitação / escola). */
+export const MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO = 2;
+
+export function vivenciaDiaPeriodoKey(data: string, periodo: string): string {
+  return `${data.slice(0, 10)}|${periodo}`;
+}
+
+/**
+ * Datas que já atingiram o limite de turmas no mesmo período
+ * (considerando as outras turmas do formulário, excluindo `excludeIndex`).
+ */
+export function datesAtTurmaLimitForPeriod(
+  groups: Array<{ periodo?: string; data_vivencia?: string }>,
+  periodo: string | null | undefined,
+  excludeIndex: number,
+  limit = MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+): string[] {
+  if (!periodo?.trim()) return [];
+  const counts = new Map<string, number>();
+  groups.forEach((g, i) => {
+    if (i === excludeIndex) return;
+    if (!g.periodo || g.periodo !== periodo || !g.data_vivencia?.trim()) return;
+    const key = g.data_vivencia.slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  return [...counts.entries()].filter(([, n]) => n >= limit).map(([d]) => d);
+}
+
+/** Quantas outras turmas já usam a mesma data + período (excluindo `excludeIndex`). */
+export function countTurmasMesmoDiaPeriodo(
+  groups: Array<{ periodo?: string; data_vivencia?: string }>,
+  excludeIndex: number,
+  data: string | null | undefined,
+  periodo: string | null | undefined,
+): number {
+  if (!data?.trim() || !periodo?.trim()) return 0;
+  const day = data.slice(0, 10);
+  return groups.filter(
+    (g, i) =>
+      i !== excludeIndex &&
+      g.periodo === periodo &&
+      g.data_vivencia?.slice(0, 10) === day,
+  ).length;
+}
+
+export function mensagemLimiteTurmasDiaPeriodo(periodo?: string | null): string {
+  const periodoLabel = periodo
+    ? (periodoLabels[periodo] ?? periodo)
+    : "este período";
+  return `Máximo de ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (${periodoLabel}). Escolha outro dia ou outro período.`;
+}
 
 export const vivenciaTemaOptions = [
   {

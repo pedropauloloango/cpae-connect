@@ -17,6 +17,18 @@ export const nivelEscolaridadeLabels: Record<string, string> = Object.fromEntrie
   nivelEscolaridadeOptions.map((o) => [o.value, o.label]),
 );
 
+export const sexoOptions = [
+  { value: "masculino", label: "Masculino" },
+  { value: "feminino", label: "Feminino" },
+  { value: "outros", label: "Outros" },
+] as const;
+
+export type SexoInscrito = (typeof sexoOptions)[number]["value"];
+
+export const sexoLabels: Record<string, string> = Object.fromEntries(
+  sexoOptions.map((o) => [o.value, o.label]),
+);
+
 export const moduloCursoOptions = [
   { value: "Módulo 1", label: "Módulo 1" },
   { value: "Módulo 2", label: "Módulo 2" },

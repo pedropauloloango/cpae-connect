@@ -32,7 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
-import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits, schoolTipoLabels } from "@/lib/labels";
+import { complaintTypeLabels, meetingNumberLabels, isRequestLockedForMeetingEdits, schoolTipoLabels, type SchoolTipo } from "@/lib/labels";
 import { buildAcolhimentoFormSections, getSectionLayoutRows, type AcolhimentoFormAnswer, type AcolhimentoFormSection } from "@/lib/acolhimento-form-display";
 import {
   alunoSexoOptions,
@@ -836,7 +836,7 @@ function EditEscolaDialog({
   const { user } = useAuth();
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [schoolNome, setSchoolNome] = useState("");
-  const [tipoEscola, setTipoEscola] = useState<"escola" | "emei" | "">("");
+  const [tipoEscola, setTipoEscola] = useState<SchoolTipo | "">("");
   const [regiao, setRegiao] = useState("");
 
   const schoolsQuery = useQuery({
@@ -851,7 +851,11 @@ function EditEscolaDialog({
     const id = req.school_id ?? req.school?.id ?? null;
     setSchoolId(id);
     setSchoolNome(req.school_nome_snapshot ?? req.school?.nome ?? "");
-    setTipoEscola((req.tipo_escola as "escola" | "emei" | null) ?? (req.school?.tipo_escola as "escola" | "emei" | null) ?? "");
+    setTipoEscola(
+      (req.tipo_escola as SchoolTipo | null) ??
+        (req.school?.tipo_escola as SchoolTipo | null) ??
+        "",
+    );
     setRegiao(req.regiao_escola ?? req.school?.regiao ?? "");
   }, [
     open,
