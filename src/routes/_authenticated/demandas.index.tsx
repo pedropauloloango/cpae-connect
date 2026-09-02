@@ -28,9 +28,10 @@ import {
   fetchRequestIdsComAtendimentoNoMes,
   type DemandasFiltro,
 } from "@/lib/demandas-filtros";
+import { exportDemandasToExcel } from "@/lib/demandas-export";
 import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
-import { Eye, Loader2, Trash2, ChevronLeft, ChevronRight, FilterX } from "lucide-react";
+import { Eye, Loader2, Trash2, ChevronLeft, ChevronRight, FilterX, FileSpreadsheet } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/demandas/")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -308,6 +309,25 @@ function Demandas() {
         ? (requestStatusLabels[status] ?? status)
         : null;
 
+  const handleExportExcel = () => {
+    if (filtered.length === 0) {
+      toast.error("Nenhuma demanda para exportar.");
+      return;
+    }
+    try {
+      exportDemandasToExcel(filtered);
+      toast.success(
+        filtered.length === 1
+          ? "1 demanda exportada para Excel."
+          : `${filtered.length} demandas exportadas para Excel.`,
+      );
+    } catch (e) {
+      toast.error("Erro ao exportar", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
+      });
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -409,6 +429,20 @@ function Demandas() {
 
       <Card className="cpae-card border-0 shadow-none">
         <CardContent className="p-0">
+          <div className="flex justify-end px-4 pb-1 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-green-700/40 text-green-700 hover:bg-green-50 hover:text-green-800"
+              onClick={handleExportExcel}
+              disabled={listLoading || totalFiltered === 0}
+              title="Exportar para Excel"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+            </Button>
+          </div>
+
           <div className="hidden md:block">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">

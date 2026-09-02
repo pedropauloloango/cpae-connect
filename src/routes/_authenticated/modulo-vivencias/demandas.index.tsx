@@ -25,8 +25,20 @@ import {
   vivenciasDemandasFiltroLabels,
   type VivenciasDemandasFiltro,
 } from "@/lib/vivencias-demandas-filtros";
+import { exportVivenciasDemandasToExcel } from "@/lib/vivencias-demandas-export";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Loader2, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Eye,
+  FileSpreadsheet,
+  Loader2,
+  Search,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { periodoLabels, regiaoEscolaLabel } from "@/lib/acolhimento-options";
 import { palestraTemaLabel } from "@/lib/vivencias-options";
@@ -406,8 +418,13 @@ function VivenciasDemandas() {
 
   useEffect(() => setPage(1), [q, status]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalFiltered = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = sorted.slice(pageStart, pageStart + PAGE_SIZE);
+  const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
+  const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
 
   const activeFiltroLabel =
     status !== "todos" && (VIVENCIAS_DEMANDAS_FILTROS as readonly string[]).includes(status)
@@ -415,6 +432,38 @@ function VivenciasDemandas() {
       : status !== "todos"
         ? (requestStatusLabels[status] ?? status)
         : null;
+
+  const handleExportExcel = () => {
+    if (sorted.length === 0) {
+      toast.error("Nenhuma demanda para exportar.");
+      return;
+    }
+    try {
+      exportVivenciasDemandasToExcel(
+        sorted.map((r) => ({
+          Protocolo: r.numero,
+          Escola: r.school_nome_snapshot ?? "",
+          Região: regiaoEscolaLabel(r.regiao_escola ?? r.school?.regiao),
+          Tipo: requestTipo(r),
+          "Data vivência": requestDatasVivencia(r),
+          Período: requestPeriodos(r),
+          Turmas: requestTurmas(r),
+          Profissionais: requestProfissionais(r),
+          Status: requestStatusLabels[r.status] ?? r.status,
+          Recebida: new Date(r.created_at).toLocaleDateString("pt-BR"),
+        })),
+      );
+      toast.success(
+        sorted.length === 1
+          ? "1 demanda exportada para Excel."
+          : `${sorted.length} demandas exportadas para Excel.`,
+      );
+    } catch (e) {
+      toast.error("Erro ao exportar", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -464,6 +513,20 @@ function VivenciasDemandas() {
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
+          <div className="flex justify-end px-4 pb-1 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-green-700/40 text-green-700 hover:bg-green-50 hover:text-green-800"
+              onClick={handleExportExcel}
+              disabled={isLoading || sorted.length === 0}
+              title="Exportar para Excel"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+            </Button>
+          </div>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando...
@@ -571,27 +634,51 @@ function VivenciasDemandas() {
               </tbody>
             </table>
           )}
+
+          <div className="flex flex-col gap-3 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-center gap-2 sm:justify-start">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage <= 1 || totalFiltered === 0 || isLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="min-w-[7rem] text-center text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage >= totalPages || totalFiltered === 0 || isLoading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="text-center text-sm sm:ml-auto sm:text-right">
+              <span className="font-semibold text-[#0F172A]">{totalFiltered}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                {totalFiltered === 1 ? "demanda" : "demandas"}
+              </span>
+              {totalFiltered > 0 && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Exibindo {showingFrom}–{showingTo}
+                </p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
