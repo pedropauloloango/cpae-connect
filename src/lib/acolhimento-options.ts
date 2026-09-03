@@ -143,6 +143,58 @@ export const situacaoObservadaLabels = Object.fromEntries(
 );
 // Compatibilidade com solicitações antigas
 situacaoObservadaLabels.ansiedade_depressao = "Ansiedade / depressão";
+
+/** Rótulos curtos para gráficos (Q17). */
+export const situacaoObservadaChartLabels: Record<string, string> = {
+  autolesao: "Autolesão",
+  ideacao_suicida: "Ideação suicida",
+  ansiedade: "Ansiedade",
+  depressao: "Depressão",
+  alteracoes_comportamento: "Alterações de comportamento",
+  indisciplina: "Indisciplina",
+  conflitos_familiares: "Conflitos familiares",
+  bullying: "Bullying",
+  luto: "Luto",
+  violacao_direitos: "Violação de Direitos",
+  outro: "Outro",
+  ansiedade_depressao: "Ansiedade / depressão",
+};
+
+export function situacaoObservadaChartLabel(value: string): string {
+  return situacaoObservadaChartLabels[value] ?? situacaoObservadaLabels[value] ?? value;
+}
+
+const SITUACAO_CHART_ORDER = [
+  ...situacaoObservadaOptions.map((o) => o.value),
+  "ansiedade_depressao",
+] as const;
+
+export function situacaoObservadaChartSortIndex(value: string): number {
+  const i = (SITUACAO_CHART_ORDER as readonly string[]).indexOf(value);
+  return i === -1 ? SITUACAO_CHART_ORDER.length : i;
+}
+
+/** Quando não há Q17 gravada, deriva da queixa antiga (tipo_queixa). */
+export function situacoesFromRequest(row: {
+  situacao_observada?: string[] | null;
+  tipo_queixa?: string | null;
+}): string[] {
+  const list = (row.situacao_observada ?? []).filter((v): v is string => Boolean(v));
+  if (list.length > 0) return list;
+
+  const tipo = row.tipo_queixa;
+  if (!tipo) return [];
+  const fromTipo: Record<string, string> = {
+    ansiedade_depressao: "ansiedade_depressao",
+    violacao_direitos: "violacao_direitos",
+    ideacao_suicida: "ideacao_suicida",
+    bullying: "bullying",
+    conflito_familiar: "conflitos_familiares",
+    outros: "outro",
+  };
+  return [fromTipo[tipo] ?? tipo];
+}
+
 export const autorizacaoAtaLabels = Object.fromEntries(autorizacaoAtaOptions.map((o) => [o.value, o.label]));
 export const solicitanteCargoLabels = Object.fromEntries(solicitanteCargoOptions.map((o) => [o.value, o.label]));
 export const alunoSexoLabels = Object.fromEntries(alunoSexoOptions.map((o) => [o.value, o.label]));

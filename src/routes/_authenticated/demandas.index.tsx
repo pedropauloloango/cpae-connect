@@ -29,6 +29,11 @@ import {
   type DemandasFiltro,
 } from "@/lib/demandas-filtros";
 import { exportDemandasToExcel } from "@/lib/demandas-export";
+import {
+  situacaoObservadaChartLabel,
+  situacaoObservadaOptions,
+  situacoesFromRequest,
+} from "@/lib/acolhimento-options";
 import { PENDING_RECEIVED_REQUESTS_QUERY_KEY } from "@/lib/pending-approvals";
 import { toast } from "sonner";
 import { Eye, Loader2, Trash2, ChevronLeft, ChevronRight, FilterX, FileSpreadsheet } from "lucide-react";
@@ -50,6 +55,7 @@ interface Req {
   numero: string;
   aluno_nome: string;
   tipo_queixa: string | null;
+  situacao_observada: string[] | null;
   status: string;
   created_at: string;
   school_nome_snapshot: string | null;
@@ -57,6 +63,14 @@ interface Req {
   professional: { nome: string } | null;
   meetings: { status: string }[] | null;
 }
+
+const QUEIXA_FILTER_OPTIONS = [
+  ...situacaoObservadaOptions.map((o) => ({
+    value: o.value,
+    label: situacaoObservadaChartLabel(o.value),
+  })),
+  { value: "ansiedade_depressao", label: situacaoObservadaChartLabel("ansiedade_depressao") },
+];
 
 function Demandas() {
   const qc = useQueryClient();
@@ -67,6 +81,7 @@ function Demandas() {
   const [escola, setEscola] = useState("");
   const [profissional, setProfissional] = useState("todos");
   const [mesSolicitacao, setMesSolicitacao] = useState("");
+  const [queixa, setQueixa] = useState("todos");
   const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
@@ -90,6 +105,7 @@ function Demandas() {
     setEscola("");
     setProfissional("todos");
     setMesSolicitacao("");
+    setQueixa("todos");
     applyStatusFilter("todos");
   };
 
@@ -98,6 +114,7 @@ function Demandas() {
     escola.trim().length > 0 ||
     profissional !== "todos" ||
     mesSolicitacao.length > 0 ||
+    queixa !== "todos" ||
     status !== "todos";
 
   const { data: myProfId, isLoading: loadingMyProf } = useQuery({
@@ -211,7 +228,7 @@ function Demandas() {
       let qb = supabase
         .from("requests")
         .select(
-          "id, numero, aluno_nome, tipo_queixa, status, created_at, school_nome_snapshot, school:schools(regiao), professional:professionals!assigned_professional_id(nome), meetings(status)",
+          "id, numero, aluno_nome, tipo_queixa, situacao_observada, status, created_at, school_nome_snapshot, school:schools(regiao), professional:professionals!assigned_professional_id(nome), meetings(status)",
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -258,7 +275,7 @@ function Demandas() {
 
   useEffect(() => {
     setPage(1);
-  }, [aluno, escola, profissional, mesSolicitacao]);
+  }, [aluno, escola, profissional, mesSolicitacao, queixa]);
 
   const filtered = list.filter((r) => {
     const alunoQ = aluno.trim().toLowerCase();
@@ -275,6 +292,8 @@ function Demandas() {
         return false;
       }
     }
+
+    if (queixa !== "todos" && !situacoesFromRequest(r).includes(queixa)) return false;
 
     return true;
   });
@@ -392,6 +411,19 @@ function Demandas() {
                   </SelectItem>
                 )}
               {monthOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={queixa} onValueChange={setQueixa}>
+            <SelectTrigger className="sm:w-[220px]">
+              <SelectValue placeholder="Queixa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as queixas</SelectItem>
+              {QUEIXA_FILTER_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
                 </SelectItem>

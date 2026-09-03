@@ -5,7 +5,10 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { Expand, Minimize2 } from "lucide-react";
 import { CAMPO_GRANDE_CENTER } from "@/lib/campo-grande-regiao-centroids";
-import { complaintTypeLabels } from "@/lib/labels";
+import {
+  situacaoObservadaChartLabel,
+  situacaoObservadaChartSortIndex,
+} from "@/lib/acolhimento-options";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,7 +50,6 @@ declare module "leaflet" {
   ): L.Layer;
 }
 
-const COMPLAINT_TYPE_KEYS = Object.keys(complaintTypeLabels);
 
 function HeatLayer({ points, maxWeight }: { points: Array<[number, number, number]>; maxWeight: number }) {
   const map = useMap();
@@ -194,8 +196,8 @@ export function ComplaintsHeatMap({ schools }: { schools: HeatSchoolCount[] }) {
         if (n > 0) present.add(tipo);
       }
     }
-    return COMPLAINT_TYPE_KEYS.filter((k) => present.has(k)).concat(
-      [...present].filter((k) => !COMPLAINT_TYPE_KEYS.includes(k)).sort(),
+    return [...present].sort(
+      (a, b) => situacaoObservadaChartSortIndex(a) - situacaoObservadaChartSortIndex(b),
     );
   }, [schools]);
 
@@ -269,7 +271,7 @@ export function ComplaintsHeatMap({ schools }: { schools: HeatSchoolCount[] }) {
             className={cn("h-7 text-xs", active && "bg-[#0F52BA] hover:bg-[#0F52BA]/90")}
             onClick={() => toggleTipo(tipo)}
           >
-            {complaintTypeLabels[tipo] ?? tipo}
+            {situacaoObservadaChartLabel(tipo)}
           </Button>
         );
       })}
@@ -302,7 +304,7 @@ export function ComplaintsHeatMap({ schools }: { schools: HeatSchoolCount[] }) {
         {geoSchools.length} no mapa
         {pendingCount > 0 ? ` · ${pendingCount} pendente(s)` : ""}
         {selectedTipos.size > 0
-          ? ` · filtro: ${[...selectedTipos].map((t) => complaintTypeLabels[t] ?? t).join(", ")}`
+          ? ` · filtro: ${[...selectedTipos].map((t) => situacaoObservadaChartLabel(t)).join(", ")}`
           : ""}
       </span>
     </div>
@@ -391,7 +393,7 @@ export function ComplaintsHeatMap({ schools }: { schools: HeatSchoolCount[] }) {
                     className={cn("h-7 text-xs", active && "bg-[#0F52BA] hover:bg-[#0F52BA]/90")}
                     onClick={() => toggleTipo(tipo)}
                   >
-                    {complaintTypeLabels[tipo] ?? tipo}
+                    {situacaoObservadaChartLabel(tipo)}
                   </Button>
                 );
               })}

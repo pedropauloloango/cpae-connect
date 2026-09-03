@@ -8,8 +8,11 @@ import { PageHeader } from "@/components/layout/AppShell";
 import {
   Inbox, Clock, CheckCircle2, Calendar, TrendingUp, AlertCircle, Users, School, MapPin,
 } from "lucide-react";
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, LabelList } from "recharts";
-import { complaintTypeLabels } from "@/lib/labels";
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, LabelList, Legend } from "recharts";
+import {
+  situacaoObservadaChartLabel,
+  situacoesFromRequest,
+} from "@/lib/acolhimento-options";
 import { cn } from "@/lib/utils";
 import { fetchRequestIdsComAtendimentoNoMes, type DemandasFiltro } from "@/lib/demandas-filtros";
 import type { HeatSchoolCount } from "@/components/dashboard/ComplaintsHeatMap";
@@ -17,6 +20,46 @@ import type { HeatSchoolCount } from "@/components/dashboard/ComplaintsHeatMap";
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 interface Counters { recebida: number; em_andamento: number; concluida: number; agendados_mes: number; total_escolas: number; total_profissionais: number; }
+
+const PIE_LABEL_RADIAN = Math.PI / 180;
+const PIE_MIN_PERCENT_FOR_LABEL = 0.05;
+
+function formatPiePercent(percent: number): string {
+  return `${Math.round(percent * 100)}%`;
+}
+
+function renderQueixaPieLabel({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  percent,
+}: {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+}) {
+  if (!percent || percent < PIE_MIN_PERCENT_FOR_LABEL) return null;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
+  const x = cx + radius * Math.cos(-midAngle * PIE_LABEL_RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * PIE_LABEL_RADIAN);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#fff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="text-[11px] font-semibold"
+    >
+      {formatPiePercent(percent)}
+    </text>
+  );
+}
 
 function Dashboard() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -85,18 +128,27 @@ function Dashboard() {
     queryKey: ["dash-by-complaint", isAdmin, myProfId],
     enabled: !authLoading && (isAdmin || myProfId !== undefined),
     queryFn: async () => {
-      let qb = supabase.from("requests").select("tipo_queixa").is("deleted_at", null);
+      let qb = supabase.from("requests").select("situacao_observada, tipo_queixa").is("deleted_at", null);
       if (!isAdmin) {
         if (!myProfId) return [];
         qb = qb.eq("assigned_professional_id", myProfId);
       }
       const { data } = await qb;
       const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { tipo_queixa: string | null }) => {
-        if (!r.tipo_queixa) return;
-        counts.set(r.tipo_queixa, (counts.get(r.tipo_queixa) ?? 0) + 1);
+      (data ?? []).forEach((r: { situacao_observada: string[] | null; tipo_queixa: string | null }) => {
+        for (const key of situacoesFromRequest(r)) {
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
       });
-      return Array.from(counts.entries()).map(([k, v]) => ({ name: complaintTypeLabels[k] ?? k, value: v }));
+      const entries = Array.from(counts.entries()).sort(
+        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"),
+      );
+      const total = entries.reduce((sum, [, v]) => sum + v, 0);
+      return entries.map(([k, v]) => ({
+        name: situacaoObservadaChartLabel(k),
+        value: v,
+        percent: total > 0 ? v / total : 0,
+      }));
     },
   });
 
@@ -145,7 +197,7 @@ function Dashboard() {
       let qb = supabase
         .from("requests")
         .select(
-          "school_id, tipo_queixa, school:schools(id, nome, endereco, bairro, cep, regiao, latitude, longitude, geocode_status)",
+          "school_id, tipo_queixa, situacao_observada, school:schools(id, nome, endereco, bairro, cep, regiao, latitude, longitude, geocode_status)",
         )
         .is("deleted_at", null)
         .not("school_id", "is", null);
@@ -173,12 +225,21 @@ function Dashboard() {
         const school = row.school as SchoolRow | SchoolRow[] | null;
         const s = Array.isArray(school) ? school[0] : school;
         if (!s?.id) continue;
-        const tipo = (row as { tipo_queixa?: string | null }).tipo_queixa ?? "outros";
+        const situacoes = situacoesFromRequest(
+          row as { situacao_observada?: string[] | null; tipo_queixa?: string | null },
+        );
+        const keys = situacoes.length > 0 ? situacoes : ["outro"];
         const existing = byId.get(s.id);
         if (existing) {
           existing.count += 1;
-          existing.byTipo[tipo] = (existing.byTipo[tipo] ?? 0) + 1;
+          for (const tipo of keys) {
+            existing.byTipo[tipo] = (existing.byTipo[tipo] ?? 0) + 1;
+          }
         } else {
+          const byTipo: Record<string, number> = {};
+          for (const tipo of keys) {
+            byTipo[tipo] = (byTipo[tipo] ?? 0) + 1;
+          }
           byId.set(s.id, {
             id: s.id,
             nome: s.nome,
@@ -190,7 +251,7 @@ function Dashboard() {
             longitude: s.longitude,
             geocode_status: s.geocode_status,
             count: 1,
-            byTipo: { [tipo]: 1 },
+            byTipo,
           });
         }
       }
@@ -220,7 +281,19 @@ function Dashboard() {
     },
   });
 
-  const COLORS = ["oklch(0.42 0.14 250)", "oklch(0.62 0.13 200)", "oklch(0.62 0.15 155)", "oklch(0.78 0.15 75)", "oklch(0.55 0.22 25)", "oklch(0.5 0.1 280)"];
+  const COLORS = [
+    "oklch(0.42 0.14 250)",
+    "oklch(0.62 0.13 200)",
+    "oklch(0.62 0.15 155)",
+    "oklch(0.78 0.15 75)",
+    "oklch(0.55 0.22 25)",
+    "oklch(0.5 0.1 280)",
+    "oklch(0.58 0.16 30)",
+    "oklch(0.48 0.12 320)",
+    "oklch(0.55 0.1 180)",
+    "oklch(0.45 0.08 80)",
+    "oklch(0.4 0.12 20)",
+  ];
 
   return (
     <div>
@@ -299,22 +372,39 @@ function Dashboard() {
 
         <Card className="cpae-card border-0 shadow-none">
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertCircle className="h-4 w-4 text-[#0F52BA]" /> Distribuição por Queixa</CardTitle></CardHeader>
-          <CardContent className="h-72">
+          <CardContent className="h-[28rem]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
                 <Pie
                   data={byComplaint}
                   dataKey="value"
                   nameKey="name"
-                  outerRadius={90}
-                  label={({ name, value, percent }) =>
-                    `${name}: ${value} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                  }
-                  labelLine
+                  cx="38%"
+                  cy="50%"
+                  innerRadius={0}
+                  outerRadius="82%"
+                  label={renderQueixaPieLabel}
+                  labelLine={false}
                 >
                   {byComplaint.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  formatter={(value, name, item) => {
+                    const pct = (item.payload as { percent?: number } | undefined)?.percent ?? 0;
+                    return [`${value} (${formatPiePercent(pct)})`, name];
+                  }}
+                />
+                <Legend
+                  layout="vertical"
+                  align="right"
+                  verticalAlign="middle"
+                  formatter={(value, entry) => {
+                    const payload = entry.payload as { value?: number; percent?: number } | undefined;
+                    const qty = payload?.value ?? 0;
+                    return `${formatPiePercent(payload?.percent ?? 0)} ${value} (${qty})`;
+                  }}
+                  wrapperStyle={{ fontSize: 12, lineHeight: "1.6", maxHeight: 400, overflow: "auto", paddingLeft: 8 }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
