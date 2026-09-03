@@ -1,11 +1,13 @@
 import * as XLSX from "xlsx";
 import { summarizeMeetings } from "@/components/requests/MeetingCountIndicators";
-import { complaintTypeLabels, requestStatusLabels } from "@/lib/labels";
+import { formatRequestQueixas } from "@/lib/acolhimento-options";
+import { requestStatusLabels } from "@/lib/labels";
 
 export type DemandaExportRow = {
   numero: string;
   aluno_nome: string;
   tipo_queixa: string | null;
+  situacao_observada?: string[] | null;
   status: string;
   created_at: string;
   school_nome_snapshot: string | null;
@@ -22,7 +24,7 @@ export function exportDemandasToExcel(rows: DemandaExportRow[]) {
       Aluno: r.aluno_nome,
       Escola: r.school_nome_snapshot ?? "",
       Região: r.school?.regiao ?? "",
-      Queixa: r.tipo_queixa ? (complaintTypeLabels[r.tipo_queixa] ?? r.tipo_queixa) : "",
+      Queixa: formatRequestQueixas(r),
       Profissional: r.professional?.nome ?? "",
       "Qtde de Encontros": total,
       "Encontros concluídos": registered,

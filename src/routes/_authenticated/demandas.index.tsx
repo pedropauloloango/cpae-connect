@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/AppShell";
 import { MeetingCountIndicators } from "@/components/requests/MeetingCountIndicators";
-import { complaintTypeLabels, requestStatusLabels, requestStatusTone } from "@/lib/labels";
+import { requestStatusLabels, requestStatusTone } from "@/lib/labels";
 import {
   DEMANDAS_FILTROS,
   EM_ATENDIMENTO_STATUSES,
@@ -30,6 +30,7 @@ import {
 } from "@/lib/demandas-filtros";
 import { exportDemandasToExcel } from "@/lib/demandas-export";
 import {
+  formatRequestQueixas,
   situacaoObservadaChartLabel,
   situacaoObservadaOptions,
   situacoesFromRequest,
@@ -43,6 +44,10 @@ export const Route = createFileRoute("/_authenticated/demandas/")({
     filtro:
       typeof search.filtro === "string" && search.filtro.trim().length > 0
         ? search.filtro.trim()
+        : undefined,
+    queixa:
+      typeof search.queixa === "string" && search.queixa.trim().length > 0
+        ? search.queixa.trim()
         : undefined,
   }),
   component: Demandas,
@@ -75,13 +80,13 @@ const QUEIXA_FILTER_OPTIONS = [
 function Demandas() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { filtro: filtroSearch } = Route.useSearch();
+  const { filtro: filtroSearch, queixa: queixaSearch } = Route.useSearch();
   const { user, isAdmin } = useAuth();
   const [aluno, setAluno] = useState("");
   const [escola, setEscola] = useState("");
   const [profissional, setProfissional] = useState("todos");
   const [mesSolicitacao, setMesSolicitacao] = useState("");
-  const [queixa, setQueixa] = useState("todos");
+  const [queixa, setQueixa] = useState(queixaSearch ?? "todos");
   const [status, setStatus] = useState<string>(filtroSearch ?? "todos");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Req | null>(null);
@@ -90,12 +95,35 @@ function Demandas() {
     setStatus(filtroSearch ?? "todos");
   }, [filtroSearch]);
 
+  useEffect(() => {
+    setQueixa(queixaSearch ?? "todos");
+  }, [queixaSearch]);
+
+  const demandasSearch = (next: { status?: string; queixa?: string }) => {
+    const nextStatus = next.status ?? status;
+    const nextQueixa = next.queixa ?? queixa;
+    return {
+      filtro: nextStatus === "todos" ? undefined : nextStatus,
+      queixa: nextQueixa === "todos" ? undefined : nextQueixa,
+    };
+  };
+
   const applyStatusFilter = (value: string) => {
     setStatus(value);
     setPage(1);
     void navigate({
       to: "/demandas",
-      search: { filtro: value === "todos" ? undefined : value },
+      search: demandasSearch({ status: value }),
+      replace: true,
+    });
+  };
+
+  const applyQueixaFilter = (value: string) => {
+    setQueixa(value);
+    setPage(1);
+    void navigate({
+      to: "/demandas",
+      search: demandasSearch({ queixa: value }),
       replace: true,
     });
   };
@@ -106,7 +134,13 @@ function Demandas() {
     setProfissional("todos");
     setMesSolicitacao("");
     setQueixa("todos");
-    applyStatusFilter("todos");
+    setStatus("todos");
+    setPage(1);
+    void navigate({
+      to: "/demandas",
+      search: { filtro: undefined, queixa: undefined },
+      replace: true,
+    });
   };
 
   const hasActiveFilters =
@@ -303,7 +337,14 @@ function Demandas() {
     if ((DEMANDAS_FILTROS as readonly string[]).includes(status)) return;
     if (availableStatuses.length > 0 && !availableStatuses.includes(status)) {
       setStatus("todos");
-      void navigate({ to: "/demandas", search: { filtro: undefined }, replace: true });
+      void navigate({
+        to: "/demandas",
+        search: (prev) => ({
+          filtro: undefined,
+          queixa: prev.queixa,
+        }),
+        replace: true,
+      });
     }
   }, [status, availableStatuses, navigate]);
 
@@ -327,6 +368,10 @@ function Demandas() {
       : status !== "todos"
         ? (requestStatusLabels[status] ?? status)
         : null;
+  const activeQueixaLabel = queixa !== "todos" ? situacaoObservadaChartLabel(queixa) : null;
+  const activeFiltroParts = [activeFiltroLabel, activeQueixaLabel ? `Queixa: ${activeQueixaLabel}` : null].filter(
+    Boolean,
+  );
 
   const handleExportExcel = () => {
     if (filtered.length === 0) {
@@ -352,8 +397,8 @@ function Demandas() {
       <PageHeader
         title="Demandas"
         description={
-          activeFiltroLabel
-            ? `Filtro: ${activeFiltroLabel}.`
+          activeFiltroParts.length > 0
+            ? `Filtro: ${activeFiltroParts.join(" · ")}.`
             : isAdmin
               ? "Acompanhamento das solicitações de acolhimento."
               : "Suas solicitações de acolhimento atribuídas."
@@ -417,7 +462,7 @@ function Demandas() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={queixa} onValueChange={setQueixa}>
+          <Select value={queixa} onValueChange={applyQueixaFilter}>
             <SelectTrigger className="sm:w-[220px]">
               <SelectValue placeholder="Queixa" />
             </SelectTrigger>
@@ -494,13 +539,17 @@ function Demandas() {
               <tbody className="divide-y">
                 {listLoading && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Carregando…</td></tr>)}
                 {!listLoading && paginated.length === 0 && (<tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma demanda encontrada.</td></tr>)}
-                {paginated.map((r) => (
+                {paginated.map((r) => {
+                  const queixas = formatRequestQueixas(r);
+                  return (
                   <tr key={r.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono text-xs font-medium">{r.numero}</td>
                     <td className="px-4 py-3 font-medium">{r.aluno_nome}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.school_nome_snapshot ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.school?.regiao ?? "—"}</td>
-                    <td className="px-4 py-3">{r.tipo_queixa ? complaintTypeLabels[r.tipo_queixa] : "—"}</td>
+                    <td className="max-w-[220px] px-4 py-3" title={queixas || undefined}>
+                      {queixas || "—"}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.professional?.nome ?? "—"}</td>
                     <td className="px-4 py-3">
                       <MeetingCountIndicators meetings={r.meetings} />
@@ -529,7 +578,8 @@ function Demandas() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -546,7 +596,7 @@ function Demandas() {
                 <div className="mt-1 font-medium">{r.aluno_nome}</div>
                 <div className="mt-0.5 text-sm text-muted-foreground">{r.school_nome_snapshot ?? "—"}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {r.tipo_queixa ? complaintTypeLabels[r.tipo_queixa] : "—"} • Criado{" "}
+                  {formatRequestQueixas(r) || "—"} • Criado{" "}
                   {new Date(r.created_at).toLocaleDateString("pt-BR")}
                 </div>
                 {r.professional?.nome && (

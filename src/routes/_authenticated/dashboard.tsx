@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ComponentType } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +62,7 @@ function renderQueixaPieLabel({
 }
 
 function Dashboard() {
+  const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
 
   const { data: myProfId } = useQuery({
@@ -145,6 +146,7 @@ function Dashboard() {
       );
       const total = entries.reduce((sum, [, v]) => sum + v, 0);
       return entries.map(([k, v]) => ({
+        key: k,
         name: situacaoObservadaChartLabel(k),
         value: v,
         percent: total > 0 ? v / total : 0,
@@ -295,6 +297,14 @@ function Dashboard() {
     "oklch(0.4 0.12 20)",
   ];
 
+  const openDemandasByQueixa = (key: string | undefined) => {
+    if (!key) return;
+    void navigate({
+      to: "/demandas",
+      search: { filtro: undefined, queixa: key },
+    });
+  };
+
   return (
     <div>
       <PageHeader
@@ -371,7 +381,12 @@ function Dashboard() {
         </Card>
 
         <Card className="cpae-card border-0 shadow-none">
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertCircle className="h-4 w-4 text-[#0F52BA]" /> Distribuição por Queixa</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-[#0F52BA]" /> Distribuição por Queixa
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Clique em uma fatia ou na legenda para ver as demandas.</p>
+          </CardHeader>
           <CardContent className="h-[28rem]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
@@ -385,8 +400,17 @@ function Dashboard() {
                   outerRadius="82%"
                   label={renderQueixaPieLabel}
                   labelLine={false}
+                  style={{ cursor: "pointer" }}
+                  onClick={(data) => {
+                    const key =
+                      (data as { key?: string; payload?: { key?: string } } | undefined)?.payload?.key ??
+                      (data as { key?: string } | undefined)?.key;
+                    openDemandasByQueixa(key);
+                  }}
                 >
-                  {byComplaint.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {byComplaint.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} style={{ cursor: "pointer" }} />
+                  ))}
                 </Pie>
                 <Tooltip
                   formatter={(value, name, item) => {
@@ -403,7 +427,18 @@ function Dashboard() {
                     const qty = payload?.value ?? 0;
                     return `${formatPiePercent(payload?.percent ?? 0)} ${value} (${qty})`;
                   }}
-                  wrapperStyle={{ fontSize: 12, lineHeight: "1.6", maxHeight: 400, overflow: "auto", paddingLeft: 8 }}
+                  onClick={(entry) => {
+                    const key = (entry.payload as { key?: string } | undefined)?.key;
+                    openDemandasByQueixa(key);
+                  }}
+                  wrapperStyle={{
+                    fontSize: 12,
+                    lineHeight: "1.6",
+                    maxHeight: 400,
+                    overflow: "auto",
+                    paddingLeft: 8,
+                    cursor: "pointer",
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -528,7 +563,7 @@ function Kpi({
   return (
     <Link
       to="/demandas"
-      search={{ filtro }}
+      search={{ filtro, queixa: undefined }}
       className="block h-full rounded-xl outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#0F52BA]/40"
       title={`Ver demandas: ${label}`}
     >

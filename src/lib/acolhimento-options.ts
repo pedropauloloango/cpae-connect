@@ -195,6 +195,17 @@ export function situacoesFromRequest(row: {
   return [fromTipo[tipo] ?? tipo];
 }
 
+export function formatRequestQueixas(row: {
+  situacao_observada?: string[] | null;
+  tipo_queixa?: string | null;
+}): string {
+  return situacoesFromRequest(row)
+    .slice()
+    .sort((a, b) => situacaoObservadaChartSortIndex(a) - situacaoObservadaChartSortIndex(b))
+    .map(situacaoObservadaChartLabel)
+    .join(", ");
+}
+
 export const autorizacaoAtaLabels = Object.fromEntries(autorizacaoAtaOptions.map((o) => [o.value, o.label]));
 export const solicitanteCargoLabels = Object.fromEntries(solicitanteCargoOptions.map((o) => [o.value, o.label]));
 export const alunoSexoLabels = Object.fromEntries(alunoSexoOptions.map((o) => [o.value, o.label]));
