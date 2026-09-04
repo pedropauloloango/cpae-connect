@@ -28,6 +28,9 @@ dist-ssr
 # Supabase CLI
 supabase/.temp/
 
+# Arquivos locais temporários (listas escaneadas, scripts one-off)
+tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

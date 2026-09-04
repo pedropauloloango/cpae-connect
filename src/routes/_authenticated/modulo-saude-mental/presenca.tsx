@@ -104,8 +104,8 @@ type PresencaFilter = "todos" | "presentes" | "ausentes" | "ip_duplicado";
 
 const presencaFilterOptions: { value: PresencaFilter; label: string }[] = [
   { value: "todos", label: "Todos os inscritos" },
-  { value: "presentes", label: "Com presença registrada" },
-  { value: "ausentes", label: "Sem presença registrada" },
+  { value: "presentes", label: "Presença" },
+  { value: "ausentes", label: "Ausência" },
   { value: "ip_duplicado", label: "Mesmo IP em vários CPFs" },
 ];
 
@@ -200,18 +200,32 @@ function SaudeMentalPresencaPage() {
   );
 
   useEffect(() => {
-    if (!encontroManualId || loadingPresencas) return;
-    const key = `${encontroManualId}:${[...savedPresentIds].sort().join(",")}`;
-    if (key === draftSyncedKey) return;
-    setDraftSelected(new Set(savedPresentIds));
-    setDraftSyncedKey(key);
-  }, [encontroManualId, loadingPresencas, savedPresentIds, draftSyncedKey]);
+    setFilterPresenca("todos");
+  }, [encontroManualId]);
 
   useEffect(() => {
-    setFilterPresenca("todos");
-    setDraftSyncedKey("");
-    setDraftSelected(new Set());
-  }, [encontroManualId]);
+    if (!encontroManualId) {
+      setDraftSelected((prev) => (prev.size === 0 ? prev : new Set()));
+      setDraftSyncedKey((prev) => (prev === "" ? prev : ""));
+      return;
+    }
+    if (loadingPresencas) return;
+    const key = `${encontroManualId}:${[...savedPresentIds].sort().join(",")}`;
+    if (key === draftSyncedKey) return;
+    // Sempre parte dos já gravados no encontro, preservando marcações novas ainda não salvas.
+    setDraftSelected((prev) => {
+      const next = new Set(savedPresentIds);
+      if (draftSyncedKey.startsWith(`${encontroManualId}:`)) {
+        for (const id of prev) {
+          if (!savedPresentIds.has(id)) next.add(id);
+        }
+      }
+      const sameSize = next.size === prev.size;
+      if (sameSize && [...next].every((id) => prev.has(id))) return prev;
+      return next;
+    });
+    setDraftSyncedKey(key);
+  }, [encontroManualId, loadingPresencas, savedPresentIds, draftSyncedKey]);
 
   const ipUsageByEncontroManual = useMemo(() => {
     const map = new Map<string, number>();
@@ -296,8 +310,10 @@ function SaudeMentalPresencaPage() {
     () => [...savedPresentIds].filter((id) => !draftSelected.has(id)),
     [draftSelected, savedPresentIds],
   );
-  const hasPendingChanges = encontroManualId.length > 0 && (toAdd.length > 0 || toRemove.length > 0);
-  const podeSalvarPresencas = hasPendingChanges;
+  /** Salvar só acrescenta/atualiza — nunca apaga presenças já gravadas. */
+  const hasPendingAdds = encontroManualId.length > 0 && toAdd.length > 0;
+  const hasPendingRemovals = encontroManualId.length > 0 && toRemove.length > 0;
+  const podeSalvarPresencas = hasPendingAdds;
   const podeFecharLista = !!encontroManualId && !encontroManual?.lista_presenca_fechada;
 
   const inscritosAnoManual = useMemo(() => {
@@ -320,10 +336,11 @@ function SaudeMentalPresencaPage() {
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const paginated = inscritosFiltrados.slice(pageStart, pageStart + PAGE_SIZE);
 
-  const syncDraftPresencas = async () => {
+  const syncDraftPresencas = async (opts?: { allowRemove?: boolean }) => {
     if (!encontroManualId) throw new Error("Selecione um encontro para registrar presenças.");
 
-    if (toRemove.length > 0) {
+    // Remoção só sob demanda explícita (ex.: Fechar lista). Salvar nunca apaga o que já estava gravado.
+    if (opts?.allowRemove && toRemove.length > 0) {
       const { error } = await supabase
         .from("saude_mental_presencas")
         .delete()
@@ -342,29 +359,27 @@ function SaudeMentalPresencaPage() {
           origem: "manual" as const,
         };
       });
-      const { error } = await supabase.from("saude_mental_presencas").insert(payload);
+      // Upsert: se já existir (encontro + inscrito), mantém/atualiza sem duplicar.
+      const { error } = await supabase.from("saude_mental_presencas").upsert(payload, {
+        onConflict: "encontro_id,inscrito_id",
+        ignoreDuplicates: true,
+      });
       if (error) throw error;
     }
   };
 
   const savePresencasMut = useMutation({
     mutationFn: async () => {
-      if (!hasPendingChanges) throw new Error("Não há alterações para salvar.");
+      if (!hasPendingAdds) throw new Error("Não há novas presenças para salvar.");
       const added = toAdd.length;
-      const removed = toRemove.length;
-      await syncDraftPresencas();
-      return { added, removed };
+      await syncDraftPresencas({ allowRemove: false });
+      return { added };
     },
     onSuccess: (result) => {
       toast.success("Presenças salvas.", {
-        description: `${result.added > 0 ? `+${result.added} presente(s)` : ""}${
-          result.added && result.removed ? " · " : ""
-        }${result.removed > 0 ? `−${result.removed} removido(s)` : ""}${
-          result.added || result.removed ? ". " : ""
-        }Lista permanece aberta para QR Code e novos registros.`,
+        description: `${result.added} presente(s) registrado(s). As anteriores foram mantidas. Lista permanece aberta para QR Code e novos registros.`,
       });
       void qc.invalidateQueries({ queryKey: ["saude-mental-presencas-all"] });
-      setDraftSyncedKey("");
     },
     onError: (e: Error) => toast.error("Erro ao salvar presenças", { description: e.message }),
   });
@@ -372,7 +387,8 @@ function SaudeMentalPresencaPage() {
   const confirmMut = useMutation({
     mutationFn: async () => {
       if (!encontroManualId) throw new Error("Selecione um encontro para registrar presenças.");
-      await syncDraftPresencas();
+      // Fecha a lista sem apagar quem já tinha presença; só grava novos marcados.
+      await syncDraftPresencas({ allowRemove: false });
 
       const { error: fechadaError } = await supabase
         .from("saude_mental_encontros")
@@ -381,14 +397,13 @@ function SaudeMentalPresencaPage() {
       if (fechadaError) throw fechadaError;
     },
     onSuccess: () => {
-      const presentes = draftSelected.size;
+      const presentes = new Set([...savedPresentIds, ...draftSelected]).size;
       const ausentes = Math.max(0, inscritosAnoManual.length - presentes);
       toast.success("Lista de presença fechada.", {
         description: `${presentes} presente(s) e ${ausentes} ausente(s) para este encontro.`,
       });
       void qc.invalidateQueries({ queryKey: ["saude-mental-presencas-all"] });
       void qc.invalidateQueries({ queryKey: ["saude-mental-encontros"] });
-      setDraftSyncedKey("");
     },
     onError: (e: Error) => toast.error("Erro ao fechar lista", { description: e.message }),
   });
@@ -847,17 +862,20 @@ function SaudeMentalPresencaPage() {
                     <Badge variant="secondary">Lista fechada</Badge>
                   ) : null}
                   <span>
-                    {savedPresentIds.size} registrados · {draftSelected.size} presentes marcados
-                    {hasPendingChanges ? " · alterações pendentes" : ""}
+                    {savedPresentIds.size} com presença
+                    {hasPendingAdds ? ` · +${toAdd.length} novo(s) a salvar` : ""}
+                    {hasPendingRemovals
+                      ? ` · ${toRemove.length} desmarcado(s) (use Excluir para remover)`
+                      : ""}
                   </span>
                 </div>
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              Use <strong>Salvar presenças</strong> para gravar só os marcados (ex.: atestado
-              antecipado) sem marcar os demais como ausentes — a lista fica aberta para o QR Code.
-              Use <strong>Fechar lista</strong> apenas ao final do encontro, quando os não
-              marcados devem contar como ausentes (bolinha vermelha).
+              Use <strong>Salvar presenças</strong> para gravar os novos marcados sem apagar quem
+              já tinha presença neste encontro. Use o ícone de lixeira para remover um registro
+              específico. Use <strong>Fechar lista</strong> ao final do encontro para os sem
+              registro contarem como ausência (bolinha vermelha).
             </p>
           </div>
             </CollapsibleContent>
@@ -923,11 +941,7 @@ function SaudeMentalPresencaPage() {
                   <Check className="mr-1.5 h-4 w-4" />
                 )}
                 Salvar presenças
-                {hasPendingChanges
-                  ? ` (${toAdd.length > 0 ? `+${toAdd.length}` : ""}${
-                      toAdd.length && toRemove.length ? " " : ""
-                    }${toRemove.length > 0 ? `−${toRemove.length}` : ""})`
-                  : ""}
+                {hasPendingAdds ? ` (+${toAdd.length})` : ""}
               </Button>
               <Button
                 type="button"
@@ -963,7 +977,7 @@ function SaudeMentalPresencaPage() {
                 <tr>
                   <th className="w-10 px-3 py-2.5 font-medium">#</th>
                   {encontroManualId ? (
-                    <th className="w-14 px-3 py-2.5 font-medium">Presença</th>
+                    <th className="min-w-[150px] px-3 py-2.5 font-medium">Situação</th>
                   ) : null}
                   <th className="px-3 py-2.5 font-medium">Participante</th>
                   <th className="px-3 py-2.5 font-medium">Escola</th>
@@ -993,9 +1007,9 @@ function SaudeMentalPresencaPage() {
                       className="px-3 py-10 text-center text-muted-foreground"
                     >
                       {filterPresenca === "presentes"
-                        ? "Nenhum participante com presença registrada neste encontro."
+                        ? "Nenhum participante com flag Presença neste encontro."
                         : filterPresenca === "ausentes"
-                          ? "Todos os inscritos filtrados já possuem presença registrada."
+                          ? "Nenhum participante com flag Ausência neste encontro."
                           : filterPresenca === "ip_duplicado"
                             ? "Nenhum IP duplicado encontrado neste encontro."
                             : "Nenhum inscrito encontrado com os filtros atuais."}
@@ -1031,14 +1045,28 @@ function SaudeMentalPresencaPage() {
                         </td>
                         {encontroManualId ? (
                           <td className="px-3 py-2.5">
-                            <Checkbox
-                              checked={selected}
-                              disabled={listaActionsPending}
-                              onCheckedChange={(checked) =>
-                                toggleDraft(inscrito.id, checked === true)
-                              }
-                              aria-label={`Presença de ${inscrito.nome_completo}`}
-                            />
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selected}
+                                disabled={listaActionsPending}
+                                onCheckedChange={(checked) =>
+                                  toggleDraft(inscrito.id, checked === true)
+                                }
+                                aria-label={`Presença de ${inscrito.nome_completo}`}
+                              />
+                              {selected || saved ? (
+                                <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                                  Presença
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="border-red-200 bg-red-50 text-red-700"
+                                >
+                                  Ausência
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                         ) : null}
                         <td className="px-3 py-2.5">
@@ -1127,6 +1155,7 @@ function SaudeMentalPresencaPage() {
                   <Check className="mr-2 h-4 w-4" />
                 )}
                 Salvar presenças
+                {hasPendingAdds ? ` (+${toAdd.length})` : ""}
               </Button>
               <Button
                 type="button"
