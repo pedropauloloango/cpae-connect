@@ -124,7 +124,6 @@ function SaudeMentalPresencaPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ presencaId: string; nome: string } | null>(
     null,
   );
-  const [clearEncontroOpen, setClearEncontroOpen] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(true);
   const [page, setPage] = useState(1);
   const [qrOpen, setQrOpen] = useState(false);
@@ -439,32 +438,6 @@ function SaudeMentalPresencaPage() {
       toast.error("Erro ao excluir presença", { description: e.message }),
   });
 
-  const clearEncontroPresencasMut = useMutation({
-    mutationFn: async (encontroId: string) => {
-      const { error: deleteError } = await supabase
-        .from("saude_mental_presencas")
-        .delete()
-        .eq("encontro_id", encontroId);
-      if (deleteError) throw deleteError;
-
-      const { error: reopenError } = await supabase
-        .from("saude_mental_encontros")
-        .update({ lista_presenca_fechada: false })
-        .eq("id", encontroId);
-      if (reopenError) throw reopenError;
-    },
-    onSuccess: () => {
-      toast.success("Todos os registros deste encontro foram excluídos.");
-      setClearEncontroOpen(false);
-      setDraftSelected(new Set());
-      setDraftSyncedKey("");
-      void qc.invalidateQueries({ queryKey: ["saude-mental-presencas-all"] });
-      void qc.invalidateQueries({ queryKey: ["saude-mental-encontros"] });
-    },
-    onError: (e: Error) =>
-      toast.error("Erro ao limpar encontro", { description: e.message }),
-  });
-
   const reabrirListasVaziasMut = useMutation({
     mutationFn: async (encontroIds: string[]) => {
       if (encontroIds.length === 0) return;
@@ -567,24 +540,6 @@ function SaudeMentalPresencaPage() {
       const next = new Set(prev);
       if (checked) next.add(inscritoId);
       else next.delete(inscritoId);
-      return next;
-    });
-  };
-
-  const selectAllFiltered = () => {
-    if (!encontroManualId) return;
-    setDraftSelected((prev) => {
-      const next = new Set(prev);
-      for (const i of inscritosFiltrados) next.add(i.id);
-      return next;
-    });
-  };
-
-  const clearFiltered = () => {
-    if (!encontroManualId) return;
-    setDraftSelected((prev) => {
-      const next = new Set(prev);
-      for (const i of inscritosFiltrados) next.delete(i.id);
       return next;
     });
   };
@@ -895,12 +850,6 @@ function SaudeMentalPresencaPage() {
 
           {encontroManualId ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={selectAllFiltered}>
-                Marcar filtrados
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={clearFiltered}>
-                Desmarcar filtrados
-              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -909,25 +858,6 @@ function SaudeMentalPresencaPage() {
               >
                 <FileDown className="mr-1.5 h-4 w-4" />
                 Imprimir lista
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                disabled={
-                  !encontroManualId ||
-                  (presencasEncontroManual.length === 0 && !encontroManual?.lista_presenca_fechada) ||
-                  clearEncontroPresencasMut.isPending
-                }
-                onClick={() => setClearEncontroOpen(true)}
-              >
-                {clearEncontroPresencasMut.isPending ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-1.5 h-4 w-4" />
-                )}
-                Limpar encontro
               </Button>
               <Button
                 type="button"
@@ -1340,56 +1270,6 @@ function SaudeMentalPresencaPage() {
                 </>
               ) : (
                 "Excluir presença"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={clearEncontroOpen} onOpenChange={setClearEncontroOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Limpar todos os registros do encontro?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                {encontroManual ? (
-                  <p>
-                    Encontro:{" "}
-                    <strong className="text-foreground">
-                      {encontroManual.modulo_curso} · {formatDataBr(encontroManual.data)} ·{" "}
-                      {formatHorario(encontroManual.horario)}
-                    </strong>
-                  </p>
-                ) : null}
-                <p>
-                  Serão removidos{" "}
-                  <strong className="text-foreground">{presencasEncontroManual.length}</strong>{" "}
-                  registro(s) de presença (manual e QR Code). A lista será reaberta e as bolinhas
-                  voltarão ao estado pendente (cinza).
-                </p>
-                <p>Esta ação não pode ser desfeita.</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearEncontroPresencasMut.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={clearEncontroPresencasMut.isPending || !encontroManualId}
-              onClick={(e) => {
-                e.preventDefault();
-                if (encontroManualId) clearEncontroPresencasMut.mutate(encontroManualId);
-              }}
-            >
-              {clearEncontroPresencasMut.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Excluindo…
-                </>
-              ) : (
-                "Excluir todos os registros"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
