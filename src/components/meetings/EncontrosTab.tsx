@@ -39,7 +39,11 @@ import {
   MeetingReferralOptionsField,
 } from "@/components/meetings/MeetingReferralOptionsField";
 import { appointmentToFormValues, updateVisitAppointment } from "@/lib/appointment-update";
-import { prepareAppointmentDatetimes } from "@/lib/appointment-utils";
+import {
+  datetimeLocalToIso,
+  prepareAppointmentDatetimes,
+  toDatetimeLocalValue,
+} from "@/lib/appointment-utils";
 import {
   buildAppointmentTitle,
   MEETING_ORDER,
@@ -89,6 +93,7 @@ type EditableMeeting = {
   id: string;
   numero: string;
   status: string;
+  data_atendimento: string;
   relato_texto: string | null;
   relato_anexo_url: string | null;
   observacoes: string | null;
@@ -123,6 +128,7 @@ export function EncontrosTab({
   const [referralOptions, setReferralOptions] = useState<MeetingReferralOption[]>([]);
   const [editingAppointment, setEditingAppointment] = useState<RequestAppointment | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<EditableMeeting | null>(null);
+  const [editDataAtendimento, setEditDataAtendimento] = useState("");
 
   useEffect(() => {
     if (meetingsLocked) {
@@ -157,6 +163,7 @@ export function EncontrosTab({
 
   const resetMeetingEdit = () => {
     setEditingMeeting(null);
+    setEditDataAtendimento("");
     setRelatoMode("texto");
     setRelatoFile(null);
     setReferralOptions([]);
@@ -164,6 +171,7 @@ export function EncontrosTab({
 
   const openMeetingEdit = (meeting: EditableMeeting) => {
     setEditingMeeting(meeting);
+    setEditDataAtendimento(toDatetimeLocalValue(meeting.data_atendimento));
     setRelatoMode(meeting.relato_anexo_url && !meeting.relato_texto?.trim() ? "arquivo" : "texto");
     setRelatoFile(null);
     setReferralOptions(normalizeMeetingReferralOptions(meeting.opcoes_encaminhamento));
@@ -312,6 +320,7 @@ export function EncontrosTab({
       relatoMode: "texto" | "arquivo";
       existingAnexo: string | null;
       opcoes_encaminhamento: MeetingReferralOption[];
+      data_atendimento?: string;
     }) => {
       const hasText = vals.relatoMode === "texto" && vals.relato_texto.trim().length > 0;
       const hasNewFile = !!vals.relatoFile;
@@ -341,6 +350,9 @@ export function EncontrosTab({
         relato_anexo_url = vals.existingAnexo;
       }
 
+      const dataAtendimentoIso =
+        isAdmin && vals.data_atendimento ? datetimeLocalToIso(vals.data_atendimento) : undefined;
+
       const { error } = await supabase
         .from("meetings")
         .update({
@@ -349,6 +361,7 @@ export function EncontrosTab({
           observacoes: vals.observacoes.trim() || null,
           opcoes_encaminhamento: vals.opcoes_encaminhamento,
           status: "registrado",
+          ...(dataAtendimentoIso ? { data_atendimento: dataAtendimentoIso } : {}),
         })
         .eq("id", vals.meetingId);
       if (error) throw error;
@@ -360,6 +373,7 @@ export function EncontrosTab({
         details: {
           meeting_id: vals.meetingId,
           numero: vals.numero,
+          ...(dataAtendimentoIso ? { data_atendimento: dataAtendimentoIso } : {}),
         },
       });
     },
@@ -737,9 +751,33 @@ export function EncontrosTab({
                     relatoMode,
                     existingAnexo: editingMeeting.relato_anexo_url,
                     opcoes_encaminhamento: referralOptions,
+                    ...(isAdmin ? { data_atendimento: editDataAtendimento } : {}),
                   });
                 }}
               >
+                {isAdmin ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`data-atendimento-edit-${editingMeeting.id}`}>
+                      Data e horário do encontro *
+                    </Label>
+                    <Input
+                      id={`data-atendimento-edit-${editingMeeting.id}`}
+                      type="datetime-local"
+                      required
+                      value={editDataAtendimento}
+                      onChange={(e) => setEditDataAtendimento(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Somente administradores podem alterar a data e o horário registrados.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Data/hora registrada: </span>
+                    {new Date(editingMeeting.data_atendimento).toLocaleString("pt-BR")}
+                  </div>
+                )}
+
                 <div className="space-y-3 rounded-md border border-border p-4">
                   <Label>Relato do encontro *</Label>
                   <RadioGroup
