@@ -80,6 +80,31 @@ export function digitsOnly(value: string | null | undefined): string {
   return (value ?? "").replace(/\D/g, "");
 }
 
+/**
+ * Normaliza CPF para 11 dígitos. Se vier com 10 (zero à esquerda omitido), completa com 0.
+ */
+export function normalizeCpfDigits(value: string | null | undefined): string {
+  const d = digitsOnly(value);
+  if (d.length === 10) return d.padStart(11, "0");
+  return d;
+}
+
+/** Valida dígitos verificadores do CPF (após normalizar). */
+export function isValidCpfChecksum(value: string | null | undefined): boolean {
+  const d = normalizeCpfDigits(value);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(d[i]) * (10 - i);
+  let rest = (sum * 10) % 11;
+  if (rest === 10) rest = 0;
+  if (rest !== Number(d[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += Number(d[i]) * (11 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10) rest = 0;
+  return rest === Number(d[10]);
+}
+
 export function formatCpfMask(value: string): string {
   const d = digitsOnly(value).slice(0, 11);
   if (d.length <= 3) return d;

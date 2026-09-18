@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeCpfDigits } from "@/lib/saude-mental-options";
 
 export type EncontroQrInfo = {
   id: string;
@@ -73,7 +74,7 @@ export async function validarInscritoPresencaQr(
 ): Promise<ValidarInscritoPresencaResult> {
   const { data, error } = await supabase.rpc("validar_inscrito_presenca_qr", {
     p_token: token,
-    p_cpf: cpf.replace(/\D/g, ""),
+    p_cpf: normalizeCpfDigits(cpf),
   });
   if (error) throw new Error(mapError(error));
   const row = Array.isArray(data) ? data[0] : data;
@@ -95,7 +96,7 @@ async function confirmarPresencaPorQrBrowser(
 ): Promise<ConfirmPresencaResult> {
   const { data, error } = await supabase.rpc("confirmar_presenca_saude_mental", {
     p_token: token,
-    p_cpf: cpf.replace(/\D/g, ""),
+    p_cpf: normalizeCpfDigits(cpf),
     p_client_ip: null,
   });
   if (error) throw new Error(mapError(error));

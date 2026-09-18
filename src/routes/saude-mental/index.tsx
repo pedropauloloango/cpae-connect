@@ -18,7 +18,9 @@ import type { PublicSchoolOption } from "@/lib/public-schools";
 import {
   digitsOnly,
   formatCpfMask,
+  isValidCpfChecksum,
   nivelEscolaridadeOptions,
+  normalizeCpfDigits,
   sexoOptions,
 } from "@/lib/saude-mental-options";
 import { SaudeMentalCursoHero } from "@/components/saude-mental/SaudeMentalCursoHero";
@@ -45,7 +47,8 @@ const schema = z.object({
   cpf: z
     .string()
     .min(1, "Informe o CPF")
-    .refine((v) => digitsOnly(v).length === 11, "Informe um CPF válido com 11 dígitos"),
+    .refine((v) => normalizeCpfDigits(v).length === 11, "Informe um CPF válido com 11 dígitos")
+    .refine((v) => isValidCpfChecksum(v), "CPF inválido. Confira os dígitos informados"),
   data_nascimento: z.string().min(1, "Informe a data de nascimento"),
   sexo: z
     .string()
@@ -161,7 +164,7 @@ function SaudeMentalPublico() {
       school_nome: vals.school_nome,
       escola_texto: vals.school_nome,
       nome_completo: vals.nome_completo,
-      cpf: vals.cpf,
+      cpf: normalizeCpfDigits(vals.cpf),
       data_nascimento: vals.data_nascimento,
       sexo: vals.sexo,
       telefone_whatsapp: vals.telefone_whatsapp,

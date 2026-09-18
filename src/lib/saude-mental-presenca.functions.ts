@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { getClientIp, getClientIpFromRequest } from "@/lib/client-ip.server";
-import { digitsOnly } from "@/lib/saude-mental-options";
+import { normalizeCpfDigits } from "@/lib/saude-mental-options";
 
 const presencaQrSchema = z.object({
   token: z.string().uuid("Link de presença inválido."),
@@ -23,7 +23,7 @@ export const registrarIpPresencaSaudeMentalQr = createServerFn({ method: "POST" 
 
     const { data: updated, error } = await supabaseAdmin.rpc("atualizar_presenca_ip_saude_mental", {
       p_token: data.token,
-      p_cpf: digitsOnly(data.cpf),
+      p_cpf: normalizeCpfDigits(data.cpf),
       p_client_ip: clientIp,
     });
 

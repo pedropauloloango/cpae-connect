@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { normalizeCpfDigits } from "@/lib/saude-mental-options";
 
 export type SaudeMentalSubmission = {
   school_id: string;
@@ -35,7 +36,7 @@ export async function submitSaudeMentalInscricao(
     school_nome: data.school_nome.trim(),
     escola_texto: data.escola_texto?.trim() || data.school_nome.trim(),
     nome_completo: data.nome_completo.trim(),
-    cpf: data.cpf.trim(),
+    cpf: normalizeCpfDigits(data.cpf),
     data_nascimento: data.data_nascimento,
     sexo: data.sexo,
     telefone_whatsapp: data.telefone_whatsapp.trim(),

@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { formatCpfMask } from "@/lib/saude-mental-options";
+import { formatCpfMask, normalizeCpfDigits } from "@/lib/saude-mental-options";
 import {
   confirmarPresencaPorQr,
   getEncontroByQrToken,
@@ -141,7 +141,7 @@ function PresencaPublicaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const cpfValido = cpf.replace(/\D/g, "").length === 11;
+  const cpfValido = normalizeCpfDigits(cpf).length === 11;
   const formBusy = validateMut.isPending || confirmMut.isPending;
 
   if (encontroQuery.isLoading) {

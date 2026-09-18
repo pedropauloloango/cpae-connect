@@ -39,6 +39,7 @@ import {
   formatCpfMask,
   nivelEscolaridadeLabels,
   nivelEscolaridadeOptions,
+  normalizeCpfDigits,
   sexoLabels,
   sexoOptions,
 } from "@/lib/saude-mental-options";
@@ -167,7 +168,7 @@ function SaudeMentalInscritoDetail() {
         .from("saude_mental_inscritos")
         .update({
           nome_completo: nome.toUpperCase(),
-          cpf: form.cpf.replace(/\D/g, "") || null,
+          cpf: normalizeCpfDigits(form.cpf) || null,
           data_nascimento: form.data_nascimento || null,
           sexo: form.sexo || null,
           email: form.email.trim().toLowerCase() || null,
