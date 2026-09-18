@@ -248,7 +248,10 @@ function SaudeMentalModulosPage() {
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
-      toast.success(`Recebimento ativo por ${vars.minutos} minutos.`);
+      const label =
+        qrRecebimentoDuracaoOptions.find((o) => o.value === vars.minutos)?.label ??
+        `${vars.minutos} minutos`;
+      toast.success(`Recebimento ativo por ${label}.`);
       void qc.invalidateQueries({ queryKey: ["saude-mental-encontros"] });
       setNowTick(Date.now());
     },

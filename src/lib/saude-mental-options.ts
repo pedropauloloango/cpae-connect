@@ -46,7 +46,8 @@ export const qrRecebimentoDuracaoOptions = [
   { value: 10, label: "10 minutos" },
   { value: 15, label: "15 minutos" },
   { value: 30, label: "30 minutos" },
-  { value: 60, label: "60 minutos" },
+  { value: 60, label: "1 hora" },
+  { value: 180, label: "3 horas" },
 ] as const;
 
 export const encontroStatusOptions = [
