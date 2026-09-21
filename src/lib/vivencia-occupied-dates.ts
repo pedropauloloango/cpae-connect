@@ -49,6 +49,7 @@ export async function fetchVivenciaOccupiedDates(
 
 /**
  * Datas ocupadas para palestra na mesma região (palestras + vivências).
+ * @deprecated Preferir fetchPalestraSchoolOccupiedDates (limite por escola + período).
  */
 export async function fetchPalestraOccupiedDates(
   regiao: string | null | undefined,
@@ -61,6 +62,33 @@ export async function fetchPalestraOccupiedDates(
   });
 
   if (error) throw error;
+
+  return mapOccupiedRows(data);
+}
+
+/**
+ * Datas em que a escola já tem palestra solicitada no mesmo período.
+ */
+export async function fetchPalestraSchoolOccupiedDates(
+  schoolId: string | null | undefined,
+  periodo: string | null | undefined,
+): Promise<string[]> {
+  const schoolKey = schoolId?.trim();
+  const periodoKey = periodo?.trim();
+  if (!schoolKey || !periodoKey) return [];
+
+  const { data, error } = await supabase.rpc("get_palestra_school_occupied_dates", {
+    p_school_id: schoolKey,
+    p_periodo: periodoKey,
+  });
+
+  if (error) {
+    // Função ainda não aplicada no banco — não bloqueia o calendário.
+    if (error.code === "PGRST202" || error.message?.includes("Could not find the function")) {
+      return [];
+    }
+    throw error;
+  }
 
   return mapOccupiedRows(data);
 }

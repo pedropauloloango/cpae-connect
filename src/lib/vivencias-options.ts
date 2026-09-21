@@ -13,11 +13,17 @@ import {
 export { alunoSerieOptions, alunoTurmaOptions, periodoOptions, solicitanteCargoOptions };
 export type { AlunoSerie, AlunoTurma, PeriodoEscolar, SolicitanteCargo };
 
-/** Máximo de turmas de vivência na mesma data e período (por solicitação / escola). */
 export const MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO = 2;
+
+/** Máximo de palestras da mesma escola na mesma data e período. */
+export const MAX_PALESTRAS_POR_ESCOLA_DIA_PERIODO = 1;
 
 export function vivenciaDiaPeriodoKey(data: string, periodo: string): string {
   return `${data.slice(0, 10)}|${periodo}`;
+}
+
+export function palestraDiaPeriodoKey(data: string, periodo: string): string {
+  return vivenciaDiaPeriodoKey(data, periodo);
 }
 
 /**
@@ -41,6 +47,24 @@ export function datesAtTurmaLimitForPeriod(
   return [...counts.entries()].filter(([, n]) => n >= limit).map(([d]) => d);
 }
 
+/** Datas já usadas por outras palestras do formulário no mesmo período. */
+export function datesAtPalestraLimitForPeriod(
+  palestras: Array<{ periodo?: string; data_preferivel?: string }>,
+  periodo: string | null | undefined,
+  excludeIndex: number,
+  limit = MAX_PALESTRAS_POR_ESCOLA_DIA_PERIODO,
+): string[] {
+  if (!periodo?.trim()) return [];
+  const counts = new Map<string, number>();
+  palestras.forEach((p, i) => {
+    if (i === excludeIndex) return;
+    if (!p.periodo || p.periodo !== periodo || !p.data_preferivel?.trim()) return;
+    const key = p.data_preferivel.slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  return [...counts.entries()].filter(([, n]) => n >= limit).map(([d]) => d);
+}
+
 /** Quantas outras turmas já usam a mesma data + período (excluindo `excludeIndex`). */
 export function countTurmasMesmoDiaPeriodo(
   groups: Array<{ periodo?: string; data_vivencia?: string }>,
@@ -58,11 +82,65 @@ export function countTurmasMesmoDiaPeriodo(
   ).length;
 }
 
+/** Datas que já atingiram o limite de turmas no mesmo período (grupos + Doce Encanto). */
+export function datesAtTurmaLimitCombined(
+  groups: Array<{ periodo?: string; data_vivencia?: string }>,
+  doceGroups: Array<{ periodo?: string; data_vivencia?: string }>,
+  periodo: string | null | undefined,
+  exclude: { source: "groups" | "doce"; index: number } | null,
+  limit = MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+): string[] {
+  if (!periodo?.trim()) return [];
+  const counts = new Map<string, number>();
+  const bump = (data: string | undefined, skip: boolean) => {
+    if (skip || !data?.trim()) return;
+    const key = data.slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  };
+  groups.forEach((g, i) => {
+    if (!g.periodo || g.periodo !== periodo) return;
+    bump(g.data_vivencia, exclude?.source === "groups" && exclude.index === i);
+  });
+  doceGroups.forEach((g, i) => {
+    if (!g.periodo || g.periodo !== periodo) return;
+    bump(g.data_vivencia, exclude?.source === "doce" && exclude.index === i);
+  });
+  return [...counts.entries()].filter(([, n]) => n >= limit).map(([d]) => d);
+}
+
+export function countTurmasMesmoDiaPeriodoCombined(
+  groups: Array<{ periodo?: string; data_vivencia?: string }>,
+  doceGroups: Array<{ periodo?: string; data_vivencia?: string }>,
+  exclude: { source: "groups" | "doce"; index: number } | null,
+  data: string | null | undefined,
+  periodo: string | null | undefined,
+): number {
+  if (!data?.trim() || !periodo?.trim()) return 0;
+  const day = data.slice(0, 10);
+  let n = 0;
+  groups.forEach((g, i) => {
+    if (exclude?.source === "groups" && exclude.index === i) return;
+    if (g.periodo === periodo && g.data_vivencia?.slice(0, 10) === day) n += 1;
+  });
+  doceGroups.forEach((g, i) => {
+    if (exclude?.source === "doce" && exclude.index === i) return;
+    if (g.periodo === periodo && g.data_vivencia?.slice(0, 10) === day) n += 1;
+  });
+  return n;
+}
+
 export function mensagemLimiteTurmasDiaPeriodo(periodo?: string | null): string {
   const periodoLabel = periodo
     ? (periodoLabels[periodo] ?? periodo)
     : "este período";
   return `Máximo de ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (${periodoLabel}). Escolha outro dia ou outro período.`;
+}
+
+export function mensagemLimitePalestrasDiaPeriodo(periodo?: string | null): string {
+  const periodoLabel = periodo
+    ? (periodoLabels[periodo] ?? periodo)
+    : "este período";
+  return `A escola só pode solicitar ${MAX_PALESTRAS_POR_ESCOLA_DIA_PERIODO} palestra por período na mesma data (${periodoLabel}). Escolha outro dia ou outro período.`;
 }
 
 export const vivenciaTemaOptions = [
@@ -145,10 +223,22 @@ export const palestraTemaOptions = [
     value: "relacionamento_servidores",
     label: "Relacionamento interpessoal (Servidores)",
   },
+  {
+    value: "comunicacao_nao_violenta",
+    label: "Comunicação não violenta",
+  },
 ] as const;
 
 export type VivenciaTema = (typeof vivenciaTemaOptions)[number]["value"];
 export type PalestraTema = (typeof palestraTemaOptions)[number]["value"];
+
+/** Tema especial com bloco próprio no formulário público. */
+export const DOCE_ENCANTO_TEMA = "doce_encanto" as const satisfies VivenciaTema;
+
+/** Temas exibidos no multi-select (sem Doce Encanto). */
+export const vivenciaTemaOptionsPadrao = vivenciaTemaOptions.filter(
+  (o) => o.value !== DOCE_ENCANTO_TEMA,
+);
 
 export const vivenciaTemaValues = vivenciaTemaOptions.map((o) => o.value) as [
   VivenciaTema,

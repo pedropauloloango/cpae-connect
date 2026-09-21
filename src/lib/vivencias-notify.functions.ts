@@ -12,8 +12,8 @@ const groupSchema = z.object({
 });
 
 const palestraSchema = z.object({
-  aluno_serie: z.string().min(1),
-  aluno_turma: z.string().min(1),
+  aluno_serie: z.string().nullable().optional(),
+  aluno_turma: z.string().nullable().optional(),
   periodo: z.string().min(1),
   palestra_tema: z.string().min(1),
   data_preferivel: z.string().nullable().optional(),

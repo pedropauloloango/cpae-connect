@@ -45,13 +45,18 @@ import {
 import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
 import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
-  countTurmasMesmoDiaPeriodo,
-  datesAtTurmaLimitForPeriod,
+  countTurmasMesmoDiaPeriodoCombined,
+  datesAtPalestraLimitForPeriod,
+  datesAtTurmaLimitCombined,
+  DOCE_ENCANTO_TEMA,
   MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+  mensagemLimitePalestrasDiaPeriodo,
   mensagemLimiteTurmasDiaPeriodo,
+  palestraDiaPeriodoKey,
   palestraTemaOptions,
   vivenciaDiaPeriodoKey,
-  vivenciaTemaOptions,
+  vivenciaTemaLabel,
+  vivenciaTemaOptionsPadrao,
   type PalestraTema,
   type VivenciaTema,
 } from "@/lib/vivencias-options";
@@ -78,9 +83,15 @@ const groupSchema = z.object({
   hora_inicio: z.string().optional(),
 });
 
-const palestraSchema = z.object({
+const doceEncantoGroupSchema = z.object({
   aluno_serie: z.string().optional(),
   aluno_turma: z.string().optional(),
+  periodo: z.string().optional(),
+  data_vivencia: z.string().optional(),
+  hora_inicio: z.string().optional(),
+});
+
+const palestraSchema = z.object({
   periodo: z.string().optional(),
   palestra_tema: z.string().optional(),
   data_preferivel: z.string().optional(),
@@ -110,22 +121,34 @@ function isGroupComplete(g: {
   );
 }
 
-function isPalestraEmpty(p: {
+function isDoceEncantoEmpty(g: {
   aluno_serie?: string;
   aluno_turma?: string;
   periodo?: string;
+}): boolean {
+  return !g.aluno_serie && !g.aluno_turma && !g.periodo;
+}
+
+function isDoceEncantoComplete(g: {
+  aluno_serie?: string;
+  aluno_turma?: string;
+  periodo?: string;
+}): boolean {
+  return Boolean(g.aluno_serie && g.aluno_turma && g.periodo);
+}
+
+function isPalestraEmpty(p: {
+  periodo?: string;
   palestra_tema?: string;
 }): boolean {
-  return !p.aluno_serie && !p.aluno_turma && !p.periodo && !p.palestra_tema;
+  return !p.periodo && !p.palestra_tema;
 }
 
 function isPalestraComplete(p: {
-  aluno_serie?: string;
-  aluno_turma?: string;
   periodo?: string;
   palestra_tema?: string;
 }): boolean {
-  return Boolean(p.aluno_serie && p.aluno_turma && p.periodo && p.palestra_tema);
+  return Boolean(p.periodo && p.palestra_tema);
 }
 
 const schema = z
@@ -141,17 +164,26 @@ const schema = z
     }),
     solicitante_telefone: z.string().min(8, "Informe o telefone para contato"),
     groups: z.array(groupSchema),
+    doce_encanto_ativo: z.boolean().default(false),
+    doce_encanto_groups: z.array(doceEncantoGroupSchema).default([]),
     palestras: z.array(palestraSchema),
   })
   .superRefine((val, ctx) => {
     const completeGroups = val.groups.filter(isGroupComplete);
+    const completeDoce = val.doce_encanto_ativo
+      ? val.doce_encanto_groups.filter(isDoceEncantoComplete)
+      : [];
     const completePalestras = val.palestras.filter(isPalestraComplete);
 
-    if (completeGroups.length === 0 && completePalestras.length === 0) {
+    if (
+      completeGroups.length === 0 &&
+      completeDoce.length === 0 &&
+      completePalestras.length === 0
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "Adicione ao menos uma vivência completa ou uma palestra completa",
+          "Adicione ao menos uma vivência completa, o Projeto Doce Encanto ou uma palestra completa",
         path: ["groups"],
       });
     }
@@ -179,7 +211,8 @@ const schema = z
           path: ["groups", i, "periodo"],
         });
       }
-      if ((g.temas?.length ?? 0) === 0) {
+      const temasSemDoce = (g.temas ?? []).filter((t) => t !== DOCE_ENCANTO_TEMA);
+      if (temasSemDoce.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Selecione ao menos um tema",
@@ -188,44 +221,85 @@ const schema = z
       }
     });
 
-    const turmasPorDiaPeriodo = new Map<string, number[]>();
-    val.groups.forEach((g, i) => {
-      if (!g.data_vivencia?.trim() || !g.periodo) return;
-      if (isGroupEmpty(g)) return;
-      const key = vivenciaDiaPeriodoKey(g.data_vivencia, g.periodo);
+    if (val.doce_encanto_ativo) {
+      if (completeDoce.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Informe ao menos uma série/turma para o Projeto Doce Encanto",
+          path: ["doce_encanto_groups"],
+        });
+      }
+      val.doce_encanto_groups.forEach((g, i) => {
+        if (isDoceEncantoEmpty(g)) return;
+        if (!g.aluno_serie) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Selecione a série",
+            path: ["doce_encanto_groups", i, "aluno_serie"],
+          });
+        }
+        if (!g.aluno_turma) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Selecione a turma",
+            path: ["doce_encanto_groups", i, "aluno_turma"],
+          });
+        }
+        if (!g.periodo) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Selecione o período",
+            path: ["doce_encanto_groups", i, "periodo"],
+          });
+        }
+      });
+    }
+
+    type DiaPeriodoRef = { path: (string | number)[]; index: number };
+    const turmasPorDiaPeriodo = new Map<string, DiaPeriodoRef[]>();
+    const trackDiaPeriodo = (
+      data: string | undefined,
+      periodo: string | undefined,
+      path: (string | number)[],
+      index: number,
+      empty: boolean,
+    ) => {
+      if (!data?.trim() || !periodo || empty) return;
+      const key = vivenciaDiaPeriodoKey(data, periodo);
       const list = turmasPorDiaPeriodo.get(key) ?? [];
-      list.push(i);
+      list.push({ path, index });
       turmasPorDiaPeriodo.set(key, list);
+    };
+
+    val.groups.forEach((g, i) => {
+      trackDiaPeriodo(g.data_vivencia, g.periodo, ["groups", i, "data_vivencia"], i, isGroupEmpty(g));
     });
-    for (const [key, indices] of turmasPorDiaPeriodo) {
-      if (indices.length <= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO) continue;
+    if (val.doce_encanto_ativo) {
+      val.doce_encanto_groups.forEach((g, i) => {
+        trackDiaPeriodo(
+          g.data_vivencia,
+          g.periodo,
+          ["doce_encanto_groups", i, "data_vivencia"],
+          i,
+          isDoceEncantoEmpty(g),
+        );
+      });
+    }
+    for (const [key, refs] of turmasPorDiaPeriodo) {
+      if (refs.length <= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO) continue;
       const [, periodo] = key.split("|");
       const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
-      for (const i of indices) {
+      for (const ref of refs) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: msg,
-          path: ["groups", i, "data_vivencia"],
+          path: ref.path,
         });
       }
     }
 
     val.palestras.forEach((p, i) => {
       if (isPalestraEmpty(p)) return;
-      if (!p.aluno_serie) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Selecione a série",
-          path: ["palestras", i, "aluno_serie"],
-        });
-      }
-      if (!p.aluno_turma) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Selecione a turma",
-          path: ["palestras", i, "aluno_turma"],
-        });
-      }
       if (!p.periodo) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -241,6 +315,28 @@ const schema = z
         });
       }
     });
+
+    const palestrasPorDiaPeriodo = new Map<string, number[]>();
+    val.palestras.forEach((p, i) => {
+      if (!p.data_preferivel?.trim() || !p.periodo) return;
+      if (isPalestraEmpty(p)) return;
+      const key = palestraDiaPeriodoKey(p.data_preferivel, p.periodo);
+      const list = palestrasPorDiaPeriodo.get(key) ?? [];
+      list.push(i);
+      palestrasPorDiaPeriodo.set(key, list);
+    });
+    for (const [key, indices] of palestrasPorDiaPeriodo) {
+      if (indices.length <= 1) continue;
+      const [, periodo] = key.split("|");
+      const msg = mensagemLimitePalestrasDiaPeriodo(periodo);
+      for (const i of indices) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: msg,
+          path: ["palestras", i, "data_preferivel"],
+        });
+      }
+    }
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -265,10 +361,18 @@ function emptyGroup() {
   };
 }
 
-function emptyPalestra() {
+function emptyDoceEncantoGroup() {
   return {
     aluno_serie: undefined as unknown as string,
     aluno_turma: undefined as unknown as string,
+    periodo: undefined as unknown as PeriodoEscolar,
+    data_vivencia: "",
+    hora_inicio: "",
+  };
+}
+
+function emptyPalestra() {
+  return {
     periodo: undefined as unknown as PeriodoEscolar,
     palestra_tema: undefined as unknown as string,
     data_preferivel: "",
@@ -288,7 +392,10 @@ function TemasMultiSelect({
   hasError?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedOptions = vivenciaTemaOptions.filter((o) => selected.includes(o.value));
+  const selectedFiltered = selected.filter((v) => v !== DOCE_ENCANTO_TEMA);
+  const selectedOptions = vivenciaTemaOptionsPadrao.filter((o) =>
+    selectedFiltered.includes(o.value),
+  );
 
   return (
     <div className="space-y-2">
@@ -300,9 +407,9 @@ function TemasMultiSelect({
               hasError ? "border-destructive" : "border-input hover:border-slate-300"
             }`}
           >
-            <span className={selected.length ? "text-[#0F172A]" : "text-muted-foreground"}>
-              {selected.length
-                ? `${selected.length} tema${selected.length > 1 ? "s" : ""} selecionado${selected.length > 1 ? "s" : ""}`
+            <span className={selectedFiltered.length ? "text-[#0F172A]" : "text-muted-foreground"}>
+              {selectedFiltered.length
+                ? `${selectedFiltered.length} tema${selectedFiltered.length > 1 ? "s" : ""} selecionado${selectedFiltered.length > 1 ? "s" : ""}`
                 : "Selecione os temas"}
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -313,10 +420,10 @@ function TemasMultiSelect({
           className="max-h-[320px] w-[--radix-popover-trigger-width] overflow-y-auto p-2"
         >
           <div className="grid gap-2">
-            {vivenciaTemaOptions.map((o) => (
+            {vivenciaTemaOptionsPadrao.map((o) => (
               <label key={o.value} className={checkboxOptionLabel}>
                 <Checkbox
-                  checked={selected.includes(o.value)}
+                  checked={selectedFiltered.includes(o.value)}
                   onCheckedChange={(c) => onToggle(o.value, c === true)}
                 />
                 <span>{o.label}</span>
@@ -459,6 +566,8 @@ function VivenciasPublico() {
       school_nome: "",
       regiao_escola: "",
       groups: [emptyGroup()],
+      doce_encanto_ativo: false,
+      doce_encanto_groups: [],
       palestras: [emptyPalestra()],
     },
   });
@@ -466,6 +575,14 @@ function VivenciasPublico() {
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "groups",
+  });
+  const {
+    fields: doceFields,
+    append: appendDoce,
+    remove: removeDoce,
+  } = useFieldArray({
+    control: form.control,
+    name: "doce_encanto_groups",
   });
   const {
     fields: palestraFields,
@@ -482,6 +599,8 @@ function VivenciasPublico() {
   const regiaoKnown = regiaoEscolaOptions.some((o) => o.value === regiaoValue);
 
   const watchedGroups = form.watch("groups");
+  const watchedDoceAtivo = form.watch("doce_encanto_ativo");
+  const watchedDoceGroups = form.watch("doce_encanto_groups");
   const watchedPalestras = form.watch("palestras");
 
   const handleSchoolSelect = (school: PublicSchoolOption) => {
@@ -493,7 +612,29 @@ function VivenciasPublico() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
-      const completeGroups = values.groups.filter(isGroupComplete);
+      const completeGroups = values.groups
+        .filter(isGroupComplete)
+        .map((g) => ({
+          aluno_serie: g.aluno_serie as string,
+          aluno_turma: g.aluno_turma as string,
+          periodo: g.periodo as PeriodoEscolar,
+          temas: (g.temas as VivenciaTema[]).filter((t) => t !== DOCE_ENCANTO_TEMA),
+          data_vivencia: g.data_vivencia || null,
+          hora_inicio: g.hora_inicio || null,
+        }))
+        .filter((g) => g.temas.length > 0);
+
+      const doceGroups = values.doce_encanto_ativo
+        ? values.doce_encanto_groups.filter(isDoceEncantoComplete).map((g) => ({
+            aluno_serie: g.aluno_serie as string,
+            aluno_turma: g.aluno_turma as string,
+            periodo: g.periodo as PeriodoEscolar,
+            temas: [DOCE_ENCANTO_TEMA] as VivenciaTema[],
+            data_vivencia: g.data_vivencia || null,
+            hora_inicio: g.hora_inicio || null,
+          }))
+        : [];
+
       const completePalestras = values.palestras.filter(isPalestraComplete);
       return submitVivenciaRequest({
         school_id: values.school_id,
@@ -504,17 +645,8 @@ function VivenciasPublico() {
         solicitante_nome: values.solicitante_nome,
         solicitante_cargo: values.solicitante_cargo as SolicitanteCargo,
         solicitante_telefone: values.solicitante_telefone,
-        groups: completeGroups.map((g) => ({
-          aluno_serie: g.aluno_serie as string,
-          aluno_turma: g.aluno_turma as string,
-          periodo: g.periodo as PeriodoEscolar,
-          temas: g.temas as VivenciaTema[],
-          data_vivencia: g.data_vivencia || null,
-          hora_inicio: g.hora_inicio || null,
-        })),
+        groups: [...completeGroups, ...doceGroups],
         palestras: completePalestras.map((p) => ({
-          aluno_serie: p.aluno_serie as string,
-          aluno_turma: p.aluno_turma as string,
           periodo: p.periodo as PeriodoEscolar,
           palestra_tema: p.palestra_tema as PalestraTema,
           data_preferivel: p.data_preferivel || null,
@@ -542,12 +674,20 @@ function VivenciasPublico() {
 
   const applyGroupDataVivencia = (groupIndex: number, nextDate: string) => {
     const groups = form.getValues("groups") ?? [];
+    const doce = form.getValues("doce_encanto_ativo")
+      ? (form.getValues("doce_encanto_groups") ?? [])
+      : [];
     const periodo = groups[groupIndex]?.periodo;
     if (
       nextDate &&
       periodo &&
-      countTurmasMesmoDiaPeriodo(groups, groupIndex, nextDate, periodo) >=
-        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+      countTurmasMesmoDiaPeriodoCombined(
+        groups,
+        doce,
+        { source: "groups", index: groupIndex },
+        nextDate,
+        periodo,
+      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
     ) {
       const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
       form.setError(`groups.${groupIndex}.data_vivencia`, { type: "manual", message: msg });
@@ -563,6 +703,9 @@ function VivenciasPublico() {
 
   const applyGroupPeriodo = (groupIndex: number, nextPeriodo: string) => {
     const groups = form.getValues("groups") ?? [];
+    const doce = form.getValues("doce_encanto_ativo")
+      ? (form.getValues("doce_encanto_groups") ?? [])
+      : [];
     const data = groups[groupIndex]?.data_vivencia;
     form.setValue(`groups.${groupIndex}.periodo`, nextPeriodo as PeriodoEscolar, {
       shouldDirty: true,
@@ -571,8 +714,13 @@ function VivenciasPublico() {
     if (
       data &&
       nextPeriodo &&
-      countTurmasMesmoDiaPeriodo(groups, groupIndex, data, nextPeriodo) >=
-        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+      countTurmasMesmoDiaPeriodoCombined(
+        groups,
+        doce,
+        { source: "groups", index: groupIndex },
+        data,
+        nextPeriodo,
+      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
     ) {
       const msg = mensagemLimiteTurmasDiaPeriodo(nextPeriodo);
       form.setValue(`groups.${groupIndex}.data_vivencia`, "", {
@@ -585,6 +733,85 @@ function VivenciasPublico() {
       });
     } else {
       form.clearErrors(`groups.${groupIndex}.data_vivencia`);
+    }
+  };
+
+  const applyDoceDataVivencia = (groupIndex: number, nextDate: string) => {
+    const groups = form.getValues("groups") ?? [];
+    const doce = form.getValues("doce_encanto_groups") ?? [];
+    const periodo = doce[groupIndex]?.periodo;
+    if (
+      nextDate &&
+      periodo &&
+      countTurmasMesmoDiaPeriodoCombined(
+        groups,
+        doce,
+        { source: "doce", index: groupIndex },
+        nextDate,
+        periodo,
+      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+    ) {
+      const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
+      form.setError(`doce_encanto_groups.${groupIndex}.data_vivencia`, {
+        type: "manual",
+        message: msg,
+      });
+      toast.error("Limite de turmas", { description: msg });
+      return;
+    }
+    form.clearErrors(`doce_encanto_groups.${groupIndex}.data_vivencia`);
+    form.setValue(`doce_encanto_groups.${groupIndex}.data_vivencia`, nextDate, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const applyDocePeriodo = (groupIndex: number, nextPeriodo: string) => {
+    const groups = form.getValues("groups") ?? [];
+    const doce = form.getValues("doce_encanto_groups") ?? [];
+    const data = doce[groupIndex]?.data_vivencia;
+    form.setValue(`doce_encanto_groups.${groupIndex}.periodo`, nextPeriodo as PeriodoEscolar, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (
+      data &&
+      nextPeriodo &&
+      countTurmasMesmoDiaPeriodoCombined(
+        groups,
+        doce,
+        { source: "doce", index: groupIndex },
+        data,
+        nextPeriodo,
+      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+    ) {
+      const msg = mensagemLimiteTurmasDiaPeriodo(nextPeriodo);
+      form.setValue(`doce_encanto_groups.${groupIndex}.data_vivencia`, "", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setError(`doce_encanto_groups.${groupIndex}.data_vivencia`, {
+        type: "manual",
+        message: msg,
+      });
+      toast.error("Data removida", {
+        description: `${msg} A data desta turma foi limpa para você escolher outra.`,
+      });
+    } else {
+      form.clearErrors(`doce_encanto_groups.${groupIndex}.data_vivencia`);
+    }
+  };
+
+  const setDoceEncantoAtivo = (checked: boolean) => {
+    form.setValue("doce_encanto_ativo", checked, { shouldDirty: true, shouldValidate: true });
+    if (checked) {
+      const current = form.getValues("doce_encanto_groups") ?? [];
+      if (current.length === 0) {
+        appendDoce(emptyDoceEncantoGroup());
+      }
+    } else {
+      form.setValue("doce_encanto_groups", [], { shouldDirty: true, shouldValidate: true });
+      form.clearErrors("doce_encanto_groups");
     }
   };
 
@@ -752,10 +979,12 @@ function VivenciasPublico() {
                 const temas = form.watch(`groups.${index}.temas`) ?? [];
                 const periodo = form.watch(`groups.${index}.periodo`);
                 const groupsSnapshot = form.watch("groups") ?? [];
-                const extraOccupiedDates = datesAtTurmaLimitForPeriod(
+                const doceSnapshot = watchedDoceAtivo ? (watchedDoceGroups ?? []) : [];
+                const extraOccupiedDates = datesAtTurmaLimitCombined(
                   groupsSnapshot,
+                  doceSnapshot,
                   periodo,
-                  index,
+                  { source: "groups", index },
                 );
 
                 const groupRequiredMark = " *";
@@ -873,8 +1102,8 @@ function VivenciasPublico() {
                         >
                           <p className="mb-2 text-xs text-[#64748B]">
                             Dias úteis em verde. Laranja = limite de {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO}{" "}
-                            turmas no mesmo dia/período ou já há solicitação na região. Sujeita à
-                            confirmação da equipe.
+                            turmas no mesmo dia/período ou já há solicitação na região. Datas passadas
+                            são permitidas. Sujeita à confirmação da equipe.
                           </p>
                           <Controller
                             control={form.control}
@@ -927,11 +1156,220 @@ function VivenciasPublico() {
                 Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra.
               </p>
             )}
+
+            <div className="space-y-4 rounded-2xl border border-[#0F52BA]/20 bg-[#EAF2FF]/30 p-4 sm:p-5">
+              <label className={checkboxOptionLabel}>
+                <Checkbox
+                  checked={watchedDoceAtivo}
+                  onCheckedChange={(c) => setDoceEncantoAtivo(c === true)}
+                />
+                <span>
+                  <span className="font-semibold text-[#0F172A]">
+                    {vivenciaTemaLabel(DOCE_ENCANTO_TEMA)}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[#64748B]">
+                    Marque para solicitar o projeto e informar série(s), turma(s), período, data e horário.
+                    É possível adicionar mais de uma série/turma no mesmo período.
+                  </span>
+                </span>
+              </label>
+
+              {typeof form.formState.errors.doce_encanto_groups?.message === "string" && (
+                <p className="text-xs font-medium text-destructive">
+                  {form.formState.errors.doce_encanto_groups.message}
+                </p>
+              )}
+              {typeof form.formState.errors.doce_encanto_groups?.root?.message === "string" && (
+                <p className="text-xs font-medium text-destructive">
+                  {form.formState.errors.doce_encanto_groups.root.message}
+                </p>
+              )}
+
+              {watchedDoceAtivo && (
+                <div className="space-y-4">
+                  {doceFields.map((field, index) => {
+                    const doceErrors = form.formState.errors.doce_encanto_groups?.[index];
+                    const periodo = form.watch(`doce_encanto_groups.${index}.periodo`);
+                    const groupsSnapshot = form.watch("groups") ?? [];
+                    const doceSnapshot = form.watch("doce_encanto_groups") ?? [];
+                    const extraOccupiedDates = datesAtTurmaLimitCombined(
+                      groupsSnapshot,
+                      doceSnapshot,
+                      periodo,
+                      { source: "doce", index },
+                    );
+
+                    return (
+                      <div
+                        key={field.id}
+                        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-bold text-[#0F172A]">
+                            Doce Encanto — turma {index + 1}
+                            {doceFields.length > 1 ? ` de ${doceFields.length}` : ""}
+                          </h3>
+                          {doceFields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => removeDoce(index)}
+                            >
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              Remover
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <Field label="Série *" error={doceErrors?.aluno_serie?.message}>
+                            <Controller
+                              control={form.control}
+                              name={`doce_encanto_groups.${index}.aluno_serie`}
+                              render={({ field: f }) => (
+                                <Select value={f.value} onValueChange={f.onChange}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a série" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {serieOptions.map((o) => (
+                                      <SelectItem key={o.value} value={o.value}>
+                                        {o.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                          </Field>
+
+                          <Field label="Turma *" error={doceErrors?.aluno_turma?.message}>
+                            <Controller
+                              control={form.control}
+                              name={`doce_encanto_groups.${index}.aluno_turma`}
+                              render={({ field: f }) => (
+                                <Select value={f.value} onValueChange={f.onChange}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a turma" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {turmaOptions.map((o) => (
+                                      <SelectItem key={o.value} value={o.value}>
+                                        {o.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                          </Field>
+
+                          <Field label="Período *" error={doceErrors?.periodo?.message}>
+                            <Controller
+                              control={form.control}
+                              name={`doce_encanto_groups.${index}.periodo`}
+                              render={({ field: f }) => (
+                                <Select
+                                  value={f.value}
+                                  onValueChange={(v) => applyDocePeriodo(index, v)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o período" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {periodoOptions.map((o) => (
+                                      <SelectItem key={o.value} value={o.value}>
+                                        {o.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                          </Field>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field
+                            label="Data preferível da Vivência"
+                            error={doceErrors?.data_vivencia?.message}
+                          >
+                            <p className="mb-2 text-xs text-[#64748B]">
+                              Dias úteis em verde. Laranja = limite de{" "}
+                              {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia/período.
+                              Datas passadas são permitidas.
+                            </p>
+                            <Controller
+                              control={form.control}
+                              name={`doce_encanto_groups.${index}.data_vivencia`}
+                              render={({ field: f }) => (
+                                <VivenciaDatePicker
+                                  value={f.value}
+                                  onChange={(v) => applyDoceDataVivencia(index, v)}
+                                  regiao={regiaoValue}
+                                  periodo={periodo}
+                                  extraOccupiedDates={extraOccupiedDates}
+                                />
+                              )}
+                            />
+                          </Field>
+
+                          <Field label="Horário de início">
+                            <p className="mb-2 text-xs text-[#64748B]">
+                              Hora (07–21) e minuto (00/15/30/45). Na agenda a duração será sempre de 1
+                              hora.
+                            </p>
+                            <Controller
+                              control={form.control}
+                              name={`doce_encanto_groups.${index}.hora_inicio`}
+                              render={({ field: f }) => (
+                                <VisitStartTimeSelect value={f.value ?? ""} onChange={f.onChange} />
+                              )}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-[14px] border-dashed border-[#0F52BA]/40 text-[#0F52BA] hover:bg-[#EAF2FF] disabled:cursor-not-allowed"
+                    disabled={
+                      (watchedDoceGroups?.length ?? 0) > 0 &&
+                      !(watchedDoceGroups ?? []).every(isDoceEncantoComplete)
+                    }
+                    onClick={() => {
+                      const current = form.getValues("doce_encanto_groups") ?? [];
+                      const last = current[current.length - 1];
+                      appendDoce({
+                        ...emptyDoceEncantoGroup(),
+                        periodo: last?.periodo ?? (undefined as unknown as PeriodoEscolar),
+                      });
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar outra série / turma (mesmo período)
+                  </Button>
+                  {(watchedDoceGroups?.length ?? 0) > 0 &&
+                    !(watchedDoceGroups ?? []).every(
+                      (g) => isDoceEncantoComplete(g) || isDoceEncantoEmpty(g),
+                    ) && (
+                      <p className="text-center text-xs text-[#64748B]">
+                        Preencha série, turma e período da turma atual para adicionar outra.
+                      </p>
+                    )}
+                </div>
+              )}
+            </div>
           </FormSection>
 
           <FormSection
             title="Palestras"
-            description="Opcional se já houver vivências. Você pode adicionar mais de uma palestra para séries, turmas e períodos diferentes."
+            description="Opcional se já houver vivências. A escola pode solicitar apenas 1 palestra por período na mesma data preferível."
             icon={Mic2}
           >
             <div className="space-y-5">
@@ -939,11 +1377,12 @@ function VivenciasPublico() {
                 const palestraErrors = form.formState.errors.palestras?.[index];
                 const periodo = form.watch(`palestras.${index}.periodo`);
                 const palestrasSnapshot = form.watch("palestras") ?? [];
-                const extraOccupiedDates = palestrasSnapshot
-                  .map((p, i) =>
-                    i !== index && p.data_preferivel ? p.data_preferivel : null,
-                  )
-                  .filter((d): d is string => Boolean(d));
+                const extraOccupiedDates = datesAtPalestraLimitForPeriod(
+                  palestrasSnapshot,
+                  periodo,
+                  index,
+                );
+                const schoolId = form.watch("school_id");
 
                 return (
                   <div
@@ -969,49 +1408,7 @@ function VivenciasPublico() {
                       )}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <Field label="Série *" error={palestraErrors?.aluno_serie?.message}>
-                        <Controller
-                          control={form.control}
-                          name={`palestras.${index}.aluno_serie`}
-                          render={({ field: f }) => (
-                            <Select value={f.value} onValueChange={f.onChange}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione a série" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {serieOptions.map((o) => (
-                                  <SelectItem key={o.value} value={o.value}>
-                                    {o.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </Field>
-
-                      <Field label="Turma *" error={palestraErrors?.aluno_turma?.message}>
-                        <Controller
-                          control={form.control}
-                          name={`palestras.${index}.aluno_turma`}
-                          render={({ field: f }) => (
-                            <Select value={f.value} onValueChange={f.onChange}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione a turma" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {turmaOptions.map((o) => (
-                                  <SelectItem key={o.value} value={o.value}>
-                                    {o.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </Field>
-
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="Período *" error={palestraErrors?.periodo?.message}>
                         <Controller
                           control={form.control}
@@ -1032,34 +1429,37 @@ function VivenciasPublico() {
                           )}
                         />
                       </Field>
+
+                      <Field label="Tema da palestra *" error={palestraErrors?.palestra_tema?.message}>
+                        <Controller
+                          control={form.control}
+                          name={`palestras.${index}.palestra_tema`}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a palestra" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {palestraTemaOptions.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </Field>
                     </div>
 
-                    <Field label="Tema da palestra *" error={palestraErrors?.palestra_tema?.message}>
-                      <Controller
-                        control={form.control}
-                        name={`palestras.${index}.palestra_tema`}
-                        render={({ field: f }) => (
-                          <Select value={f.value} onValueChange={f.onChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a palestra" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {palestraTemaOptions.map((o) => (
-                                <SelectItem key={o.value} value={o.value}>
-                                  {o.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </Field>
-
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Data preferível da Palestra">
+                      <Field
+                        label="Data preferível da Palestra"
+                        error={palestraErrors?.data_preferivel?.message}
+                      >
                         <p className="mb-2 text-xs text-[#64748B]">
-                          Dias úteis em verde; laranja = já há vivência ou palestra na mesma região. Sujeita à
-                          confirmação da equipe.
+                          Dias úteis em verde; laranja = esta escola já pediu palestra neste dia/período.
+                          Datas passadas são permitidas. Sujeita à confirmação da equipe.
                         </p>
                         <Controller
                           control={form.control}
@@ -1069,14 +1469,9 @@ function VivenciasPublico() {
                               kind="palestra"
                               value={f.value}
                               onChange={f.onChange}
-                              regiao={regiaoValue}
+                              schoolId={schoolId}
                               periodo={periodo}
-                              extraOccupiedDates={[
-                                ...(watchedGroups ?? [])
-                                  .map((g) => g.data_vivencia)
-                                  .filter((d): d is string => Boolean(d)),
-                                ...extraOccupiedDates,
-                              ]}
+                              extraOccupiedDates={extraOccupiedDates}
                             />
                           )}
                         />
@@ -1113,7 +1508,7 @@ function VivenciasPublico() {
             </Button>
             {watchedPalestras.length > 0 && !watchedPalestras.every((p) => isPalestraComplete(p) || isPalestraEmpty(p)) && (
               <p className="text-center text-xs text-[#64748B]">
-                Preencha série, turma, período e a palestra atual para adicionar outra.
+                Preencha período e a palestra atual para adicionar outra.
               </p>
             )}
           </FormSection>

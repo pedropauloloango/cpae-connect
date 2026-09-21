@@ -36,8 +36,8 @@ export type VivenciaGroupView = {
 };
 
 export type VivenciaPalestraView = {
-  aluno_serie: string;
-  aluno_turma: string;
+  aluno_serie?: string | null;
+  aluno_turma?: string | null;
   periodo: string;
   palestra_tema: string | null;
   data_preferivel?: string | null;
@@ -168,26 +168,16 @@ export function buildVivenciaFormSections(req: VivenciaRequestView): VivenciaFor
             [
               {
                 number: 0,
-                question: `Palestra ${n} — Série`,
-                answer: formatSerie(p.aluno_serie),
-              },
-              {
-                number: 0,
-                question: `Palestra ${n} — Turma`,
-                answer: p.aluno_turma || "—",
-              },
-              {
-                number: 0,
                 question: `Palestra ${n} — Período`,
                 answer: periodoLabels[p.periodo] ?? p.periodo ?? "—",
               },
-            ],
-            [
               {
                 number: 0,
                 question: `Palestra ${n} — Tema`,
                 answer: palestraTemaLabel(p.palestra_tema),
               },
+            ],
+            [
               {
                 number: 0,
                 question: `Palestra ${n} — Data preferível`,

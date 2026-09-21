@@ -7,7 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
-  fetchPalestraOccupiedDates,
+  fetchPalestraSchoolOccupiedDates,
   fetchVivenciaOccupiedDates,
   isWeekday,
   parseDateKey,
@@ -19,10 +19,12 @@ type VivenciaDatePickerProps = {
   value?: string;
   onChange: (value: string) => void;
   regiao?: string | null;
-  /** Obrigatório para vivências (região + período). Ignorado em palestras. */
+  /** Escola selecionada — usado no limite de palestras por escola/período. */
+  schoolId?: string | null;
+  /** Obrigatório para colorir disponibilidade (vivência: região+período; palestra: escola+período). */
   periodo?: string | null;
   kind?: "vivencia" | "palestra";
-  /** Datas já escolhidas em outras turmas do mesmo formulário (mesmo período). */
+  /** Datas já escolhidas em outras turmas/palestras do mesmo formulário (mesmo período). */
   extraOccupiedDates?: string[];
   disabled?: boolean;
   className?: string;
@@ -32,6 +34,7 @@ export function VivenciaDatePicker({
   value,
   onChange,
   regiao,
+  schoolId,
   periodo,
   kind = "vivencia",
   extraOccupiedDates = [],
@@ -43,16 +46,16 @@ export function VivenciaDatePicker({
   const isPalestra = kind === "palestra";
 
   const canColorize = isPalestra
-    ? Boolean(regiao?.trim())
+    ? Boolean(schoolId?.trim() && periodo?.trim())
     : Boolean(regiao?.trim() && periodo?.trim());
 
   const { data: remoteOccupied = [], isFetching } = useQuery({
     queryKey: isPalestra
-      ? ["palestra-occupied-dates", regiao]
+      ? ["palestra-school-occupied-dates", schoolId, periodo]
       : ["vivencia-occupied-dates", regiao, periodo],
     queryFn: () =>
       isPalestra
-        ? fetchPalestraOccupiedDates(regiao)
+        ? fetchPalestraSchoolOccupiedDates(schoolId, periodo)
         : fetchVivenciaOccupiedDates(regiao, periodo),
     enabled: canColorize,
     staleTime: 60_000,
@@ -105,14 +108,11 @@ export function VivenciaDatePicker({
               onChange(key);
               setOpen(false);
             }}
-            disabled={(date) =>
-              date < today || (canColorize && occupiedSet.has(toDateKey(date)))
-            }
+            disabled={(date) => canColorize && occupiedSet.has(toDateKey(date))}
             modifiers={{
               available: (date) =>
                 canColorize &&
                 isWeekday(date) &&
-                date >= today &&
                 !occupiedSet.has(toDateKey(date)),
               occupied: (date) =>
                 canColorize && isWeekday(date) && occupiedSet.has(toDateKey(date)),
@@ -143,7 +143,7 @@ export function VivenciaDatePicker({
             {!canColorize ? (
               <p>
                 {isPalestra
-                  ? "Selecione a escola (região) para ver disponibilidade."
+                  ? "Selecione a escola e o período para ver disponibilidade."
                   : "Selecione a região da escola e o período da turma para ver disponibilidade."}
               </p>
             ) : (
@@ -156,10 +156,11 @@ export function VivenciaDatePicker({
                   <span className="inline-flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-orange-200 ring-1 ring-orange-300" />
                     {isPalestra
-                      ? "Já há vivência ou palestra nesta região (não selecionável)"
+                      ? "Esta escola já solicitou palestra neste dia/período (não selecionável)"
                       : "Limite de 2 turmas neste dia/período ou já há solicitação (não selecionável)"}
                   </span>
                 </div>
+                <p>Datas passadas também podem ser selecionadas.</p>
                 {isFetching && <p>Atualizando datas…</p>}
               </>
             )}

@@ -161,7 +161,13 @@ function requestPeriodos(r: VivReq): string {
 function requestTurmas(r: VivReq): string {
   const fromGroups = r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`).join(", ");
   const fromPalestras = r.palestras
-    ?.map((p) => `${p.aluno_serie} ${p.aluno_turma} · ${palestraTemaLabel(p.palestra_tema)}`)
+    ?.map((p) => {
+      const serieTurma =
+        p.aluno_serie && p.aluno_turma && p.aluno_serie !== "—" && p.aluno_turma !== "—"
+          ? `${p.aluno_serie} ${p.aluno_turma} · `
+          : "";
+      return `${serieTurma}${palestraTemaLabel(p.palestra_tema)}`;
+    })
     .join(", ");
   return (
     fromGroups ||
@@ -400,7 +406,7 @@ function VivenciasDemandas() {
       requestPeriodos(r),
       ...(r.assignees?.map((a) => a.professional?.nome) ?? []),
       ...(r.groups?.map((g) => `${g.aluno_serie} ${g.aluno_turma}`) ?? []),
-      ...(r.palestras?.map((p) => `${p.aluno_serie} ${p.aluno_turma}`) ?? []),
+      ...(r.palestras?.map((p) => palestraTemaLabel(p.palestra_tema)) ?? []),
     ]
       .filter(Boolean)
       .join(" ")

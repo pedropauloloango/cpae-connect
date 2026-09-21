@@ -20,8 +20,8 @@ export type VivenciaGroupSubmission = {
 };
 
 export type VivenciaPalestraSubmission = {
-  aluno_serie: string;
-  aluno_turma: string;
+  aluno_serie?: string | null;
+  aluno_turma?: string | null;
   periodo: PeriodoEscolar;
   palestra_tema: PalestraTema;
   data_preferivel?: string | null;
@@ -88,13 +88,18 @@ export async function submitVivenciaRequest(
   });
 
   const palestras = data.palestras.map((p) => {
-    const serieLabel =
-      data.serieLabels?.[p.aluno_serie] ?? alunoSerieLabels[p.aluno_serie] ?? p.aluno_serie;
-    const turmaLabel =
-      data.turmaLabels?.[p.aluno_turma] ?? alunoTurmaLabels[p.aluno_turma] ?? p.aluno_turma;
+    const serieRaw = p.aluno_serie?.trim() || "";
+    const turmaRaw = p.aluno_turma?.trim() || "";
+    const serieLabel = serieRaw
+      ? (data.serieLabels?.[serieRaw] ?? alunoSerieLabels[serieRaw] ?? serieRaw)
+      : null;
+    const turmaLabel = turmaRaw
+      ? (data.turmaLabels?.[turmaRaw] ?? alunoTurmaLabels[turmaRaw] ?? turmaRaw)
+      : null;
     return {
-      aluno_serie: serieLabel,
-      aluno_turma: turmaLabel,
+      // Mantém placeholder enquanto a coluna for NOT NULL no banco antigo.
+      aluno_serie: serieLabel || "—",
+      aluno_turma: turmaLabel || "—",
       periodo: p.periodo,
       palestra_tema: p.palestra_tema,
       data_preferivel: p.data_preferivel || null,

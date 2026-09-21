@@ -47,8 +47,8 @@ type PreferidaGroup = {
 };
 
 type PreferidaPalestra = {
-  aluno_serie: string;
-  aluno_turma: string;
+  aluno_serie: string | null;
+  aluno_turma: string | null;
   periodo: string;
   palestra_tema: string;
   data_preferivel: string | null;
@@ -190,7 +190,7 @@ function palestraDates(
   for (const pal of p.palestras ?? []) {
     if (pal.data_preferivel) {
       items.push({
-        label: `${pal.aluno_serie} ${pal.aluno_turma}`,
+        label: `${pal.aluno_serie && pal.aluno_turma ? `${pal.aluno_serie} ${pal.aluno_turma}` : "Palestra"}`,
         date: pal.data_preferivel,
         periodo: pal.periodo ?? null,
         hora_inicio: pal.hora_inicio ?? null,

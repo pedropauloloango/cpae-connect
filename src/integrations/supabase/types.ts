@@ -1176,8 +1176,8 @@ export type Database = {
       }
       vivencia_request_palestras: {
         Row: {
-          aluno_serie: string
-          aluno_turma: string
+          aluno_serie: string | null
+          aluno_turma: string | null
           created_at: string
           data_preferivel: string | null
           hora_inicio: string | null
@@ -1188,8 +1188,8 @@ export type Database = {
           vivencia_request_id: string
         }
         Insert: {
-          aluno_serie: string
-          aluno_turma: string
+          aluno_serie?: string | null
+          aluno_turma?: string | null
           created_at?: string
           data_preferivel?: string | null
           hora_inicio?: string | null
@@ -1200,8 +1200,8 @@ export type Database = {
           vivencia_request_id: string
         }
         Update: {
-          aluno_serie?: string
-          aluno_turma?: string
+          aluno_serie?: string | null
+          aluno_turma?: string | null
           created_at?: string
           data_preferivel?: string | null
           hora_inicio?: string | null
@@ -1325,6 +1325,10 @@ export type Database = {
       }
       get_palestra_occupied_dates: {
         Args: { p_regiao: string }
+        Returns: { data_preferivel: string }[]
+      }
+      get_palestra_school_occupied_dates: {
+        Args: { p_periodo: string; p_school_id: string }
         Returns: { data_preferivel: string }[]
       }
       get_saude_mental_encontro_qr: {

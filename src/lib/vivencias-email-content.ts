@@ -18,8 +18,8 @@ export type VivenciaEmailGroup = {
 };
 
 export type VivenciaEmailPalestra = {
-  aluno_serie: string;
-  aluno_turma: string;
+  aluno_serie?: string | null;
+  aluno_turma?: string | null;
   periodo: string;
   palestra_tema: string;
   data_preferivel?: string | null;
@@ -98,7 +98,7 @@ function buildDetailRows(data: VivenciaEmailPayload): Array<{ label: string; val
       const horario = hora !== "—" ? ` · horário ${hora} (1h)` : "";
       rows.push({
         label: `Palestra ${n}`,
-        value: `${p.aluno_serie} — turma ${p.aluno_turma} · ${periodoLabels[p.periodo] ?? p.periodo} · ${palestraTemaLabel(p.palestra_tema)} · data ${formatDate(p.data_preferivel)}${horario}`,
+        value: `${periodoLabels[p.periodo] ?? p.periodo} · ${palestraTemaLabel(p.palestra_tema)} · data ${formatDate(p.data_preferivel)}${horario}`,
       });
     });
   } else if (data.palestra_tema) {
