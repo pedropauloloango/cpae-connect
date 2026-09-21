@@ -45,9 +45,9 @@ import {
 import { fetchActiveSeries, fetchActiveTurmas, labelsMap } from "@/lib/serie-turma-catalog";
 import { DalealDeveloperBanner } from "@/components/layout/DalealDeveloperBanner";
 import {
-  countTurmasMesmoDiaPeriodoCombined,
+  countTurmasMesmoDiaPeriodo,
   datesAtPalestraLimitForPeriod,
-  datesAtTurmaLimitCombined,
+  datesAtTurmaLimitForPeriod,
   DOCE_ENCANTO_TEMA,
   MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
   mensagemLimitePalestrasDiaPeriodo,
@@ -257,34 +257,14 @@ const schema = z
 
     type DiaPeriodoRef = { path: (string | number)[]; index: number };
     const turmasPorDiaPeriodo = new Map<string, DiaPeriodoRef[]>();
-    const trackDiaPeriodo = (
-      data: string | undefined,
-      periodo: string | undefined,
-      path: (string | number)[],
-      index: number,
-      empty: boolean,
-    ) => {
-      if (!data?.trim() || !periodo || empty) return;
-      const key = vivenciaDiaPeriodoKey(data, periodo);
-      const list = turmasPorDiaPeriodo.get(key) ?? [];
-      list.push({ path, index });
-      turmasPorDiaPeriodo.set(key, list);
-    };
-
+    // Limite de 2 turmas/dia/período vale só para vivências regulares — Doce Encanto é livre.
     val.groups.forEach((g, i) => {
-      trackDiaPeriodo(g.data_vivencia, g.periodo, ["groups", i, "data_vivencia"], i, isGroupEmpty(g));
+      if (!g.data_vivencia?.trim() || !g.periodo || isGroupEmpty(g)) return;
+      const key = vivenciaDiaPeriodoKey(g.data_vivencia, g.periodo);
+      const list = turmasPorDiaPeriodo.get(key) ?? [];
+      list.push({ path: ["groups", i, "data_vivencia"], index: i });
+      turmasPorDiaPeriodo.set(key, list);
     });
-    if (val.doce_encanto_ativo) {
-      val.doce_encanto_groups.forEach((g, i) => {
-        trackDiaPeriodo(
-          g.data_vivencia,
-          g.periodo,
-          ["doce_encanto_groups", i, "data_vivencia"],
-          i,
-          isDoceEncantoEmpty(g),
-        );
-      });
-    }
     for (const [key, refs] of turmasPorDiaPeriodo) {
       if (refs.length <= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO) continue;
       const [, periodo] = key.split("|");
@@ -674,20 +654,12 @@ function VivenciasPublico() {
 
   const applyGroupDataVivencia = (groupIndex: number, nextDate: string) => {
     const groups = form.getValues("groups") ?? [];
-    const doce = form.getValues("doce_encanto_ativo")
-      ? (form.getValues("doce_encanto_groups") ?? [])
-      : [];
     const periodo = groups[groupIndex]?.periodo;
     if (
       nextDate &&
       periodo &&
-      countTurmasMesmoDiaPeriodoCombined(
-        groups,
-        doce,
-        { source: "groups", index: groupIndex },
-        nextDate,
-        periodo,
-      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+      countTurmasMesmoDiaPeriodo(groups, groupIndex, nextDate, periodo) >=
+        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
     ) {
       const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
       form.setError(`groups.${groupIndex}.data_vivencia`, { type: "manual", message: msg });
@@ -703,9 +675,6 @@ function VivenciasPublico() {
 
   const applyGroupPeriodo = (groupIndex: number, nextPeriodo: string) => {
     const groups = form.getValues("groups") ?? [];
-    const doce = form.getValues("doce_encanto_ativo")
-      ? (form.getValues("doce_encanto_groups") ?? [])
-      : [];
     const data = groups[groupIndex]?.data_vivencia;
     form.setValue(`groups.${groupIndex}.periodo`, nextPeriodo as PeriodoEscolar, {
       shouldDirty: true,
@@ -714,13 +683,8 @@ function VivenciasPublico() {
     if (
       data &&
       nextPeriodo &&
-      countTurmasMesmoDiaPeriodoCombined(
-        groups,
-        doce,
-        { source: "groups", index: groupIndex },
-        data,
-        nextPeriodo,
-      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
+      countTurmasMesmoDiaPeriodo(groups, groupIndex, data, nextPeriodo) >=
+        MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
     ) {
       const msg = mensagemLimiteTurmasDiaPeriodo(nextPeriodo);
       form.setValue(`groups.${groupIndex}.data_vivencia`, "", {
@@ -737,28 +701,6 @@ function VivenciasPublico() {
   };
 
   const applyDoceDataVivencia = (groupIndex: number, nextDate: string) => {
-    const groups = form.getValues("groups") ?? [];
-    const doce = form.getValues("doce_encanto_groups") ?? [];
-    const periodo = doce[groupIndex]?.periodo;
-    if (
-      nextDate &&
-      periodo &&
-      countTurmasMesmoDiaPeriodoCombined(
-        groups,
-        doce,
-        { source: "doce", index: groupIndex },
-        nextDate,
-        periodo,
-      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
-    ) {
-      const msg = mensagemLimiteTurmasDiaPeriodo(periodo);
-      form.setError(`doce_encanto_groups.${groupIndex}.data_vivencia`, {
-        type: "manual",
-        message: msg,
-      });
-      toast.error("Limite de turmas", { description: msg });
-      return;
-    }
     form.clearErrors(`doce_encanto_groups.${groupIndex}.data_vivencia`);
     form.setValue(`doce_encanto_groups.${groupIndex}.data_vivencia`, nextDate, {
       shouldDirty: true,
@@ -767,39 +709,11 @@ function VivenciasPublico() {
   };
 
   const applyDocePeriodo = (groupIndex: number, nextPeriodo: string) => {
-    const groups = form.getValues("groups") ?? [];
-    const doce = form.getValues("doce_encanto_groups") ?? [];
-    const data = doce[groupIndex]?.data_vivencia;
     form.setValue(`doce_encanto_groups.${groupIndex}.periodo`, nextPeriodo as PeriodoEscolar, {
       shouldDirty: true,
       shouldValidate: true,
     });
-    if (
-      data &&
-      nextPeriodo &&
-      countTurmasMesmoDiaPeriodoCombined(
-        groups,
-        doce,
-        { source: "doce", index: groupIndex },
-        data,
-        nextPeriodo,
-      ) >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO
-    ) {
-      const msg = mensagemLimiteTurmasDiaPeriodo(nextPeriodo);
-      form.setValue(`doce_encanto_groups.${groupIndex}.data_vivencia`, "", {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-      form.setError(`doce_encanto_groups.${groupIndex}.data_vivencia`, {
-        type: "manual",
-        message: msg,
-      });
-      toast.error("Data removida", {
-        description: `${msg} A data desta turma foi limpa para você escolher outra.`,
-      });
-    } else {
-      form.clearErrors(`doce_encanto_groups.${groupIndex}.data_vivencia`);
-    }
+    form.clearErrors(`doce_encanto_groups.${groupIndex}.data_vivencia`);
   };
 
   const setDoceEncantoAtivo = (checked: boolean) => {
@@ -979,12 +893,10 @@ function VivenciasPublico() {
                 const temas = form.watch(`groups.${index}.temas`) ?? [];
                 const periodo = form.watch(`groups.${index}.periodo`);
                 const groupsSnapshot = form.watch("groups") ?? [];
-                const doceSnapshot = watchedDoceAtivo ? (watchedDoceGroups ?? []) : [];
-                const extraOccupiedDates = datesAtTurmaLimitCombined(
+                const extraOccupiedDates = datesAtTurmaLimitForPeriod(
                   groupsSnapshot,
-                  doceSnapshot,
                   periodo,
-                  { source: "groups", index },
+                  index,
                 );
 
                 const groupRequiredMark = " *";
@@ -1189,15 +1101,6 @@ function VivenciasPublico() {
                 <div className="space-y-4">
                   {doceFields.map((field, index) => {
                     const doceErrors = form.formState.errors.doce_encanto_groups?.[index];
-                    const periodo = form.watch(`doce_encanto_groups.${index}.periodo`);
-                    const groupsSnapshot = form.watch("groups") ?? [];
-                    const doceSnapshot = form.watch("doce_encanto_groups") ?? [];
-                    const extraOccupiedDates = datesAtTurmaLimitCombined(
-                      groupsSnapshot,
-                      doceSnapshot,
-                      periodo,
-                      { source: "doce", index },
-                    );
 
                     return (
                       <div
@@ -1297,9 +1200,8 @@ function VivenciasPublico() {
                             error={doceErrors?.data_vivencia?.message}
                           >
                             <p className="mb-2 text-xs text-[#64748B]">
-                              Dias úteis em verde. Laranja = limite de{" "}
-                              {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia/período.
-                              Datas passadas são permitidas.
+                              Sem limite de turmas por dia/período neste projeto. Datas passadas são
+                              permitidas.
                             </p>
                             <Controller
                               control={form.control}
@@ -1308,9 +1210,6 @@ function VivenciasPublico() {
                                 <VivenciaDatePicker
                                   value={f.value}
                                   onChange={(v) => applyDoceDataVivencia(index, v)}
-                                  regiao={regiaoValue}
-                                  periodo={periodo}
-                                  extraOccupiedDates={extraOccupiedDates}
                                 />
                               )}
                             />
