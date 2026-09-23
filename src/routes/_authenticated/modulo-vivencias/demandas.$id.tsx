@@ -43,12 +43,34 @@ import { VisitStartTimeSelect } from "@/components/vivencias/VisitStartTimeSelec
 import { buildHoraInicio, parseHoraInicio } from "@/lib/vivencia-schedule";
 import { ClosureTabIndicator } from "@/components/requests/ClosureTabIndicator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  FileText,
+  Loader2,
+  Pencil,
+  UserPlus,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  PENDING_VIVENCIA_APPROVALS_QUERY_KEY,
   PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY,
   PENDING_VIVENCIA_RECEIVED_QUERY_KEY,
 } from "@/lib/pending-vivencias";
-import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, Clock, FileText, Loader2, Pencil, UserPlus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const VIVENCIA_TABS = ["informacoes", "atribuicao", "relatorio", "timeline"] as const;
 type VivenciaTab = (typeof VIVENCIA_TABS)[number];
@@ -175,8 +197,10 @@ function VivenciaDemandaDetail() {
   const { id } = Route.useParams();
   const { tab: tabFromSearch } = Route.useSearch();
   const { user, isAdmin } = useAuth();
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState(() => normalizeVivenciaTab(tabFromSearch, isAdmin));
   const [startReportCreate, setStartReportCreate] = useState(false);
+  const [concludeOpen, setConcludeOpen] = useState(false);
 
   useEffect(() => {
     setActiveTab(normalizeVivenciaTab(tabFromSearch, isAdmin));
@@ -238,6 +262,36 @@ function VivenciaDemandaDetail() {
     },
   });
 
+  const concludeWithoutReportMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("vivencia_requests")
+        .update({ status: "concluida" })
+        .eq("id", id)
+        .is("deleted_at", null);
+      if (error) throw error;
+
+      const { error: logError } = await supabase.from("vivencia_activity_logs").insert({
+        vivencia_request_id: id,
+        actor_id: user?.id,
+        action: "concluida_sem_relatorio",
+        details: {},
+      });
+      if (logError) console.error("vivencia conclude log", logError);
+    },
+    onSuccess: () => {
+      toast.success("Demanda concluída sem relatório.");
+      setConcludeOpen(false);
+      void qc.invalidateQueries({ queryKey: ["vivencia-request", id] });
+      void qc.invalidateQueries({ queryKey: ["vivencia-logs", id] });
+      void qc.invalidateQueries({ queryKey: ["vivencia-demandas"] });
+      void qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_RECEIVED_QUERY_KEY });
+      void qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_ASSIGNMENTS_QUERY_KEY });
+      void qc.invalidateQueries({ queryKey: PENDING_VIVENCIA_APPROVALS_QUERY_KEY });
+    },
+    onError: (e: Error) => toast.error("Erro ao concluir", { description: e.message }),
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -279,18 +333,64 @@ function VivenciaDemandaDetail() {
     req.status !== "aguardando_aprovacao" &&
     req.status !== "concluida";
 
+  const canConcludeWithoutReport =
+    isAdmin &&
+    req.status !== "concluida" &&
+    req.status !== "cancelada" &&
+    reportMeta?.status !== "aguardando_aprovacao" &&
+    reportMeta?.status !== "aprovado";
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={req.numero}
         description={req.school_nome_snapshot ?? "Demanda de Vivências"}
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/modulo-vivencias/demandas">
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Voltar
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {canConcludeWithoutReport && (
+              <AlertDialog open={concludeOpen} onOpenChange={setConcludeOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="secondary" size="sm">
+                    <CheckCircle2 className="mr-1 h-4 w-4" />
+                    Concluir sem relatório
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Concluir sem relatório?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A demanda {req.numero} será marcada como <strong>concluída</strong> sem
+                      relatório no sistema. Essa ação é exclusiva do administrador e fica
+                      registrada na timeline.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={concludeWithoutReportMut.isPending}>
+                      Cancelar
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={concludeWithoutReportMut.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        concludeWithoutReportMut.mutate();
+                      }}
+                    >
+                      {concludeWithoutReportMut.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Confirmar conclusão
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/modulo-vivencias/demandas">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Voltar
+              </Link>
+            </Button>
+          </div>
         }
       />
 

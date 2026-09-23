@@ -402,7 +402,7 @@ export function VivenciaRelatorioTab({
             ) : (
               <p className="text-sm text-muted-foreground">
                 {isAdmin
-                  ? "Aguardando o profissional atribuído criar e enviar o relatório."
+                  ? "Aguardando o profissional atribuído criar e enviar o relatório. Como administrador, você também pode usar Concluir sem relatório no topo da página."
                   : "Somente profissionais atribuídos a esta demanda podem criar o relatório."}
               </p>
             )}

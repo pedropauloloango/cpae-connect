@@ -92,6 +92,8 @@ export function formatVivenciaActivityLogDescription(
       return `Relatório de vivências escolares rejeitado.${details.comentario ? ` Motivo: ${String(details.comentario)}.` : ""}${actorSuffix}`;
     case "aprovacao_relatorio_correcao_solicitada":
       return `Correção solicitada no relatório de vivências escolares.${details.comentario ? ` Observação: ${String(details.comentario)}.` : ""}${actorSuffix}`;
+    case "concluida_sem_relatorio":
+      return `Demanda concluída pelo administrador sem relatório no sistema.${actorSuffix}`;
     default:
       return log.action.replace(/_/g, " ") + (actorSuffix || ".");
   }
@@ -109,6 +111,7 @@ export function vivenciaActivityLogTitle(action: string): string {
       aprovacao_relatorio_aprovado: "Relatório aprovado",
       aprovacao_relatorio_rejeitado: "Relatório rejeitado",
       aprovacao_relatorio_correcao_solicitada: "Correção solicitada no relatório",
+      concluida_sem_relatorio: "Concluída sem relatório",
     } as Record<string, string>
   )[action] ?? action.replace(/_/g, " ");
 }
