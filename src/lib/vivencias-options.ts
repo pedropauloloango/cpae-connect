@@ -13,7 +13,11 @@ import {
 export { alunoSerieOptions, alunoTurmaOptions, periodoOptions, solicitanteCargoOptions };
 export type { AlunoSerie, AlunoTurma, PeriodoEscolar, SolicitanteCargo };
 
-export const MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO = 2;
+/** Máximo de turmas de vivência na mesma data e período (bloqueio no calendário / formulário). */
+export const MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO = 4;
+
+/** A partir desta quantidade o calendário exibe alerta (laranja), sem bloquear. */
+export const WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO = 2;
 
 /** Máximo de palestras da mesma escola na mesma data e período. */
 export const MAX_PALESTRAS_POR_ESCOLA_DIA_PERIODO = 1;

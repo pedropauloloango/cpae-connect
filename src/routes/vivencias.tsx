@@ -57,6 +57,7 @@ import {
   vivenciaDiaPeriodoKey,
   vivenciaTemaLabel,
   vivenciaTemaOptionsPadrao,
+  WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO,
   type PalestraTema,
   type VivenciaTema,
 } from "@/lib/vivencias-options";
@@ -257,7 +258,7 @@ const schema = z
 
     type DiaPeriodoRef = { path: (string | number)[]; index: number };
     const turmasPorDiaPeriodo = new Map<string, DiaPeriodoRef[]>();
-    // Limite de 2 turmas/dia/período vale só para vivências regulares — Doce Encanto é livre.
+    // Limite de turmas/dia/período vale só para vivências regulares — Doce Encanto é livre.
     val.groups.forEach((g, i) => {
       if (!g.data_vivencia?.trim() || !g.periodo || isGroupEmpty(g)) return;
       const key = vivenciaDiaPeriodoKey(g.data_vivencia, g.periodo);
@@ -877,7 +878,7 @@ function VivenciasPublico() {
 
           <FormSection
             title="Vivências para alunos"
-            description={`Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas. Limite: no máximo ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (ex.: 2 no matutino de um dia; para mais, use outro dia ou o vespertino).`}
+            description={`Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas. Limite: no máximo ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (ex.: ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} no matutino de um dia; para mais, use outro dia ou o vespertino).`}
             icon={Users}
           >
             {form.formState.errors.groups?.root?.message && (
@@ -898,6 +899,13 @@ function VivenciasPublico() {
                   periodo,
                   index,
                 );
+                const siblingDates = groupsSnapshot
+                  .map((g, i) =>
+                    i !== index && g.periodo === periodo && g.data_vivencia
+                      ? g.data_vivencia
+                      : null,
+                  )
+                  .filter((d): d is string => Boolean(d));
 
                 const groupRequiredMark = " *";
 
@@ -1013,9 +1021,11 @@ function VivenciasPublico() {
                           error={groupErrors?.data_vivencia?.message}
                         >
                           <p className="mb-2 text-xs text-[#64748B]">
-                            Dias úteis em verde. Laranja = limite de {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO}{" "}
-                            turmas no mesmo dia/período ou já há solicitação na região. Datas passadas
-                            são permitidas. Sujeita à confirmação da equipe.
+                            Dias úteis em verde. Laranja = alerta a partir de{" "}
+                            {WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas (ainda selecionável).
+                            Bloqueio ao atingir {MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} no mesmo
+                            dia/período/região. Datas passadas são permitidas. Sujeita à confirmação
+                            da equipe.
                           </p>
                           <Controller
                             control={form.control}
@@ -1027,6 +1037,7 @@ function VivenciasPublico() {
                                 regiao={regiaoValue}
                                 periodo={periodo}
                                 extraOccupiedDates={extraOccupiedDates}
+                                siblingDates={siblingDates}
                               />
                             )}
                           />

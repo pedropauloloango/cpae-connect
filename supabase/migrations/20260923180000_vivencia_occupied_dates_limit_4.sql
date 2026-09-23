@@ -1,12 +1,11 @@
--- Datas preferíveis por região + período com contagem de turmas (formulário público).
-
-DROP FUNCTION IF EXISTS public.get_vivencia_occupied_dates(text, text);
+-- Datas de vivência ocupadas por região + período quando atingem o limite de turmas.
+-- Limite atual: 4 turmas no mesmo dia/período/região.
 
 CREATE OR REPLACE FUNCTION public.get_vivencia_occupied_dates(
   p_regiao text,
   p_periodo text
 )
-RETURNS TABLE (data_preferivel date, qtd bigint)
+RETURNS TABLE (data_preferivel date)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
@@ -19,7 +18,7 @@ AS $$
       'aaaaaeeeeiiiiooooouuuucaaaaaeeeeiiiiooooouuuuc'
     ))) AS regiao_key
   )
-  SELECT g.data_preferivel, COUNT(*)::bigint AS qtd
+  SELECT g.data_preferivel
   FROM public.vivencia_request_groups g
   JOIN public.vivencia_requests r ON r.id = g.vivencia_request_id
   LEFT JOIN public.schools s ON s.id = r.school_id
@@ -41,7 +40,8 @@ AS $$
         'aaaaaeeeeiiiiooooouuuucaaaaaeeeeiiiiooooouuuuc'
       ))) = norm.regiao_key
     )
-  GROUP BY g.data_preferivel;
+  GROUP BY g.data_preferivel
+  HAVING COUNT(*) >= 4;
 $$;
 
 REVOKE ALL ON FUNCTION public.get_vivencia_occupied_dates(text, text) FROM PUBLIC;

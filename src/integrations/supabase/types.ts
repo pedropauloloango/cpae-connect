@@ -1348,7 +1348,7 @@ export type Database = {
       }
       get_vivencia_occupied_dates: {
         Args: { p_periodo: string; p_regiao: string }
-        Returns: { data_preferivel: string }[]
+        Returns: { data_preferivel: string; qtd: number }[]
       }
       has_role: {
         Args: {

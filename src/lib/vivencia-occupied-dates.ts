@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+  WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+} from "@/lib/vivencias-options";
 
 /** Converte Date local para YYYY-MM-DD. */
 export function toDateKey(date: Date): string {
@@ -25,17 +29,22 @@ export function startOfToday(): Date {
   return t;
 }
 
+export type VivenciaDateCount = {
+  data_preferivel: string;
+  qtd: number;
+};
+
 /**
- * Datas preferíveis já solicitadas na mesma região e período (vivências).
+ * Contagens de turmas por data na mesma região e período (vivências).
  * Usa RPC SECURITY DEFINER (formulário público / anon).
  */
-export async function fetchVivenciaOccupiedDates(
+export async function fetchVivenciaDateCounts(
   regiao: string | null | undefined,
   periodo: string | null | undefined,
-): Promise<string[]> {
+): Promise<Map<string, number>> {
   const regiaoKey = regiao?.trim();
   const periodoKey = periodo?.trim();
-  if (!regiaoKey || !periodoKey) return [];
+  if (!regiaoKey || !periodoKey) return new Map();
 
   const { data, error } = await supabase.rpc("get_vivencia_occupied_dates", {
     p_regiao: regiaoKey,
@@ -44,7 +53,50 @@ export async function fetchVivenciaOccupiedDates(
 
   if (error) throw error;
 
-  return mapOccupiedRows(data);
+  const map = new Map<string, number>();
+  for (const row of data ?? []) {
+    const key =
+      typeof row.data_preferivel === "string" ? row.data_preferivel.slice(0, 10) : null;
+    if (!key) continue;
+    const rawQtd = (row as { qtd?: number | string | null }).qtd;
+    // RPC antiga sem coluna qtd: trata como alerta (selecionável), não como bloqueio.
+    const qtd =
+      rawQtd === undefined || rawQtd === null || rawQtd === ""
+        ? WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO
+        : Number(rawQtd);
+    map.set(key, Number.isFinite(qtd) ? qtd : WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO);
+  }
+  return map;
+}
+
+/**
+ * Datas bloqueadas (atingiram o limite). Compatível com o uso antigo da RPC.
+ */
+export async function fetchVivenciaOccupiedDates(
+  regiao: string | null | undefined,
+  periodo: string | null | undefined,
+): Promise<string[]> {
+  const counts = await fetchVivenciaDateCounts(regiao, periodo);
+  return [...counts.entries()]
+    .filter(([, qtd]) => qtd >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO)
+    .map(([d]) => d);
+}
+
+export function countSiblingDatesOnDay(siblingDates: string[], day: string): number {
+  const key = day.slice(0, 10);
+  return siblingDates.filter((d) => d?.slice(0, 10) === key).length;
+}
+
+export function vivenciaCalendarDayState(
+  remoteCount: number,
+  formSiblingCount: number,
+): { warning: boolean; blocked: boolean; total: number } {
+  const total = remoteCount + formSiblingCount;
+  return {
+    total,
+    warning: total >= WARN_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+    blocked: total >= MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO,
+  };
 }
 
 /**

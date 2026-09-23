@@ -1,4 +1,6 @@
--- Datas preferíveis por região + período com contagem de turmas (formulário público).
+-- Contagens de turmas por data (região + período) para alerta/bloqueio no calendário.
+-- Alerta (laranja): >= 2 | Bloqueio: >= 4
+-- Execute no Supabase SQL Editor.
 
 DROP FUNCTION IF EXISTS public.get_vivencia_occupied_dates(text, text);
 
