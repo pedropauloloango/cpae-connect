@@ -39,7 +39,7 @@ export function isSaudeMentalPath(pathname: string): boolean {
 export function homePathForModules(modules: ProfessionalModules, isAdmin: boolean): string {
   if (isAdmin || modules.atendeAcolhimento) return "/dashboard";
   if (modules.atendeVivencias) return "/modulo-vivencias/dashboard";
-  if (modules.atendeSaudeMental) return "/modulo-saude-mental/inscritos";
+  if (modules.atendeSaudeMental) return "/modulo-saude-mental/dashboard";
   return "/aguardando-aprovacao";
 }
 

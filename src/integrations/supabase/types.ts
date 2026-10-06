@@ -696,6 +696,8 @@ export type Database = {
           created_at: string
           data_nascimento: string | null
           deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_nome: string | null
           email: string | null
           email_formulario: string | null
           escola_texto: string | null
@@ -719,6 +721,8 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_nome?: string | null
           email?: string | null
           email_formulario?: string | null
           escola_texto?: string | null
@@ -742,6 +746,8 @@ export type Database = {
           created_at?: string
           data_nascimento?: string | null
           deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_nome?: string | null
           email?: string | null
           email_formulario?: string | null
           escola_texto?: string | null

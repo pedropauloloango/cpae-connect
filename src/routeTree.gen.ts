@@ -40,6 +40,7 @@ import { Route as AuthenticatedModuloSaudeMentalPresencaRouteImport } from './ro
 import { Route as AuthenticatedModuloSaudeMentalModulosRouteImport } from './routes/_authenticated/modulo-saude-mental/modulos'
 import { Route as AuthenticatedModuloSaudeMentalInscritosRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos'
 import { Route as AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport } from './routes/_authenticated/modulo-saude-mental/inscricoes-periodo'
+import { Route as AuthenticatedModuloSaudeMentalDashboardRouteImport } from './routes/_authenticated/modulo-saude-mental/dashboard'
 import { Route as AuthenticatedEscolasSerieTurmaRouteImport } from './routes/_authenticated/escolas/serie-turma'
 import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 import { Route as AuthenticatedConfiguracoesUsuariosRouteImport } from './routes/_authenticated/configuracoes/usuarios'
@@ -221,6 +222,12 @@ const AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute =
     path: '/inscricoes-periodo',
     getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
   } as any)
+const AuthenticatedModuloSaudeMentalDashboardRoute =
+  AuthenticatedModuloSaudeMentalDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
 const AuthenticatedEscolasSerieTurmaRoute =
   AuthenticatedEscolasSerieTurmaRouteImport.update({
     id: '/serie-turma',
@@ -284,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/modulo-saude-mental/dashboard': typeof AuthenticatedModuloSaudeMentalDashboardRoute
   '/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
   '/modulo-saude-mental/inscritos': typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
   '/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
@@ -318,6 +326,7 @@ export interface FileRoutesByTo {
   '/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/modulo-saude-mental/dashboard': typeof AuthenticatedModuloSaudeMentalDashboardRoute
   '/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
   '/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
   '/modulo-saude-mental/presenca': typeof AuthenticatedModuloSaudeMentalPresencaRoute
@@ -357,6 +366,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes/usuarios': typeof AuthenticatedConfiguracoesUsuariosRoute
   '/_authenticated/demandas/$id': typeof AuthenticatedDemandasIdRoute
   '/_authenticated/escolas/serie-turma': typeof AuthenticatedEscolasSerieTurmaRoute
+  '/_authenticated/modulo-saude-mental/dashboard': typeof AuthenticatedModuloSaudeMentalDashboardRoute
   '/_authenticated/modulo-saude-mental/inscricoes-periodo': typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
   '/_authenticated/modulo-saude-mental/inscritos': typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
   '/_authenticated/modulo-saude-mental/modulos': typeof AuthenticatedModuloSaudeMentalModulosRoute
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/configuracoes/usuarios'
     | '/demandas/$id'
     | '/escolas/serie-turma'
+    | '/modulo-saude-mental/dashboard'
     | '/modulo-saude-mental/inscricoes-periodo'
     | '/modulo-saude-mental/inscritos'
     | '/modulo-saude-mental/modulos'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/configuracoes/usuarios'
     | '/demandas/$id'
     | '/escolas/serie-turma'
+    | '/modulo-saude-mental/dashboard'
     | '/modulo-saude-mental/inscricoes-periodo'
     | '/modulo-saude-mental/modulos'
     | '/modulo-saude-mental/presenca'
@@ -470,6 +482,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes/usuarios'
     | '/_authenticated/demandas/$id'
     | '/_authenticated/escolas/serie-turma'
+    | '/_authenticated/modulo-saude-mental/dashboard'
     | '/_authenticated/modulo-saude-mental/inscricoes-periodo'
     | '/_authenticated/modulo-saude-mental/inscritos'
     | '/_authenticated/modulo-saude-mental/modulos'
@@ -717,6 +730,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport
       parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
+    '/_authenticated/modulo-saude-mental/dashboard': {
+      id: '/_authenticated/modulo-saude-mental/dashboard'
+      path: '/dashboard'
+      fullPath: '/modulo-saude-mental/dashboard'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalDashboardRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
     '/_authenticated/escolas/serie-turma': {
       id: '/_authenticated/escolas/serie-turma'
       path: '/serie-turma'
@@ -819,6 +839,7 @@ const AuthenticatedModuloSaudeMentalInscritosRouteWithChildren =
   )
 
 interface AuthenticatedModuloSaudeMentalRouteRouteChildren {
+  AuthenticatedModuloSaudeMentalDashboardRoute: typeof AuthenticatedModuloSaudeMentalDashboardRoute
   AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute
   AuthenticatedModuloSaudeMentalInscritosRoute: typeof AuthenticatedModuloSaudeMentalInscritosRouteWithChildren
   AuthenticatedModuloSaudeMentalModulosRoute: typeof AuthenticatedModuloSaudeMentalModulosRoute
@@ -828,6 +849,8 @@ interface AuthenticatedModuloSaudeMentalRouteRouteChildren {
 
 const AuthenticatedModuloSaudeMentalRouteRouteChildren: AuthenticatedModuloSaudeMentalRouteRouteChildren =
   {
+    AuthenticatedModuloSaudeMentalDashboardRoute:
+      AuthenticatedModuloSaudeMentalDashboardRoute,
     AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute:
       AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute,
     AuthenticatedModuloSaudeMentalInscritosRoute:

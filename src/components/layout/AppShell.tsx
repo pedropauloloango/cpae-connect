@@ -96,6 +96,7 @@ const MODULE_GROUPS: NavGroup[] = [
     tone: "saude-mental",
     matchPaths: ["/modulo-saude-mental"],
     children: [
+      { to: "/modulo-saude-mental/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/modulo-saude-mental/inscritos", label: "Inscritos", icon: Inbox },
       { to: "/modulo-saude-mental/inscricoes-periodo", label: "Período de inscrições", icon: CalendarClock },
       { to: "/modulo-saude-mental/modulos", label: "Módulos", icon: Layers },
@@ -196,7 +197,7 @@ function AppShellLayout({ children }: { children: ReactNode }) {
     : canAccessVivencias
       ? "/modulo-vivencias/dashboard"
       : canAccessSaudeMental
-        ? "/modulo-saude-mental/inscritos"
+        ? "/modulo-saude-mental/dashboard"
         : "/dashboard";
 
   const userName = displayName(user?.email, user?.user_metadata as Record<string, unknown> | undefined);
