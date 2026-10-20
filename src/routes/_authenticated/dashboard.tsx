@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/AppShell";
 import {
   Inbox, Clock, CheckCircle2, Calendar, TrendingUp, AlertCircle, Users, School, MapPin,
 } from "lucide-react";
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, LabelList, Legend } from "recharts";
+import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, LineChart, Line, CartesianGrid, LabelList } from "recharts";
 import {
   situacaoObservadaChartLabel,
   situacoesFromRequest,
@@ -21,44 +21,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({ component: D
 
 interface Counters { recebida: number; em_andamento: number; concluida: number; agendados_mes: number; total_escolas: number; total_profissionais: number; }
 
-const PIE_LABEL_RADIAN = Math.PI / 180;
-const PIE_MIN_PERCENT_FOR_LABEL = 0.05;
-
-function formatPiePercent(percent: number): string {
+function formatPercent(percent: number): string {
   return `${Math.round(percent * 100)}%`;
-}
-
-function renderQueixaPieLabel({
-  cx,
-  cy,
-  midAngle,
-  innerRadius,
-  outerRadius,
-  percent,
-}: {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  percent: number;
-}) {
-  if (!percent || percent < PIE_MIN_PERCENT_FOR_LABEL) return null;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
-  const x = cx + radius * Math.cos(-midAngle * PIE_LABEL_RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * PIE_LABEL_RADIAN);
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="#fff"
-      textAnchor="middle"
-      dominantBaseline="central"
-      className="text-[11px] font-semibold"
-    >
-      {formatPiePercent(percent)}
-    </text>
-  );
 }
 
 function Dashboard() {
@@ -385,63 +349,60 @@ function Dashboard() {
             <CardTitle className="text-base flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-[#0F52BA]" /> Distribuição por Queixa
             </CardTitle>
-            <p className="text-sm text-muted-foreground">Clique em uma fatia ou na legenda para ver as demandas.</p>
+            <p className="text-sm text-muted-foreground">Clique em uma barra para ver as demandas.</p>
           </CardHeader>
-          <CardContent className="h-[28rem]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <Pie
-                  data={byComplaint}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="38%"
-                  cy="50%"
-                  innerRadius={0}
-                  outerRadius="82%"
-                  label={renderQueixaPieLabel}
-                  labelLine={false}
-                  style={{ cursor: "pointer" }}
-                  onClick={(data) => {
-                    const key =
-                      (data as { key?: string; payload?: { key?: string } } | undefined)?.payload?.key ??
-                      (data as { key?: string } | undefined)?.key;
-                    openDemandasByQueixa(key);
-                  }}
-                >
-                  {byComplaint.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} style={{ cursor: "pointer" }} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name, item) => {
-                    const pct = (item.payload as { percent?: number } | undefined)?.percent ?? 0;
-                    return [`${value} (${formatPiePercent(pct)})`, name];
-                  }}
-                />
-                <Legend
+          <CardContent className="h-[28rem] overflow-y-auto">
+            <div style={{ height: Math.max(400, byComplaint.length * 34) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={byComplaint.map((item) => ({ ...item, rotulo: `${item.value} (${formatPercent(item.percent)})` }))}
                   layout="vertical"
-                  align="right"
-                  verticalAlign="middle"
-                  formatter={(value, entry) => {
-                    const payload = entry.payload as { value?: number; percent?: number } | undefined;
-                    const qty = payload?.value ?? 0;
-                    return `${formatPiePercent(payload?.percent ?? 0)} ${value} (${qty})`;
-                  }}
-                  onClick={(entry) => {
-                    const key = (entry.payload as { key?: string } | undefined)?.key;
-                    openDemandasByQueixa(key);
-                  }}
-                  wrapperStyle={{
-                    fontSize: 12,
-                    lineHeight: "1.6",
-                    maxHeight: 400,
-                    overflow: "auto",
-                    paddingLeft: 8,
-                    cursor: "pointer",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                  margin={{ top: 4, right: 64, bottom: 4, left: 8 }}
+                >
+                  <XAxis type="number" hide domain={[0, (max: number) => Math.max(max * 1.15, 1)]} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={170}
+                    interval={0}
+                    stroke="oklch(0.5 0.02 250)"
+                    fontSize={11}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value: string) => (value.length > 28 ? `${value.slice(0, 27)}…` : value)}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "oklch(0.96 0.01 250)" }}
+                    formatter={(value, _name, item) => {
+                      const pct = (item.payload as { percent?: number } | undefined)?.percent ?? 0;
+                      return [`${value} (${formatPercent(pct)})`, "Demandas"];
+                    }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    radius={[0, 6, 6, 0]}
+                    maxBarSize={22}
+                    style={{ cursor: "pointer" }}
+                    onClick={(data) => {
+                      const key =
+                        (data as { key?: string; payload?: { key?: string } } | undefined)?.payload?.key ??
+                        (data as { key?: string } | undefined)?.key;
+                      openDemandasByQueixa(key);
+                    }}
+                  >
+                    {byComplaint.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                    <LabelList
+                      dataKey="rotulo"
+                      position="right"
+                      offset={6}
+                      className="fill-[#0F172A] text-[11px] font-semibold"
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 

@@ -9,54 +9,53 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VivenciasRouteImport } from './routes/vivencias'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
-import { Route as SaudeMentalRouteRouteImport } from './routes/saude-mental/route'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AcolhimentoRouteImport } from './routes/acolhimento'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SaudeMentalRouteRouteImport } from './routes/saude-mental/route'
+import { Route as VivenciasRouteImport } from './routes/vivencias'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedAguardandoAprovacaoRouteImport } from './routes/_authenticated/aguardando-aprovacao'
+import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authenticated/aprovacoes'
+import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDemandasRouteImport } from './routes/_authenticated/demandas'
+import { Route as AuthenticatedEscolasRouteRouteImport } from './routes/_authenticated/escolas/route'
+import { Route as AuthenticatedModuloSaudeMentalRouteRouteImport } from './routes/_authenticated/modulo-saude-mental/route'
+import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/_authenticated/modulo-vivencias/route'
+import { Route as AuthenticatedProfissionaisRouteImport } from './routes/_authenticated/profissionais'
 import { Route as SaudeMentalIndexRouteImport } from './routes/saude-mental/index'
 import { Route as SaudeMentalCursoRouteImport } from './routes/saude-mental/curso'
-import { Route as AuthenticatedProfissionaisRouteImport } from './routes/_authenticated/profissionais'
-import { Route as AuthenticatedDemandasRouteImport } from './routes/_authenticated/demandas'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedAprovacoesRouteImport } from './routes/_authenticated/aprovacoes'
-import { Route as AuthenticatedAguardandoAprovacaoRouteImport } from './routes/_authenticated/aguardando-aprovacao'
-import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
-import { Route as AuthenticatedModuloVivenciasRouteRouteImport } from './routes/_authenticated/modulo-vivencias/route'
-import { Route as AuthenticatedModuloSaudeMentalRouteRouteImport } from './routes/_authenticated/modulo-saude-mental/route'
-import { Route as AuthenticatedEscolasRouteRouteImport } from './routes/_authenticated/escolas/route'
-import { Route as AuthenticatedConfiguracoesRouteRouteImport } from './routes/_authenticated/configuracoes/route'
-import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
-import { Route as AuthenticatedModuloSaudeMentalIndexRouteImport } from './routes/_authenticated/modulo-saude-mental/index'
-import { Route as AuthenticatedEscolasIndexRouteImport } from './routes/_authenticated/escolas/index'
-import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
-import { Route as SaudeMentalPresencaTokenRouteImport } from './routes/saude-mental/presenca.$token'
-import { Route as AuthenticatedModuloVivenciasVisitasTecnicasRouteImport } from './routes/_authenticated/modulo-vivencias/visitas-tecnicas'
-import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
-import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
-import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
-import { Route as AuthenticatedModuloSaudeMentalPresencaRouteImport } from './routes/_authenticated/modulo-saude-mental/presenca'
-import { Route as AuthenticatedModuloSaudeMentalModulosRouteImport } from './routes/_authenticated/modulo-saude-mental/modulos'
-import { Route as AuthenticatedModuloSaudeMentalInscritosRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos'
-import { Route as AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport } from './routes/_authenticated/modulo-saude-mental/inscricoes-periodo'
-import { Route as AuthenticatedModuloSaudeMentalDashboardRouteImport } from './routes/_authenticated/modulo-saude-mental/dashboard'
-import { Route as AuthenticatedEscolasSerieTurmaRouteImport } from './routes/_authenticated/escolas/serie-turma'
-import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
 import { Route as AuthenticatedConfiguracoesUsuariosRouteImport } from './routes/_authenticated/configuracoes/usuarios'
-import { Route as AuthenticatedModuloVivenciasDemandasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.index'
+import { Route as AuthenticatedDemandasIndexRouteImport } from './routes/_authenticated/demandas.index'
+import { Route as AuthenticatedDemandasIdRouteImport } from './routes/_authenticated/demandas.$id'
+import { Route as AuthenticatedEscolasIndexRouteImport } from './routes/_authenticated/escolas/index'
+import { Route as AuthenticatedEscolasSerieTurmaRouteImport } from './routes/_authenticated/escolas/serie-turma'
+import { Route as AuthenticatedModuloSaudeMentalIndexRouteImport } from './routes/_authenticated/modulo-saude-mental/index'
+import { Route as AuthenticatedModuloSaudeMentalDashboardRouteImport } from './routes/_authenticated/modulo-saude-mental/dashboard'
+import { Route as AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport } from './routes/_authenticated/modulo-saude-mental/inscricoes-periodo'
+import { Route as AuthenticatedModuloSaudeMentalInscritosRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos'
+import { Route as AuthenticatedModuloSaudeMentalModulosRouteImport } from './routes/_authenticated/modulo-saude-mental/modulos'
+import { Route as AuthenticatedModuloSaudeMentalPresencaRouteImport } from './routes/_authenticated/modulo-saude-mental/presenca'
+import { Route as AuthenticatedModuloVivenciasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/index'
+import { Route as AuthenticatedModuloVivenciasAgendaRouteImport } from './routes/_authenticated/modulo-vivencias/agenda'
+import { Route as AuthenticatedModuloVivenciasDashboardRouteImport } from './routes/_authenticated/modulo-vivencias/dashboard'
+import { Route as AuthenticatedModuloVivenciasDemandasRouteImport } from './routes/_authenticated/modulo-vivencias/demandas'
+import { Route as AuthenticatedModuloVivenciasVisitasTecnicasRouteImport } from './routes/_authenticated/modulo-vivencias/visitas-tecnicas'
+import { Route as SaudeMentalPresencaTokenRouteImport } from './routes/saude-mental/presenca.$token'
 import { Route as AuthenticatedModuloSaudeMentalInscritosIndexRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos.index'
-import { Route as AuthenticatedModuloVivenciasDemandasIdRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.$id'
 import { Route as AuthenticatedModuloSaudeMentalInscritosIdRouteImport } from './routes/_authenticated/modulo-saude-mental/inscritos.$id'
+import { Route as AuthenticatedModuloVivenciasDemandasIndexRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.index'
+import { Route as AuthenticatedModuloVivenciasDemandasIdRouteImport } from './routes/_authenticated/modulo-vivencias/demandas.$id'
 
-const VivenciasRoute = VivenciasRouteImport.update({
-  id: '/vivencias',
-  path: '/vivencias',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcolhimentoRoute = AcolhimentoRouteImport.update({
@@ -64,20 +63,77 @@ const AcolhimentoRoute = AcolhimentoRouteImport.update({
   path: '/acolhimento',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SaudeMentalRouteRoute = SaudeMentalRouteRouteImport.update({
   id: '/saude-mental',
   path: '/saude-mental',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const VivenciasRoute = VivenciasRouteImport.update({
+  id: '/vivencias',
+  path: '/vivencias',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAguardandoAprovacaoRoute =
+  AuthenticatedAguardandoAprovacaoRouteImport.update({
+    id: '/aguardando-aprovacao',
+    path: '/aguardando-aprovacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAprovacoesRoute = AuthenticatedAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConfiguracoesRouteRoute =
+  AuthenticatedConfiguracoesRouteRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDemandasRoute = AuthenticatedDemandasRouteImport.update({
+  id: '/demandas',
+  path: '/demandas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEscolasRouteRoute =
+  AuthenticatedEscolasRouteRouteImport.update({
+    id: '/escolas',
+    path: '/escolas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModuloSaudeMentalRouteRoute =
+  AuthenticatedModuloSaudeMentalRouteRouteImport.update({
+    id: '/modulo-saude-mental',
+    path: '/modulo-saude-mental',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasRouteRoute =
+  AuthenticatedModuloVivenciasRouteRouteImport.update({
+    id: '/modulo-vivencias',
+    path: '/modulo-vivencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProfissionaisRoute =
+  AuthenticatedProfissionaisRouteImport.update({
+    id: '/profissionais',
+    path: '/profissionais',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const SaudeMentalIndexRoute = SaudeMentalIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -88,79 +144,11 @@ const SaudeMentalCursoRoute = SaudeMentalCursoRouteImport.update({
   path: '/curso',
   getParentRoute: () => SaudeMentalRouteRoute,
 } as any)
-const AuthenticatedProfissionaisRoute =
-  AuthenticatedProfissionaisRouteImport.update({
-    id: '/profissionais',
-    path: '/profissionais',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDemandasRoute = AuthenticatedDemandasRouteImport.update({
-  id: '/demandas',
-  path: '/demandas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAprovacoesRoute = AuthenticatedAprovacoesRouteImport.update({
-  id: '/aprovacoes',
-  path: '/aprovacoes',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAguardandoAprovacaoRoute =
-  AuthenticatedAguardandoAprovacaoRouteImport.update({
-    id: '/aguardando-aprovacao',
-    path: '/aguardando-aprovacao',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
-  id: '/agenda',
-  path: '/agenda',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedModuloVivenciasRouteRoute =
-  AuthenticatedModuloVivenciasRouteRouteImport.update({
-    id: '/modulo-vivencias',
-    path: '/modulo-vivencias',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalRouteRoute =
-  AuthenticatedModuloSaudeMentalRouteRouteImport.update({
-    id: '/modulo-saude-mental',
-    path: '/modulo-saude-mental',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedEscolasRouteRoute =
-  AuthenticatedEscolasRouteRouteImport.update({
-    id: '/escolas',
-    path: '/escolas',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedConfiguracoesRouteRoute =
-  AuthenticatedConfiguracoesRouteRouteImport.update({
-    id: '/configuracoes',
-    path: '/configuracoes',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedModuloVivenciasIndexRoute =
-  AuthenticatedModuloVivenciasIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalIndexRoute =
-  AuthenticatedModuloSaudeMentalIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
-  } as any)
-const AuthenticatedEscolasIndexRoute =
-  AuthenticatedEscolasIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedEscolasRouteRoute,
+const AuthenticatedConfiguracoesUsuariosRoute =
+  AuthenticatedConfiguracoesUsuariosRouteImport.update({
+    id: '/usuarios',
+    path: '/usuarios',
+    getParentRoute: () => AuthenticatedConfiguracoesRouteRoute,
   } as any)
 const AuthenticatedDemandasIndexRoute =
   AuthenticatedDemandasIndexRouteImport.update({
@@ -168,58 +156,27 @@ const AuthenticatedDemandasIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDemandasRoute,
   } as any)
-const SaudeMentalPresencaTokenRoute =
-  SaudeMentalPresencaTokenRouteImport.update({
-    id: '/presenca/$token',
-    path: '/presenca/$token',
-    getParentRoute: () => SaudeMentalRouteRoute,
+const AuthenticatedDemandasIdRoute = AuthenticatedDemandasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedDemandasRoute,
+} as any)
+const AuthenticatedEscolasIndexRoute =
+  AuthenticatedEscolasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedEscolasRouteRoute,
   } as any)
-const AuthenticatedModuloVivenciasVisitasTecnicasRoute =
-  AuthenticatedModuloVivenciasVisitasTecnicasRouteImport.update({
-    id: '/visitas-tecnicas',
-    path: '/visitas-tecnicas',
-    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+const AuthenticatedEscolasSerieTurmaRoute =
+  AuthenticatedEscolasSerieTurmaRouteImport.update({
+    id: '/serie-turma',
+    path: '/serie-turma',
+    getParentRoute: () => AuthenticatedEscolasRouteRoute,
   } as any)
-const AuthenticatedModuloVivenciasDemandasRoute =
-  AuthenticatedModuloVivenciasDemandasRouteImport.update({
-    id: '/demandas',
-    path: '/demandas',
-    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
-  } as any)
-const AuthenticatedModuloVivenciasDashboardRoute =
-  AuthenticatedModuloVivenciasDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
-    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
-  } as any)
-const AuthenticatedModuloVivenciasAgendaRoute =
-  AuthenticatedModuloVivenciasAgendaRouteImport.update({
-    id: '/agenda',
-    path: '/agenda',
-    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalPresencaRoute =
-  AuthenticatedModuloSaudeMentalPresencaRouteImport.update({
-    id: '/presenca',
-    path: '/presenca',
-    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalModulosRoute =
-  AuthenticatedModuloSaudeMentalModulosRouteImport.update({
-    id: '/modulos',
-    path: '/modulos',
-    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalInscritosRoute =
-  AuthenticatedModuloSaudeMentalInscritosRouteImport.update({
-    id: '/inscritos',
-    path: '/inscritos',
-    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
-  } as any)
-const AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute =
-  AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport.update({
-    id: '/inscricoes-periodo',
-    path: '/inscricoes-periodo',
+const AuthenticatedModuloSaudeMentalIndexRoute =
+  AuthenticatedModuloSaudeMentalIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
   } as any)
 const AuthenticatedModuloSaudeMentalDashboardRoute =
@@ -228,28 +185,65 @@ const AuthenticatedModuloSaudeMentalDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
   } as any)
-const AuthenticatedEscolasSerieTurmaRoute =
-  AuthenticatedEscolasSerieTurmaRouteImport.update({
-    id: '/serie-turma',
-    path: '/serie-turma',
-    getParentRoute: () => AuthenticatedEscolasRouteRoute,
+const AuthenticatedModuloSaudeMentalInscricoesPeriodoRoute =
+  AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport.update({
+    id: '/inscricoes-periodo',
+    path: '/inscricoes-periodo',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
   } as any)
-const AuthenticatedDemandasIdRoute = AuthenticatedDemandasIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedDemandasRoute,
-} as any)
-const AuthenticatedConfiguracoesUsuariosRoute =
-  AuthenticatedConfiguracoesUsuariosRouteImport.update({
-    id: '/usuarios',
-    path: '/usuarios',
-    getParentRoute: () => AuthenticatedConfiguracoesRouteRoute,
+const AuthenticatedModuloSaudeMentalInscritosRoute =
+  AuthenticatedModuloSaudeMentalInscritosRouteImport.update({
+    id: '/inscritos',
+    path: '/inscritos',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
   } as any)
-const AuthenticatedModuloVivenciasDemandasIndexRoute =
-  AuthenticatedModuloVivenciasDemandasIndexRouteImport.update({
+const AuthenticatedModuloSaudeMentalModulosRoute =
+  AuthenticatedModuloSaudeMentalModulosRouteImport.update({
+    id: '/modulos',
+    path: '/modulos',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
+const AuthenticatedModuloSaudeMentalPresencaRoute =
+  AuthenticatedModuloSaudeMentalPresencaRouteImport.update({
+    id: '/presenca',
+    path: '/presenca',
+    getParentRoute: () => AuthenticatedModuloSaudeMentalRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasIndexRoute =
+  AuthenticatedModuloVivenciasIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasAgendaRoute =
+  AuthenticatedModuloVivenciasAgendaRouteImport.update({
+    id: '/agenda',
+    path: '/agenda',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDashboardRoute =
+  AuthenticatedModuloVivenciasDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDemandasRoute =
+  AuthenticatedModuloVivenciasDemandasRouteImport.update({
+    id: '/demandas',
+    path: '/demandas',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const AuthenticatedModuloVivenciasVisitasTecnicasRoute =
+  AuthenticatedModuloVivenciasVisitasTecnicasRouteImport.update({
+    id: '/visitas-tecnicas',
+    path: '/visitas-tecnicas',
+    getParentRoute: () => AuthenticatedModuloVivenciasRouteRoute,
+  } as any)
+const SaudeMentalPresencaTokenRoute =
+  SaudeMentalPresencaTokenRouteImport.update({
+    id: '/presenca/$token',
+    path: '/presenca/$token',
+    getParentRoute: () => SaudeMentalRouteRoute,
   } as any)
 const AuthenticatedModuloSaudeMentalInscritosIndexRoute =
   AuthenticatedModuloSaudeMentalInscritosIndexRouteImport.update({
@@ -257,17 +251,23 @@ const AuthenticatedModuloSaudeMentalInscritosIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedModuloSaudeMentalInscritosRoute,
   } as any)
-const AuthenticatedModuloVivenciasDemandasIdRoute =
-  AuthenticatedModuloVivenciasDemandasIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
-  } as any)
 const AuthenticatedModuloSaudeMentalInscritosIdRoute =
   AuthenticatedModuloSaudeMentalInscritosIdRouteImport.update({
     id: '/$id',
     path: '/$id',
     getParentRoute: () => AuthenticatedModuloSaudeMentalInscritosRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDemandasIndexRoute =
+  AuthenticatedModuloVivenciasDemandasIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
+  } as any)
+const AuthenticatedModuloVivenciasDemandasIdRoute =
+  AuthenticatedModuloVivenciasDemandasIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedModuloVivenciasDemandasRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -513,32 +513,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/vivencias': {
-      id: '/vivencias'
-      path: '/vivencias'
-      fullPath: '/vivencias'
-      preLoaderRoute: typeof VivenciasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/acolhimento': {
-      id: '/acolhimento'
-      path: '/acolhimento'
-      fullPath: '/acolhimento'
-      preLoaderRoute: typeof AcolhimentoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/saude-mental': {
-      id: '/saude-mental'
-      path: '/saude-mental'
-      fullPath: '/saude-mental'
-      preLoaderRoute: typeof SaudeMentalRouteRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -548,12 +527,103 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/acolhimento': {
+      id: '/acolhimento'
+      path: '/acolhimento'
+      fullPath: '/acolhimento'
+      preLoaderRoute: typeof AcolhimentoRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/saude-mental': {
+      id: '/saude-mental'
+      path: '/saude-mental'
+      fullPath: '/saude-mental'
+      preLoaderRoute: typeof SaudeMentalRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vivencias': {
+      id: '/vivencias'
+      path: '/vivencias'
+      fullPath: '/vivencias'
+      preLoaderRoute: typeof VivenciasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/aguardando-aprovacao': {
+      id: '/_authenticated/aguardando-aprovacao'
+      path: '/aguardando-aprovacao'
+      fullPath: '/aguardando-aprovacao'
+      preLoaderRoute: typeof AuthenticatedAguardandoAprovacaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/aprovacoes': {
+      id: '/_authenticated/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/aprovacoes'
+      preLoaderRoute: typeof AuthenticatedAprovacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/demandas': {
+      id: '/_authenticated/demandas'
+      path: '/demandas'
+      fullPath: '/demandas'
+      preLoaderRoute: typeof AuthenticatedDemandasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/escolas': {
+      id: '/_authenticated/escolas'
+      path: '/escolas'
+      fullPath: '/escolas'
+      preLoaderRoute: typeof AuthenticatedEscolasRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/modulo-saude-mental': {
+      id: '/_authenticated/modulo-saude-mental'
+      path: '/modulo-saude-mental'
+      fullPath: '/modulo-saude-mental'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/modulo-vivencias': {
+      id: '/_authenticated/modulo-vivencias'
+      path: '/modulo-vivencias'
+      fullPath: '/modulo-vivencias'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profissionais': {
+      id: '/_authenticated/profissionais'
+      path: '/profissionais'
+      fullPath: '/profissionais'
+      preLoaderRoute: typeof AuthenticatedProfissionaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/saude-mental/': {
       id: '/saude-mental/'
@@ -569,96 +639,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SaudeMentalCursoRouteImport
       parentRoute: typeof SaudeMentalRouteRoute
     }
-    '/_authenticated/profissionais': {
-      id: '/_authenticated/profissionais'
-      path: '/profissionais'
-      fullPath: '/profissionais'
-      preLoaderRoute: typeof AuthenticatedProfissionaisRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/demandas': {
-      id: '/_authenticated/demandas'
-      path: '/demandas'
-      fullPath: '/demandas'
-      preLoaderRoute: typeof AuthenticatedDemandasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/aprovacoes': {
-      id: '/_authenticated/aprovacoes'
-      path: '/aprovacoes'
-      fullPath: '/aprovacoes'
-      preLoaderRoute: typeof AuthenticatedAprovacoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/aguardando-aprovacao': {
-      id: '/_authenticated/aguardando-aprovacao'
-      path: '/aguardando-aprovacao'
-      fullPath: '/aguardando-aprovacao'
-      preLoaderRoute: typeof AuthenticatedAguardandoAprovacaoRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/agenda': {
-      id: '/_authenticated/agenda'
-      path: '/agenda'
-      fullPath: '/agenda'
-      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/modulo-vivencias': {
-      id: '/_authenticated/modulo-vivencias'
-      path: '/modulo-vivencias'
-      fullPath: '/modulo-vivencias'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental': {
-      id: '/_authenticated/modulo-saude-mental'
-      path: '/modulo-saude-mental'
-      fullPath: '/modulo-saude-mental'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/escolas': {
-      id: '/_authenticated/escolas'
-      path: '/escolas'
-      fullPath: '/escolas'
-      preLoaderRoute: typeof AuthenticatedEscolasRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/modulo-vivencias/': {
-      id: '/_authenticated/modulo-vivencias/'
-      path: '/'
-      fullPath: '/modulo-vivencias/'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasIndexRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental/': {
-      id: '/_authenticated/modulo-saude-mental/'
-      path: '/'
-      fullPath: '/modulo-saude-mental/'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalIndexRouteImport
-      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
-    }
-    '/_authenticated/escolas/': {
-      id: '/_authenticated/escolas/'
-      path: '/'
-      fullPath: '/escolas/'
-      preLoaderRoute: typeof AuthenticatedEscolasIndexRouteImport
-      parentRoute: typeof AuthenticatedEscolasRouteRoute
+    '/_authenticated/configuracoes/usuarios': {
+      id: '/_authenticated/configuracoes/usuarios'
+      path: '/usuarios'
+      fullPath: '/configuracoes/usuarios'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesUsuariosRouteImport
+      parentRoute: typeof AuthenticatedConfiguracoesRouteRoute
     }
     '/_authenticated/demandas/': {
       id: '/_authenticated/demandas/'
@@ -667,67 +653,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDemandasIndexRouteImport
       parentRoute: typeof AuthenticatedDemandasRoute
     }
-    '/saude-mental/presenca/$token': {
-      id: '/saude-mental/presenca/$token'
-      path: '/presenca/$token'
-      fullPath: '/saude-mental/presenca/$token'
-      preLoaderRoute: typeof SaudeMentalPresencaTokenRouteImport
-      parentRoute: typeof SaudeMentalRouteRoute
+    '/_authenticated/demandas/$id': {
+      id: '/_authenticated/demandas/$id'
+      path: '/$id'
+      fullPath: '/demandas/$id'
+      preLoaderRoute: typeof AuthenticatedDemandasIdRouteImport
+      parentRoute: typeof AuthenticatedDemandasRoute
     }
-    '/_authenticated/modulo-vivencias/visitas-tecnicas': {
-      id: '/_authenticated/modulo-vivencias/visitas-tecnicas'
-      path: '/visitas-tecnicas'
-      fullPath: '/modulo-vivencias/visitas-tecnicas'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasVisitasTecnicasRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    '/_authenticated/escolas/': {
+      id: '/_authenticated/escolas/'
+      path: '/'
+      fullPath: '/escolas/'
+      preLoaderRoute: typeof AuthenticatedEscolasIndexRouteImport
+      parentRoute: typeof AuthenticatedEscolasRouteRoute
     }
-    '/_authenticated/modulo-vivencias/demandas': {
-      id: '/_authenticated/modulo-vivencias/demandas'
-      path: '/demandas'
-      fullPath: '/modulo-vivencias/demandas'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    '/_authenticated/escolas/serie-turma': {
+      id: '/_authenticated/escolas/serie-turma'
+      path: '/serie-turma'
+      fullPath: '/escolas/serie-turma'
+      preLoaderRoute: typeof AuthenticatedEscolasSerieTurmaRouteImport
+      parentRoute: typeof AuthenticatedEscolasRouteRoute
     }
-    '/_authenticated/modulo-vivencias/dashboard': {
-      id: '/_authenticated/modulo-vivencias/dashboard'
-      path: '/dashboard'
-      fullPath: '/modulo-vivencias/dashboard'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasDashboardRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
-    }
-    '/_authenticated/modulo-vivencias/agenda': {
-      id: '/_authenticated/modulo-vivencias/agenda'
-      path: '/agenda'
-      fullPath: '/modulo-vivencias/agenda'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasAgendaRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental/presenca': {
-      id: '/_authenticated/modulo-saude-mental/presenca'
-      path: '/presenca'
-      fullPath: '/modulo-saude-mental/presenca'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalPresencaRouteImport
-      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental/modulos': {
-      id: '/_authenticated/modulo-saude-mental/modulos'
-      path: '/modulos'
-      fullPath: '/modulo-saude-mental/modulos'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalModulosRouteImport
-      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental/inscritos': {
-      id: '/_authenticated/modulo-saude-mental/inscritos'
-      path: '/inscritos'
-      fullPath: '/modulo-saude-mental/inscritos'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosRouteImport
-      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
-    }
-    '/_authenticated/modulo-saude-mental/inscricoes-periodo': {
-      id: '/_authenticated/modulo-saude-mental/inscricoes-periodo'
-      path: '/inscricoes-periodo'
-      fullPath: '/modulo-saude-mental/inscricoes-periodo'
-      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport
+    '/_authenticated/modulo-saude-mental/': {
+      id: '/_authenticated/modulo-saude-mental/'
+      path: '/'
+      fullPath: '/modulo-saude-mental/'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalIndexRouteImport
       parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
     '/_authenticated/modulo-saude-mental/dashboard': {
@@ -737,33 +688,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloSaudeMentalDashboardRouteImport
       parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
-    '/_authenticated/escolas/serie-turma': {
-      id: '/_authenticated/escolas/serie-turma'
-      path: '/serie-turma'
-      fullPath: '/escolas/serie-turma'
-      preLoaderRoute: typeof AuthenticatedEscolasSerieTurmaRouteImport
-      parentRoute: typeof AuthenticatedEscolasRouteRoute
+    '/_authenticated/modulo-saude-mental/inscricoes-periodo': {
+      id: '/_authenticated/modulo-saude-mental/inscricoes-periodo'
+      path: '/inscricoes-periodo'
+      fullPath: '/modulo-saude-mental/inscricoes-periodo'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscricoesPeriodoRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
-    '/_authenticated/demandas/$id': {
-      id: '/_authenticated/demandas/$id'
-      path: '/$id'
-      fullPath: '/demandas/$id'
-      preLoaderRoute: typeof AuthenticatedDemandasIdRouteImport
-      parentRoute: typeof AuthenticatedDemandasRoute
+    '/_authenticated/modulo-saude-mental/inscritos': {
+      id: '/_authenticated/modulo-saude-mental/inscritos'
+      path: '/inscritos'
+      fullPath: '/modulo-saude-mental/inscritos'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
-    '/_authenticated/configuracoes/usuarios': {
-      id: '/_authenticated/configuracoes/usuarios'
-      path: '/usuarios'
-      fullPath: '/configuracoes/usuarios'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesUsuariosRouteImport
-      parentRoute: typeof AuthenticatedConfiguracoesRouteRoute
+    '/_authenticated/modulo-saude-mental/modulos': {
+      id: '/_authenticated/modulo-saude-mental/modulos'
+      path: '/modulos'
+      fullPath: '/modulo-saude-mental/modulos'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalModulosRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
     }
-    '/_authenticated/modulo-vivencias/demandas/': {
-      id: '/_authenticated/modulo-vivencias/demandas/'
+    '/_authenticated/modulo-saude-mental/presenca': {
+      id: '/_authenticated/modulo-saude-mental/presenca'
+      path: '/presenca'
+      fullPath: '/modulo-saude-mental/presenca'
+      preLoaderRoute: typeof AuthenticatedModuloSaudeMentalPresencaRouteImport
+      parentRoute: typeof AuthenticatedModuloSaudeMentalRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/': {
+      id: '/_authenticated/modulo-vivencias/'
       path: '/'
-      fullPath: '/modulo-vivencias/demandas/'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIndexRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
+      fullPath: '/modulo-vivencias/'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/agenda': {
+      id: '/_authenticated/modulo-vivencias/agenda'
+      path: '/agenda'
+      fullPath: '/modulo-vivencias/agenda'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasAgendaRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/dashboard': {
+      id: '/_authenticated/modulo-vivencias/dashboard'
+      path: '/dashboard'
+      fullPath: '/modulo-vivencias/dashboard'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDashboardRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas': {
+      id: '/_authenticated/modulo-vivencias/demandas'
+      path: '/demandas'
+      fullPath: '/modulo-vivencias/demandas'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/_authenticated/modulo-vivencias/visitas-tecnicas': {
+      id: '/_authenticated/modulo-vivencias/visitas-tecnicas'
+      path: '/visitas-tecnicas'
+      fullPath: '/modulo-vivencias/visitas-tecnicas'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasVisitasTecnicasRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasRouteRoute
+    }
+    '/saude-mental/presenca/$token': {
+      id: '/saude-mental/presenca/$token'
+      path: '/presenca/$token'
+      fullPath: '/saude-mental/presenca/$token'
+      preLoaderRoute: typeof SaudeMentalPresencaTokenRouteImport
+      parentRoute: typeof SaudeMentalRouteRoute
     }
     '/_authenticated/modulo-saude-mental/inscritos/': {
       id: '/_authenticated/modulo-saude-mental/inscritos/'
@@ -772,19 +765,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosIndexRouteImport
       parentRoute: typeof AuthenticatedModuloSaudeMentalInscritosRoute
     }
-    '/_authenticated/modulo-vivencias/demandas/$id': {
-      id: '/_authenticated/modulo-vivencias/demandas/$id'
-      path: '/$id'
-      fullPath: '/modulo-vivencias/demandas/$id'
-      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIdRouteImport
-      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
-    }
     '/_authenticated/modulo-saude-mental/inscritos/$id': {
       id: '/_authenticated/modulo-saude-mental/inscritos/$id'
       path: '/$id'
       fullPath: '/modulo-saude-mental/inscritos/$id'
       preLoaderRoute: typeof AuthenticatedModuloSaudeMentalInscritosIdRouteImport
       parentRoute: typeof AuthenticatedModuloSaudeMentalInscritosRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas/': {
+      id: '/_authenticated/modulo-vivencias/demandas/'
+      path: '/'
+      fullPath: '/modulo-vivencias/demandas/'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIndexRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
+    }
+    '/_authenticated/modulo-vivencias/demandas/$id': {
+      id: '/_authenticated/modulo-vivencias/demandas/$id'
+      path: '/$id'
+      fullPath: '/modulo-vivencias/demandas/$id'
+      preLoaderRoute: typeof AuthenticatedModuloVivenciasDemandasIdRouteImport
+      parentRoute: typeof AuthenticatedModuloVivenciasDemandasRoute
     }
   }
 }
