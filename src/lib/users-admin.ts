@@ -12,18 +12,48 @@ export type AdminUserRow = {
   professional: { id: string; nome: string } | null;
 };
 
+const PAGE = 1000;
+
+/** O PostgREST corta cada resposta em 1000 linhas; pagina até o fim. */
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>,
+): Promise<{ data: T[]; error: { message: string; code?: string } | null }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) return { data: rows, error };
+    const chunk = data ?? [];
+    rows.push(...chunk);
+    if (chunk.length < PAGE) break;
+  }
+  return { data: rows, error: null };
+}
+
 /** Lista usuários via Supabase client (RLS). Evita server function + auth.admin no Node. */
 export async function fetchUsersAdmin(): Promise<AdminUserRow[]> {
   const [{ data: profiles, error: pErr }, { data: roles, error: rErr }, { data: pros, error: proErr }] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select(
-          "id, full_name, email, account_status, receive_acolhimento_emails, receive_vivencias_emails, created_at",
-        )
-        .order("created_at", { ascending: false }),
-      supabase.from("user_roles").select("user_id, role"),
-      supabase.from("professionals").select("id, nome, user_id").is("deleted_at", null),
+      fetchAllPages((from, to) =>
+        supabase
+          .from("profiles")
+          .select(
+            "id, full_name, email, account_status, receive_acolhimento_emails, receive_vivencias_emails, created_at",
+          )
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      fetchAllPages((from, to) =>
+        supabase.from("user_roles").select("user_id, role").order("user_id").order("role").range(from, to),
+      ),
+      fetchAllPages((from, to) =>
+        supabase
+          .from("professionals")
+          .select("id, nome, user_id")
+          .is("deleted_at", null)
+          .order("id")
+          .range(from, to),
+      ),
     ]);
 
   if (pErr) {
