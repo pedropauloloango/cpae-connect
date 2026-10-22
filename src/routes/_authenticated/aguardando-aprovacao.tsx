@@ -26,7 +26,7 @@ function AguardandoAprovacao() {
           </div>
           <CardTitle className="mt-4">Aguardando aprovação</CardTitle>
           <CardDescription className="text-balance">
-            Seu e-mail foi confirmado, mas o acesso ao sistema ainda não está liberado.
+            Seu cadastro foi recebido, mas o acesso ao sistema ainda não está liberado.
             Um administrador precisa aprovar seu cadastro e vincular sua permissão como
             <strong> Administrador</strong> ou <strong> Profissional</strong>.
           </CardDescription>

@@ -135,10 +135,21 @@ function AuthPage() {
     });
     if (error) {
       setLoading(false);
-      return toast.error("Não foi possível criar a conta", { description: error.message });
+      const rateLimited = error.status === 429 || /rate limit/i.test(error.message);
+      return toast.error("Não foi possível criar a conta", {
+        description: rateLimited
+          ? "Muitos cadastros em pouco tempo. Aguarde alguns minutos e tente novamente, ou use \"Continuar com Google\"."
+          : error.message,
+      });
     }
-    if (data.session) await supabase.auth.signOut();
     setLoading(false);
+    if (data.session) {
+      toast.success("Cadastro realizado", {
+        description: "Um administrador precisa aprovar seu acesso.",
+      });
+      navigate({ to: "/aguardando-aprovacao" });
+      return;
+    }
     setRegisteredEmail(email);
     setVerifyModalOpen(true);
   };

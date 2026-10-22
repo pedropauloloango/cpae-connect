@@ -17,7 +17,12 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  actor_is_admin := public.has_role(actor, 'admin') OR public.is_super_admin(actor);
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    WHERE ur.user_id = actor
+      AND ur.role::text IN ('admin', 'super_admin')
+  ) INTO actor_is_admin;
   IF actor_is_admin THEN
     RETURN NEW;
   END IF;
