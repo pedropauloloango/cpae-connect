@@ -24,11 +24,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error(message);
     }
 
-    if (!SUPABASE_JWT_SECRET?.trim() && !SUPABASE_JWT_PUBLIC_KEY?.trim()) {
-      throw new Error(
-        "Configure SUPABASE_JWT_PUBLIC_KEY (recomendado, aba JWT Signing Keys) ou SUPABASE_JWT_SECRET (aba Legacy JWT Secret) no .env e reinicie npm run dev.",
-      );
-    }
+    const hasLocalJwtKey = Boolean(SUPABASE_JWT_SECRET?.trim() || SUPABASE_JWT_PUBLIC_KEY?.trim());
 
     const request = getRequest();
     if (!request?.headers) {
@@ -62,15 +58,24 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     let userId: string;
 
     try {
-      const claims = verifySupabaseAccessToken(token, {
-        jwtSecret: SUPABASE_JWT_SECRET,
-        jwtPublicKey: SUPABASE_JWT_PUBLIC_KEY,
-      });
-      const expectedRef = getProjectRefFromSupabaseUrl(SUPABASE_URL);
-      if (expectedRef && claims.ref && claims.ref !== expectedRef) {
-        throw new Error("Token belongs to a different Supabase project");
+      if (hasLocalJwtKey) {
+        const claims = verifySupabaseAccessToken(token, {
+          jwtSecret: SUPABASE_JWT_SECRET,
+          jwtPublicKey: SUPABASE_JWT_PUBLIC_KEY,
+        });
+        const expectedRef = getProjectRefFromSupabaseUrl(SUPABASE_URL);
+        if (expectedRef && claims.ref && claims.ref !== expectedRef) {
+          throw new Error("Token belongs to a different Supabase project");
+        }
+        userId = claims.sub;
+      } else {
+        // Sem chave JWT no ambiente: valida o token no próprio Supabase Auth.
+        const { data, error } = await supabase.auth.getUser(token);
+        if (error || !data.user) {
+          throw new Error(error?.message ?? "Usuário não encontrado para o token");
+        }
+        userId = data.user.id;
       }
-      userId = claims.sub;
     } catch (err) {
       const detail = err instanceof Error ? err.message : "verification failed";
       console.error("[Supabase auth] JWT verify failed:", detail);
