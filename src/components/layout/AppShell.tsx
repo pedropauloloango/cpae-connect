@@ -572,7 +572,10 @@ function AppShellLayout({ children }: { children: ReactNode }) {
           }}
           required={mustChangePassword}
           userId={user.id}
-          onSuccess={() => setMustChangePassword(false)}
+          onSuccess={() => {
+            setMustChangePassword(false);
+            setChangePasswordOpen(false);
+          }}
         />
       )}
     </div>

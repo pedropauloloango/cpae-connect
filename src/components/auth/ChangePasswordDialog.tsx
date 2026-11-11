@@ -70,8 +70,8 @@ export function ChangePasswordDialog({
 
       toast.success("Senha atualizada com sucesso.");
       resetForm();
-      onOpenChange(false);
       onSuccess?.();
+      onOpenChange(false);
     } catch (e) {
       toast.error("Não foi possível alterar a senha", {
         description: e instanceof Error ? e.message : "Tente novamente.",

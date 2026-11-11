@@ -24,11 +24,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Search, UserCheck, UserX, Shield, Briefcase, Mail, Trash2, Loader2 } from "lucide-react";
+import { Search, UserCheck, UserX, Shield, Briefcase, Mail, Trash2, Loader2, KeyRound } from "lucide-react";
 import { accountStatusLabels, accountStatusTone, appRoleLabels } from "@/lib/labels";
 import type { AppRole } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth";
-import { deleteUserAdmin } from "@/lib/users-admin.functions";
+import { deleteUserAdmin, resetUserPasswordAdmin } from "@/lib/users-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/usuarios")({ component: UsuariosConfig });
 
@@ -46,6 +46,7 @@ function UsuariosConfig() {
   const [receiveAcolhimentoEmails, setReceiveAcolhimentoEmails] = useState(false);
   const [receiveVivenciasEmails, setReceiveVivenciasEmails] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ["config-users"],
@@ -183,6 +184,17 @@ function UsuariosConfig() {
       setEditing(null);
     },
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
+  });
+
+  const resetPasswordMut = useMutation({
+    mutationFn: async (userId: string) => resetUserPasswordAdmin({ data: { userId } }),
+    onSuccess: (result) => {
+      toast.success("Senha redefinida", {
+        description: `Uma senha temporária foi enviada para ${result.email}.`,
+      });
+      setResetTarget(null);
+    },
+    onError: (e: Error) => toast.error("Erro ao redefinir senha", { description: e.message }),
   });
 
   const openEdit = (row: UserRow) => {
@@ -562,6 +574,23 @@ function UsuariosConfig() {
               </div>
               <Button
                 type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setResetTarget(editing)}
+                disabled={
+                  saveMut.isPending ||
+                  deleteMut.isPending ||
+                  resetPasswordMut.isPending ||
+                  !editing.email ||
+                  isSelf ||
+                  !canManageTarget
+                }
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Redefinir senha
+              </Button>
+              <Button
+                type="button"
                 variant="destructive"
                 className="w-full"
                 onClick={() => setDeleteTarget(editing)}
@@ -592,6 +621,36 @@ function UsuariosConfig() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!resetTarget}
+        onOpenChange={(o) => !o && !resetPasswordMut.isPending && setResetTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Redefinir senha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Uma senha temporária será gerada para{" "}
+              <strong>{resetTarget?.full_name || resetTarget?.email}</strong> e enviada para{" "}
+              <strong>{resetTarget?.email}</strong>. A senha atual deixará de funcionar e, no
+              próximo acesso, o usuário deverá definir uma nova senha.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetPasswordMut.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={resetPasswordMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (resetTarget) resetPasswordMut.mutate(resetTarget.id);
+              }}
+            >
+              {resetPasswordMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar senha temporária
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleteMut.isPending && setDeleteTarget(null)}>
         <AlertDialogContent>
