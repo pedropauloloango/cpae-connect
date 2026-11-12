@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,12 +14,47 @@ import {
   situacoesFromRequest,
 } from "@/lib/acolhimento-options";
 import { cn } from "@/lib/utils";
-import { fetchRequestIdsComAtendimentoNoMes, type DemandasFiltro } from "@/lib/demandas-filtros";
+import type { DemandasFiltro } from "@/lib/demandas-filtros";
+import {
+  aplicarFiltros,
+  evolucaoMensal,
+  fetchAllPages,
+  FILTROS_DASHBOARD_PADRAO,
+  intervaloDoMes,
+  mesKeyDeIso,
+  mesLabel,
+  mesReferencia,
+  regiaoDoRegistro,
+  type DashboardFiltros,
+} from "@/lib/dashboard-filtros";
 import type { HeatSchoolCount } from "@/components/dashboard/ComplaintsHeatMap";
+import { DashboardFiltrosBar } from "@/components/dashboard/DashboardFiltrosBar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 interface Counters { recebida: number; em_andamento: number; concluida: number; agendados_mes: number; total_escolas: number; total_profissionais: number; }
+
+type SchoolRow = {
+  id: string;
+  nome: string;
+  endereco: string | null;
+  bairro: string | null;
+  cep: string | null;
+  regiao: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocode_status: string | null;
+};
+
+interface RequestRow {
+  id: string;
+  status: string;
+  mes: string;
+  regiao: string;
+  escola: string;
+  situacoes: string[];
+  school: SchoolRow | null;
+}
 
 function formatPercent(percent: number): string {
   return `${Math.round(percent * 100)}%`;
@@ -43,170 +78,105 @@ function Dashboard() {
     enabled: !!user && !isAdmin && !authLoading,
   });
 
-  const { data: counters } = useQuery<Counters>({
-    queryKey: ["dashboard-counters", isAdmin, myProfId],
-    enabled: !authLoading && (isAdmin || myProfId !== undefined),
+  const scopeReady = !authLoading && (isAdmin || myProfId !== undefined);
+  const [filtros, setFiltros] = useState<DashboardFiltros>(FILTROS_DASHBOARD_PADRAO);
+
+  const { data: base = [] } = useQuery<RequestRow[]>({
+    queryKey: ["dash-base", isAdmin, myProfId],
+    enabled: scopeReady,
     queryFn: async () => {
-      let qRecebida = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "recebida");
-      let qAndamento = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).in("status", ["distribuida", "em_andamento", "em_ajuste", "aguardando_aprovacao"]);
-      let qConcluida = supabase.from("requests").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "concluida");
-
-      if (!isAdmin) {
-        if (!myProfId) {
-          return { recebida: 0, em_andamento: 0, concluida: 0, agendados_mes: 0, total_escolas: 0, total_profissionais: 0 };
-        }
-        qRecebida = qRecebida.eq("assigned_professional_id", myProfId);
-        qAndamento = qAndamento.eq("assigned_professional_id", myProfId);
-        qConcluida = qConcluida.eq("assigned_professional_id", myProfId);
-      }
-
-      const [r1, r2, r3, requestIdsMes] = await Promise.all([
-        qRecebida,
-        qAndamento,
-        qConcluida,
-        fetchRequestIdsComAtendimentoNoMes(isAdmin ? null : myProfId),
-      ]);
-
-      let total_escolas = 0;
-      let total_profissionais = 0;
-      if (isAdmin) {
-        const [sc, pr] = await Promise.all([
-          supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
-          supabase.from("professionals").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "ativo"),
-        ]);
-        total_escolas = sc.count ?? 0;
-        total_profissionais = pr.count ?? 0;
-      }
-
-      return {
-        recebida: r1.count ?? 0,
-        em_andamento: r2.count ?? 0,
-        concluida: r3.count ?? 0,
-        agendados_mes: requestIdsMes.length,
-        total_escolas,
-        total_profissionais,
-      };
-    },
-  });
-
-  const { data: byComplaint = [] } = useQuery({
-    queryKey: ["dash-by-complaint", isAdmin, myProfId],
-    enabled: !authLoading && (isAdmin || myProfId !== undefined),
-    queryFn: async () => {
-      let qb = supabase.from("requests").select("situacao_observada, tipo_queixa").is("deleted_at", null);
-      if (!isAdmin) {
-        if (!myProfId) return [];
-        qb = qb.eq("assigned_professional_id", myProfId);
-      }
-      const { data } = await qb;
-      const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { situacao_observada: string[] | null; tipo_queixa: string | null }) => {
-        for (const key of situacoesFromRequest(r)) {
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
+      if (!isAdmin && !myProfId) return [];
+      const rows = await fetchAllPages((from, to) => {
+        let qb = supabase
+          .from("requests")
+          .select(
+            "id, status, created_at, regiao_escola, situacao_observada, tipo_queixa, school_nome_snapshot, school:schools(id, nome, endereco, bairro, cep, regiao, latitude, longitude, geocode_status)",
+          )
+          .is("deleted_at", null);
+        if (!isAdmin) qb = qb.eq("assigned_professional_id", myProfId!);
+        return qb.order("id").range(from, to);
       });
-      const entries = Array.from(counts.entries()).sort(
-        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"),
-      );
-      const total = entries.reduce((sum, [, v]) => sum + v, 0);
-      return entries.map(([k, v]) => ({
-        key: k,
-        name: situacaoObservadaChartLabel(k),
-        value: v,
-        percent: total > 0 ? v / total : 0,
-      }));
+      return rows.map((r) => {
+        const school = (Array.isArray(r.school) ? r.school[0] : r.school) as SchoolRow | null;
+        return {
+          id: r.id,
+          status: r.status,
+          mes: mesKeyDeIso(r.created_at),
+          regiao: regiaoDoRegistro(r.regiao_escola, school?.regiao),
+          escola: school?.nome ?? r.school_nome_snapshot ?? "Sem escola",
+          situacoes: situacoesFromRequest(r),
+          school,
+        };
+      });
     },
   });
 
-  const { data: byRegion = [] } = useQuery({
-    queryKey: ["dash-by-region"],
+  const mesAtendimentos = mesReferencia(filtros);
+
+  const { data: atendidosNoMes = [] } = useQuery({
+    queryKey: ["dash-atendidos-mes", isAdmin, myProfId, mesAtendimentos],
+    enabled: scopeReady,
+    queryFn: async () => {
+      if (!isAdmin && !myProfId) return [];
+      const { inicio, fim } = intervaloDoMes(mesAtendimentos);
+      const rows = await fetchAllPages((from, to) => {
+        let qb = supabase
+          .from("appointments")
+          .select("request_id")
+          .gte("inicio", inicio)
+          .lt("inicio", fim)
+          .is("vivencia_request_id", null)
+          .not("request_id", "is", null);
+        if (!isAdmin) qb = qb.eq("professional_id", myProfId!);
+        return qb.order("id").range(from, to);
+      });
+      return [...new Set(rows.map((r) => r.request_id).filter((id): id is string => Boolean(id)))];
+    },
+  });
+
+  const { data: totais } = useQuery({
+    queryKey: ["dash-totais"],
     enabled: !authLoading && isAdmin,
     queryFn: async () => {
-      const { data } = await supabase.from("requests").select("school:schools(regiao)").is("deleted_at", null);
-      const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { school: { regiao: string | null } | null }) => {
-        const key = r.school?.regiao ?? "Sem região";
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      });
-      return Array.from(counts.entries()).map(([name, value]) => ({ name, value })).slice(0, 8);
+      const [sc, pr] = await Promise.all([
+        supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
+        supabase.from("professionals").select("id", { count: "exact", head: true }).is("deleted_at", null).eq("status", "ativo"),
+      ]);
+      return { escolas: sc.count ?? 0, profissionais: pr.count ?? 0 };
     },
   });
 
-  const { data: bySchool = [] } = useQuery({
-    queryKey: ["dash-by-school", myProfId],
-    enabled: !authLoading && !isAdmin && myProfId !== undefined,
-    queryFn: async () => {
-      if (!myProfId) return [];
-      const { data } = await supabase
-        .from("requests")
-        .select("school_nome_snapshot, school:schools(nome)")
-        .is("deleted_at", null)
-        .eq("assigned_professional_id", myProfId);
-      const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { school_nome_snapshot: string | null; school: { nome: string } | null }) => {
-        const key = r.school?.nome ?? r.school_nome_snapshot ?? "Sem escola";
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      });
-      return Array.from(counts.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
-    },
-  });
+  const painel = useMemo(() => {
+    const filtrados = aplicarFiltros(base, filtros);
+    const daRegiao = aplicarFiltros(base, filtros, { ignorarPeriodo: true });
+    const atendidos = new Set(atendidosNoMes);
+    const emAndamento = ["distribuida", "em_andamento", "em_ajuste", "aguardando_aprovacao"];
 
-  const barChartData = isAdmin ? byRegion : bySchool;
+    const counters: Counters = {
+      recebida: filtrados.filter((r) => r.status === "recebida").length,
+      em_andamento: filtrados.filter((r) => emAndamento.includes(r.status)).length,
+      concluida: filtrados.filter((r) => r.status === "concluida").length,
+      agendados_mes: daRegiao.filter((r) => atendidos.has(r.id)).length,
+      total_escolas: totais?.escolas ?? 0,
+      total_profissionais: totais?.profissionais ?? 0,
+    };
 
-  const { data: heatSchools = [] } = useQuery({
-    queryKey: ["dash-heatmap-schools", isAdmin, myProfId],
-    enabled: !authLoading && (isAdmin || myProfId !== undefined),
-    queryFn: async () => {
-      let qb = supabase
-        .from("requests")
-        .select(
-          "school_id, tipo_queixa, situacao_observada, school:schools(id, nome, endereco, bairro, cep, regiao, latitude, longitude, geocode_status)",
-        )
-        .is("deleted_at", null)
-        .not("school_id", "is", null);
-      if (!isAdmin) {
-        if (!myProfId) return [] as HeatSchoolCount[];
-        qb = qb.eq("assigned_professional_id", myProfId);
-      }
-      const { data, error } = await qb;
-      if (error) throw error;
+    const queixaCounts = new Map<string, number>();
+    const regiaoCounts = new Map<string, number>();
+    const escolaCounts = new Map<string, number>();
+    const heatById = new Map<string, HeatSchoolCount>();
+    filtrados.forEach((r) => {
+      r.situacoes.forEach((key) => queixaCounts.set(key, (queixaCounts.get(key) ?? 0) + 1));
+      regiaoCounts.set(r.regiao, (regiaoCounts.get(r.regiao) ?? 0) + 1);
+      escolaCounts.set(r.escola, (escolaCounts.get(r.escola) ?? 0) + 1);
 
-      type SchoolRow = {
-        id: string;
-        nome: string;
-        endereco: string | null;
-        bairro: string | null;
-        cep: string | null;
-        regiao: string | null;
-        latitude: number | null;
-        longitude: number | null;
-        geocode_status: string | null;
-      };
-
-      const byId = new Map<string, HeatSchoolCount>();
-      for (const row of data ?? []) {
-        const school = row.school as SchoolRow | SchoolRow[] | null;
-        const s = Array.isArray(school) ? school[0] : school;
-        if (!s?.id) continue;
-        const situacoes = situacoesFromRequest(
-          row as { situacao_observada?: string[] | null; tipo_queixa?: string | null },
-        );
-        const keys = situacoes.length > 0 ? situacoes : ["outro"];
-        const existing = byId.get(s.id);
-        if (existing) {
-          existing.count += 1;
-          for (const tipo of keys) {
-            existing.byTipo[tipo] = (existing.byTipo[tipo] ?? 0) + 1;
-          }
-        } else {
-          const byTipo: Record<string, number> = {};
-          for (const tipo of keys) {
-            byTipo[tipo] = (byTipo[tipo] ?? 0) + 1;
-          }
-          byId.set(s.id, {
+      const s = r.school;
+      if (!s?.id) return;
+      const keys = r.situacoes.length > 0 ? r.situacoes : ["outro"];
+      const heat =
+        heatById.get(s.id) ??
+        heatById
+          .set(s.id, {
             id: s.id,
             nome: s.nome,
             endereco: s.endereco,
@@ -216,36 +186,42 @@ function Dashboard() {
             latitude: s.latitude,
             longitude: s.longitude,
             geocode_status: s.geocode_status,
-            count: 1,
-            byTipo,
-          });
-        }
-      }
-      return [...byId.values()].sort((a, b) => b.count - a.count);
-    },
-  });
+            count: 0,
+            byTipo: {},
+          })
+          .get(s.id)!;
+      heat.count += 1;
+      for (const tipo of keys) heat.byTipo[tipo] = (heat.byTipo[tipo] ?? 0) + 1;
+    });
 
-  const { data: monthly = [] } = useQuery({
-    queryKey: ["dash-monthly", isAdmin, myProfId],
-    enabled: !authLoading && (isAdmin || myProfId !== undefined),
-    queryFn: async () => {
-      const since = new Date(); since.setMonth(since.getMonth() - 5); since.setDate(1);
-      let qb = supabase.from("requests").select("created_at").is("deleted_at", null).gte("created_at", since.toISOString());
-      if (!isAdmin) {
-        if (!myProfId) return [];
-        qb = qb.eq("assigned_professional_id", myProfId);
-      }
-      const { data } = await qb;
-      const buckets = new Map<string, number>();
-      for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(d.getMonth() - i); buckets.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, 0); }
-      (data ?? []).forEach((r: { created_at: string }) => {
-        const d = new Date(r.created_at); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
-      });
-      const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-      return Array.from(buckets.entries()).map(([k, v]) => ({ mes: monthNames[Number(k.split("-")[1]) - 1], total: v }));
-    },
-  });
+    const queixas = Array.from(queixaCounts.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"),
+    );
+    const totalQueixas = queixas.reduce((sum, [, v]) => sum + v, 0);
+
+    return {
+      counters,
+      byComplaint: queixas.map(([k, v]) => ({
+        key: k,
+        name: situacaoObservadaChartLabel(k),
+        value: v,
+        percent: totalQueixas > 0 ? v / totalQueixas : 0,
+      })),
+      byRegion: Array.from(regiaoCounts.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8),
+      bySchool: Array.from(escolaCounts.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10),
+      heatSchools: [...heatById.values()].sort((a, b) => b.count - a.count),
+      monthly: evolucaoMensal(daRegiao, filtros),
+    };
+  }, [base, atendidosNoMes, totais, filtros]);
+
+  const { counters, byComplaint, byRegion, bySchool, heatSchools, monthly } = painel;
+  const barChartData = isAdmin ? byRegion : bySchool;
 
   const COLORS = [
     "oklch(0.42 0.14 250)",
@@ -280,6 +256,8 @@ function Dashboard() {
         }
       />
 
+      <DashboardFiltrosBar filtros={filtros} onChange={setFiltros} registros={base} />
+
       <div className={`grid items-stretch gap-4 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"}`}>
         <Kpi
           label="Solicitações Recebidas"
@@ -308,7 +286,7 @@ function Dashboard() {
         <Kpi
           label="Atendimentos no Mês"
           value={counters?.agendados_mes ?? 0}
-          sub="Demandas com agenda no mês"
+          sub={`Demandas com agenda em ${mesLabel(mesAtendimentos)}`}
           icon={Calendar}
           iconBg="bg-[#EAF2FF] text-[#0F52BA]"
           filtro="atendimentos_mes"

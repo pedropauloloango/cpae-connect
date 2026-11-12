@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,9 +30,22 @@ import {
   CartesianGrid,
   LabelList,
 } from "recharts";
-import { periodoLabels, regiaoEscolaLabel } from "@/lib/acolhimento-options";
+import { periodoLabels } from "@/lib/acolhimento-options";
 import { palestraTemaLabel, vivenciaTemaLabel } from "@/lib/vivencias-options";
-import type { VivenciasDemandasFiltro } from "@/lib/vivencias-demandas-filtros";
+import {
+  VIVENCIAS_EM_ATENDIMENTO_STATUSES,
+  type VivenciasDemandasFiltro,
+} from "@/lib/vivencias-demandas-filtros";
+import {
+  aplicarFiltros,
+  evolucaoMensal,
+  fetchAllPages,
+  FILTROS_DASHBOARD_PADRAO,
+  mesKeyDeIso,
+  regiaoDoRegistro,
+  type DashboardFiltros,
+} from "@/lib/dashboard-filtros";
+import { DashboardFiltrosBar } from "@/components/dashboard/DashboardFiltrosBar";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/modulo-vivencias/dashboard")({
@@ -45,6 +59,15 @@ interface Counters {
   relatorios_aguardando: number;
   total_escolas: number;
   total_profissionais: number;
+}
+
+interface VivRequestRow {
+  id: string;
+  status: string;
+  mes: string;
+  regiao: string;
+  escola: string;
+  palestraTema: string | null;
 }
 
 function VivenciasDashboard() {
@@ -78,277 +101,158 @@ function VivenciasDashboard() {
   });
 
   const scopeReady = isAdmin || myProfId !== undefined;
-  const professionalScopeEmpty = !isAdmin && myProfId && myRequestIds.length === 0;
+  const [filtros, setFiltros] = useState<DashboardFiltros>(FILTROS_DASHBOARD_PADRAO);
 
-  const { data: counters } = useQuery<Counters>({
-    queryKey: ["viv-dashboard-counters", isAdmin, myProfId, myRequestIds],
-    enabled: !authLoading && scopeReady && (isAdmin || myProfId !== null),
-    queryFn: async () => {
-      const empty: Counters = {
-        recebida: 0,
-        em_andamento: 0,
-        concluida: 0,
-        relatorios_aguardando: 0,
-        total_escolas: 0,
-        total_profissionais: 0,
-      };
-
-      if (!isAdmin && (!myProfId || professionalScopeEmpty)) return empty;
-
-      let qRecebida = supabase
-        .from("vivencia_requests")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null)
-        .eq("status", "recebida");
-      let qAndamento = supabase
-        .from("vivencia_requests")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null)
-        .in("status", ["distribuida", "em_andamento", "em_ajuste", "aguardando_aprovacao"]);
-      let qConcluida = supabase
-        .from("vivencia_requests")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null)
-        .eq("status", "concluida");
-
-      if (!isAdmin) {
-        qRecebida = qRecebida.in("id", myRequestIds);
-        qAndamento = qAndamento.in("id", myRequestIds);
-        qConcluida = qConcluida.in("id", myRequestIds);
-      }
-
-      const [r1, r2, r3] = await Promise.all([qRecebida, qAndamento, qConcluida]);
-
-      let relatorios_aguardando = 0;
-      if (isAdmin) {
-        const { count } = await supabase
-          .from("vivencia_reports")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "aguardando_aprovacao");
-        relatorios_aguardando = count ?? 0;
-      } else {
-        const { count } = await supabase
-          .from("vivencia_reports")
-          .select("id", { count: "exact", head: true })
-          .in("vivencia_request_id", myRequestIds)
-          .in("status", ["correcao_solicitada", "rejeitado", "rascunho"]);
-        relatorios_aguardando = count ?? 0;
-      }
-
-      let total_escolas = 0;
-      let total_profissionais = 0;
-      if (isAdmin) {
-        const [sc, pr] = await Promise.all([
-          supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
-          supabase
-            .from("professionals")
-            .select("id", { count: "exact", head: true })
-            .is("deleted_at", null)
-            .eq("status", "ativo")
-            .eq("atende_vivencias", true),
-        ]);
-        total_escolas = sc.count ?? 0;
-        total_profissionais = pr.count ?? 0;
-      }
-
-      return {
-        recebida: r1.count ?? 0,
-        em_andamento: r2.count ?? 0,
-        concluida: r3.count ?? 0,
-        relatorios_aguardando,
-        total_escolas,
-        total_profissionais,
-      };
-    },
-  });
-
-  const { data: byPeriodo = [] } = useQuery({
-    queryKey: ["viv-dash-by-periodo", isAdmin, myRequestIds],
+  const { data: base = [] } = useQuery<VivRequestRow[]>({
+    queryKey: ["viv-dash-base", isAdmin, myRequestIds],
     enabled: !authLoading && scopeReady,
     queryFn: async () => {
       if (!isAdmin && myRequestIds.length === 0) return [];
-
-      let activeQ = supabase
-        .from("vivencia_requests")
-        .select("id")
-        .is("deleted_at", null);
-      if (!isAdmin) activeQ = activeQ.in("id", myRequestIds);
-      const { data: activeReqs, error: activeError } = await activeQ;
-      if (activeError) throw activeError;
-      const activeIds = (activeReqs ?? []).map((r) => r.id);
-      if (activeIds.length === 0) return [];
-
-      const { data, error } = await supabase
-        .from("vivencia_request_groups")
-        .select("periodo")
-        .in("vivencia_request_id", activeIds);
-      if (error) throw error;
-
-      const counts = new Map<string, number>();
-      (data ?? []).forEach((r: { periodo: string | null }) => {
-        if (!r.periodo?.trim()) return;
-        counts.set(r.periodo, (counts.get(r.periodo) ?? 0) + 1);
-      });
-      return Array.from(counts.entries()).map(([k, v]) => ({
-        name: periodoLabels[k] ?? k,
-        value: v,
-      }));
-    },
-  });
-
-  const { data: byTema = [] } = useQuery({
-    queryKey: ["viv-dash-by-tema", isAdmin, myRequestIds],
-    enabled: !authLoading && scopeReady,
-    queryFn: async () => {
-      if (!isAdmin && myRequestIds.length === 0) return [];
-      const counts = new Map<string, number>();
-      const PAGE = 1000;
-      for (let from = 0; ; from += PAGE) {
-        let q = supabase
-          .from("vivencia_request_groups")
-          .select("id, temas, req:vivencia_requests!inner(deleted_at)")
-          .is("req.deleted_at", null)
+      const rows = await fetchAllPages((from, to) =>
+        supabase
+          .from("vivencia_requests")
+          .select("id, status, created_at, regiao_escola, palestra_tema, school_nome_snapshot, school:schools(nome, regiao)")
+          .is("deleted_at", null)
           .order("id")
-          .range(from, from + PAGE - 1);
-        if (!isAdmin) q = q.in("vivencia_request_id", myRequestIds);
-        const { data, error } = await q;
-        if (error) throw error;
-        const chunk = (data ?? []) as { temas: string[] | null }[];
-        chunk.forEach((g) => {
-          new Set(g.temas ?? []).forEach((t) => {
-            if (!t?.trim()) return;
-            counts.set(t, (counts.get(t) ?? 0) + 1);
-          });
+          .range(from, to),
+      );
+      const escopo = isAdmin ? null : new Set(myRequestIds);
+      return rows
+        .filter((r) => !escopo || escopo.has(r.id))
+        .map((r) => {
+          const school = r.school as { nome: string | null; regiao: string | null } | null;
+          return {
+            id: r.id,
+            status: r.status,
+            mes: mesKeyDeIso(r.created_at),
+            regiao: regiaoDoRegistro(r.regiao_escola, school?.regiao),
+            escola: school?.nome ?? r.school_nome_snapshot ?? "Sem escola",
+            palestraTema: r.palestra_tema,
+          };
         });
-        if (chunk.length < PAGE) break;
-      }
-      const total = [...counts.values()].reduce((s, v) => s + v, 0);
-      return Array.from(counts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([k, v]) => ({
-          name: vivenciaTemaLabel(k),
-          value: v,
-          rotulo: `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`,
-        }));
     },
   });
 
-  const { data: byPalestra = [] } = useQuery({
-    queryKey: ["viv-dash-by-palestra", isAdmin, myRequestIds],
+  const { data: groups = [] } = useQuery({
+    queryKey: ["viv-dash-groups"],
     enabled: !authLoading && scopeReady,
-    queryFn: async () => {
-      if (!isAdmin && myRequestIds.length === 0) return [];
-      const counts = new Map<string, number>();
-
-      let legacyQ = supabase
-        .from("vivencia_requests")
-        .select("id, palestra_tema")
-        .is("deleted_at", null)
-        .not("palestra_tema", "is", null);
-      if (!isAdmin) legacyQ = legacyQ.in("id", myRequestIds);
-      const { data: legacy } = await legacyQ;
-      (legacy ?? []).forEach((r: { palestra_tema: string | null }) => {
-        if (!r.palestra_tema) return;
-        counts.set(r.palestra_tema, (counts.get(r.palestra_tema) ?? 0) + 1);
-      });
-
-      let multiQ = supabase
-        .from("vivencia_request_palestras")
-        .select("palestra_tema, vivencia_request_id");
-      if (!isAdmin) multiQ = multiQ.in("vivencia_request_id", myRequestIds);
-      const { data: multi } = await multiQ;
-      (multi ?? []).forEach((r: { palestra_tema: string | null }) => {
-        if (!r.palestra_tema) return;
-        counts.set(r.palestra_tema, (counts.get(r.palestra_tema) ?? 0) + 1);
-      });
-
-      const total = [...counts.values()].reduce((s, v) => s + v, 0);
-      return Array.from(counts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([k, v]) => ({
-          name: palestraTemaLabel(k),
-          value: v,
-          rotulo: `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`,
-        }));
-    },
+    queryFn: () =>
+      fetchAllPages((from, to) =>
+        supabase
+          .from("vivencia_request_groups")
+          .select("vivencia_request_id, periodo, temas")
+          .order("id")
+          .range(from, to),
+      ),
   });
 
-  const { data: byRegion = [] } = useQuery({
-    queryKey: ["viv-dash-by-region"],
+  const { data: palestras = [] } = useQuery({
+    queryKey: ["viv-dash-palestras"],
+    enabled: !authLoading && scopeReady,
+    queryFn: () =>
+      fetchAllPages((from, to) =>
+        supabase
+          .from("vivencia_request_palestras")
+          .select("vivencia_request_id, palestra_tema")
+          .order("id")
+          .range(from, to),
+      ),
+  });
+
+  const { data: relatorios = [] } = useQuery({
+    queryKey: ["viv-dash-relatorios", isAdmin],
+    enabled: !authLoading && scopeReady,
+    queryFn: () =>
+      fetchAllPages((from, to) => {
+        const q = supabase.from("vivencia_reports").select("vivencia_request_id");
+        return (
+          isAdmin
+            ? q.eq("status", "aguardando_aprovacao")
+            : q.in("status", ["correcao_solicitada", "rejeitado", "rascunho"])
+        )
+          .order("id")
+          .range(from, to);
+      }),
+  });
+
+  const { data: totais } = useQuery({
+    queryKey: ["viv-dash-totais"],
     enabled: !authLoading && isAdmin,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("vivencia_requests")
-        .select("regiao_escola, school:schools(regiao)")
-        .is("deleted_at", null);
-      const counts = new Map<string, number>();
-      (data ?? []).forEach(
-        (r: { regiao_escola: string | null; school: { regiao: string | null } | null }) => {
-          const raw = r.regiao_escola ?? r.school?.regiao ?? "Sem região";
-          const key = regiaoEscolaLabel(raw) || raw;
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        },
-      );
-      return rankingComPercentual(counts).slice(0, 8);
+      const [sc, pr] = await Promise.all([
+        supabase.from("schools").select("id", { count: "exact", head: true }).is("deleted_at", null),
+        supabase
+          .from("professionals")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .eq("status", "ativo")
+          .eq("atende_vivencias", true),
+      ]);
+      return { escolas: sc.count ?? 0, profissionais: pr.count ?? 0 };
     },
   });
 
-  const { data: bySchool = [] } = useQuery({
-    queryKey: ["viv-dash-by-school", myRequestIds],
-    enabled: !authLoading && !isAdmin && myProfId !== undefined,
-    queryFn: async () => {
-      if (myRequestIds.length === 0) return [];
-      const { data } = await supabase
-        .from("vivencia_requests")
-        .select("school_nome_snapshot, school:schools(nome)")
-        .is("deleted_at", null)
-        .in("id", myRequestIds);
-      const counts = new Map<string, number>();
-      (data ?? []).forEach(
-        (r: { school_nome_snapshot: string | null; school: { nome: string } | null }) => {
-          const key = r.school?.nome ?? r.school_nome_snapshot ?? "Sem escola";
-          counts.set(key, (counts.get(key) ?? 0) + 1);
-        },
-      );
-      return rankingComPercentual(counts).slice(0, 10);
-    },
-  });
+  const painel = useMemo(() => {
+    const filtrados = aplicarFiltros(base, filtros);
+    const ids = new Set(filtrados.map((r) => r.id));
+    const emAndamento = VIVENCIAS_EM_ATENDIMENTO_STATUSES as readonly string[];
 
-  const barChartData = isAdmin ? byRegion : bySchool;
+    const counters: Counters = {
+      recebida: filtrados.filter((r) => r.status === "recebida").length,
+      em_andamento: filtrados.filter((r) => emAndamento.includes(r.status)).length,
+      concluida: filtrados.filter((r) => r.status === "concluida").length,
+      relatorios_aguardando: relatorios.filter((r) => r.vivencia_request_id && ids.has(r.vivencia_request_id)).length,
+      total_escolas: totais?.escolas ?? 0,
+      total_profissionais: totais?.profissionais ?? 0,
+    };
 
-  const { data: monthly = [] } = useQuery({
-    queryKey: ["viv-dash-monthly", isAdmin, myRequestIds],
-    enabled: !authLoading && scopeReady,
-    queryFn: async () => {
-      if (!isAdmin && myRequestIds.length === 0) return [];
-      const since = new Date();
-      since.setMonth(since.getMonth() - 5);
-      since.setDate(1);
-      let qb = supabase
-        .from("vivencia_requests")
-        .select("created_at")
-        .is("deleted_at", null)
-        .gte("created_at", since.toISOString());
-      if (!isAdmin) qb = qb.in("id", myRequestIds);
-      const { data } = await qb;
-      const buckets = new Map<string, number>();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        buckets.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, 0);
-      }
-      (data ?? []).forEach((r: { created_at: string }) => {
-        const d = new Date(r.created_at);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    const periodoCounts = new Map<string, number>();
+    const temaCounts = new Map<string, number>();
+    groups.forEach((g) => {
+      if (!ids.has(g.vivencia_request_id)) return;
+      if (g.periodo?.trim()) periodoCounts.set(g.periodo, (periodoCounts.get(g.periodo) ?? 0) + 1);
+      new Set(g.temas ?? []).forEach((t) => {
+        if (!t?.trim()) return;
+        const nome = vivenciaTemaLabel(t);
+        temaCounts.set(nome, (temaCounts.get(nome) ?? 0) + 1);
       });
-      const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-      return Array.from(buckets.entries()).map(([k, v]) => ({
-        mes: monthNames[Number(k.split("-")[1]) - 1],
-        total: v,
-      }));
-    },
-  });
+    });
+    const byPeriodo = Array.from(periodoCounts.entries()).map(([k, v]) => ({
+      name: periodoLabels[k] ?? k,
+      value: v,
+    }));
+
+    const palestraCounts = new Map<string, number>();
+    const somarPalestra = (tema: string | null) => {
+      if (!tema) return;
+      const nome = palestraTemaLabel(tema);
+      palestraCounts.set(nome, (palestraCounts.get(nome) ?? 0) + 1);
+    };
+    filtrados.forEach((r) => somarPalestra(r.palestraTema));
+    palestras.forEach((p) => {
+      if (ids.has(p.vivencia_request_id)) somarPalestra(p.palestra_tema);
+    });
+
+    const regiaoCounts = new Map<string, number>();
+    const escolaCounts = new Map<string, number>();
+    filtrados.forEach((r) => {
+      regiaoCounts.set(r.regiao, (regiaoCounts.get(r.regiao) ?? 0) + 1);
+      escolaCounts.set(r.escola, (escolaCounts.get(r.escola) ?? 0) + 1);
+    });
+
+    return {
+      counters,
+      byPeriodo,
+      byTema: rankingComPercentual(temaCounts),
+      byPalestra: rankingComPercentual(palestraCounts),
+      byRegion: rankingComPercentual(regiaoCounts).slice(0, 8),
+      bySchool: rankingComPercentual(escolaCounts).slice(0, 10),
+      monthly: evolucaoMensal(aplicarFiltros(base, filtros, { ignorarPeriodo: true }), filtros),
+    };
+  }, [base, groups, palestras, relatorios, totais, filtros]);
+
+  const { counters, byPeriodo, byTema, byPalestra, byRegion, bySchool, monthly } = painel;
+  const barChartData = isAdmin ? byRegion : bySchool;
 
   const COLORS = [
     "oklch(0.55 0.14 160)",
@@ -372,6 +276,8 @@ function VivenciasDashboard() {
             : "Indicadores das suas demandas de vivências atribuídas."
         }
       />
+
+      <DashboardFiltrosBar filtros={filtros} onChange={setFiltros} registros={base} />
 
       <div
         className={`grid items-stretch gap-3 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-2 xl:grid-cols-4"}`}
