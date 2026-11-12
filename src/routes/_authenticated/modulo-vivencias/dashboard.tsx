@@ -27,9 +27,10 @@ import {
   LineChart,
   Line,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { periodoLabels, regiaoEscolaLabel } from "@/lib/acolhimento-options";
-import { palestraTemaLabel } from "@/lib/vivencias-options";
+import { palestraTemaLabel, vivenciaTemaLabel } from "@/lib/vivencias-options";
 import type { VivenciasDemandasFiltro } from "@/lib/vivencias-demandas-filtros";
 import { cn } from "@/lib/utils";
 
@@ -195,6 +196,43 @@ function VivenciasDashboard() {
     },
   });
 
+  const { data: byTema = [] } = useQuery({
+    queryKey: ["viv-dash-by-tema", isAdmin, myRequestIds],
+    enabled: !authLoading && scopeReady,
+    queryFn: async () => {
+      if (!isAdmin && myRequestIds.length === 0) return [];
+      const counts = new Map<string, number>();
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        let q = supabase
+          .from("vivencia_request_groups")
+          .select("id, temas, req:vivencia_requests!inner(deleted_at)")
+          .is("req.deleted_at", null)
+          .order("id")
+          .range(from, from + PAGE - 1);
+        if (!isAdmin) q = q.in("vivencia_request_id", myRequestIds);
+        const { data, error } = await q;
+        if (error) throw error;
+        const chunk = (data ?? []) as { temas: string[] | null }[];
+        chunk.forEach((g) => {
+          new Set(g.temas ?? []).forEach((t) => {
+            if (!t?.trim()) return;
+            counts.set(t, (counts.get(t) ?? 0) + 1);
+          });
+        });
+        if (chunk.length < PAGE) break;
+      }
+      const total = [...counts.values()].reduce((s, v) => s + v, 0);
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => ({
+          name: vivenciaTemaLabel(k),
+          value: v,
+          rotulo: `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`,
+        }));
+    },
+  });
+
   const { data: byPalestra = [] } = useQuery({
     queryKey: ["viv-dash-by-palestra", isAdmin, myRequestIds],
     enabled: !authLoading && scopeReady,
@@ -224,10 +262,14 @@ function VivenciasDashboard() {
         counts.set(r.palestra_tema, (counts.get(r.palestra_tema) ?? 0) + 1);
       });
 
-      return Array.from(counts.entries()).map(([k, v]) => ({
-        name: palestraTemaLabel(k),
-        value: v,
-      }));
+      const total = [...counts.values()].reduce((s, v) => s + v, 0);
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => ({
+          name: palestraTemaLabel(k),
+          value: v,
+          rotulo: `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`,
+        }));
     },
   });
 
@@ -247,10 +289,7 @@ function VivenciasDashboard() {
           counts.set(key, (counts.get(key) ?? 0) + 1);
         },
       );
-      return Array.from(counts.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 8);
+      return rankingComPercentual(counts).slice(0, 8);
     },
   });
 
@@ -271,10 +310,7 @@ function VivenciasDashboard() {
           counts.set(key, (counts.get(key) ?? 0) + 1);
         },
       );
-      return Array.from(counts.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+      return rankingComPercentual(counts).slice(0, 10);
     },
   });
 
@@ -401,7 +437,7 @@ function VivenciasDashboard() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthly}>
+              <LineChart data={monthly} margin={{ top: 20, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 160)" />
                 <XAxis dataKey="mes" stroke="oklch(0.5 0.02 160)" fontSize={12} />
                 <YAxis allowDecimals={false} stroke="oklch(0.5 0.02 160)" fontSize={12} />
@@ -412,7 +448,14 @@ function VivenciasDashboard() {
                   stroke="oklch(0.55 0.14 160)"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
-                />
+                >
+                  <LabelList
+                    dataKey="total"
+                    position="top"
+                    offset={8}
+                    className="fill-[#0F172A] text-[11px] font-semibold"
+                  />
+                </Line>
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -432,7 +475,15 @@ function VivenciasDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} label={(e) => e.name}>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={90}
+                    label={(e: { name?: string; value?: number; percent?: number }) =>
+                      `${e.name}: ${e.value ?? 0} (${Math.round((e.percent ?? 0) * 100)}%)`
+                    }
+                  >
                     {pieData.map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
@@ -458,7 +509,7 @@ function VivenciasDashboard() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
+                <BarChart data={barChartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 160)" />
                   <XAxis
                     dataKey="name"
@@ -471,11 +522,30 @@ function VivenciasDashboard() {
                   />
                   <YAxis allowDecimals={false} stroke="oklch(0.5 0.02 160)" fontSize={12} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="oklch(0.62 0.13 160)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="oklch(0.62 0.13 160)" radius={[6, 6, 0, 0]}>
+                    <LabelList
+                      dataKey="rotulo"
+                      position="top"
+                      offset={6}
+                      className="fill-[#0F172A] text-[11px] font-semibold"
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
+        </Card>
+
+        <Card className="cpae-card border-0 shadow-none lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-emerald-600" /> Vivências mais solicitadas
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Quantidade de turmas que pediram cada tema.
+            </p>
+          </CardHeader>
+          <RankingBarChart data={byTema} unidade="Turmas" fill="oklch(0.6 0.13 160)" />
         </Card>
 
         {byPalestra.length > 0 && byPeriodo.length > 0 && (
@@ -485,27 +555,81 @@ function VivenciasDashboard() {
                 <FileText className="h-4 w-4 text-emerald-600" /> Palestras solicitadas
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byPalestra} layout="vertical" margin={{ left: 24, right: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.012 160)" />
-                  <XAxis type="number" allowDecimals={false} stroke="oklch(0.5 0.02 160)" fontSize={12} />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={180}
-                    stroke="oklch(0.5 0.02 160)"
-                    fontSize={11}
-                  />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="oklch(0.55 0.12 145)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
+            <RankingBarChart data={byPalestra} unidade="Palestras" fill="oklch(0.55 0.12 145)" />
           </Card>
         )}
       </div>
     </div>
+  );
+}
+
+type RankingItem = { name: string; value: number; rotulo: string };
+
+function rankingComPercentual(counts: Map<string, number>): RankingItem[] {
+  const total = [...counts.values()].reduce((s, v) => s + v, 0);
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value]) => ({
+      name,
+      value,
+      rotulo: `${value} (${total > 0 ? Math.round((value / total) * 100) : 0}%)`,
+    }));
+}
+
+const RANKING_FONT_PX = 11;
+
+function SingleLineTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={4}
+      textAnchor="end"
+      fill="oklch(0.45 0.02 160)"
+      fontSize={RANKING_FONT_PX}
+      style={{ whiteSpace: "pre" }}
+    >
+      {payload?.value}
+    </text>
+  );
+}
+
+function RankingBarChart({ data, unidade, fill }: { data: RankingItem[]; unidade: string; fill: string }) {
+  if (data.length === 0) {
+    return (
+      <CardContent className="h-72">
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Sem dados para exibir.
+        </div>
+      </CardContent>
+    );
+  }
+  const longest = data.reduce((max, item) => Math.max(max, item.name.length), 0);
+  const axisWidth = Math.ceil(longest * RANKING_FONT_PX * 0.56) + 16;
+  return (
+    <CardContent style={{ height: Math.max(288, data.length * 34 + 16) }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 72, top: 4, bottom: 4 }}>
+          <XAxis type="number" hide domain={[0, (max: number) => Math.max(max * 1.15, 1)]} />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={axisWidth}
+            interval={0}
+            axisLine={false}
+            tickLine={false}
+            tick={<SingleLineTick />}
+          />
+          <Tooltip
+            cursor={{ fill: "oklch(0.96 0.02 160)" }}
+            formatter={(_value, _name, item) => [(item.payload as RankingItem).rotulo, unidade]}
+          />
+          <Bar dataKey="value" fill={fill} radius={[0, 6, 6, 0]} maxBarSize={22}>
+            <LabelList dataKey="rotulo" position="right" className="fill-[#0F172A] text-[11px] font-semibold" />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </CardContent>
   );
 }
 
