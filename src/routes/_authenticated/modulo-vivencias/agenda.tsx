@@ -60,12 +60,10 @@ type Assignee = {
   professional: { id?: string; nome: string } | null;
 };
 
-/** Primeiro e último nome para caber no calendário. */
+/** Só o primeiro nome para caber no calendário. */
 function shortPersonName(fullName: string | null | undefined): string | null {
   if (!fullName?.trim()) return null;
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0]!;
-  return `${parts[0]} ${parts[parts.length - 1]}`;
+  return fullName.trim().split(/\s+/)[0] ?? null;
 }
 
 function assigneeNames(assignees: Assignee[] | null | undefined): string | null {

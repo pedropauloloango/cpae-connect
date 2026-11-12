@@ -194,7 +194,7 @@ const schema = z
       if (!g.aluno_serie) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Selecione a série",
+          message: "Selecione o ano",
           path: ["groups", i, "aluno_serie"],
         });
       }
@@ -878,7 +878,7 @@ function VivenciasPublico() {
 
           <FormSection
             title="Vivências para alunos"
-            description={`Opcional se solicitar apenas palestra. Inclua séries/turmas/períodos com seus temas. Limite: no máximo ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (ex.: ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} no matutino de um dia; para mais, use outro dia ou o vespertino).`}
+            description={`Opcional se solicitar apenas palestra. Inclua anos/turmas/períodos com seus temas. Limite: no máximo ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} turmas no mesmo dia e período (ex.: ${MAX_TURMAS_VIVENCIA_POR_DIA_PERIODO} no matutino de um dia; para mais, use outro dia ou o vespertino).`}
             icon={Users}
           >
             {form.formState.errors.groups?.root?.message && (
@@ -934,14 +934,14 @@ function VivenciasPublico() {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-3">
-                      <Field label={`Série${groupRequiredMark}`} error={groupErrors?.aluno_serie?.message}>
+                      <Field label={`Ano${groupRequiredMark}`} error={groupErrors?.aluno_serie?.message}>
                         <Controller
                           control={form.control}
                           name={`groups.${index}.aluno_serie`}
                           render={({ field: f }) => (
                             <Select value={f.value} onValueChange={f.onChange}>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione a série" />
+                                <SelectValue placeholder="Selecione o ano" />
                               </SelectTrigger>
                               <SelectContent>
                                 {serieOptions.map((o) => (
@@ -1071,12 +1071,12 @@ function VivenciasPublico() {
             >
               <Plus className="mr-2 h-4 w-4" />
               {fields.length === 0
-                ? "Adicionar série / turma / período"
-                : "Adicionar outra série / turma / período"}
+                ? "Adicionar ano / turma / período"
+                : "Adicionar outro ano / turma / período"}
             </Button>
             {watchedGroups.length > 0 && !watchedGroups.every((g) => isGroupComplete(g) || isGroupEmpty(g)) && (
               <p className="text-center text-xs text-[#64748B]">
-                Preencha série, turma, período e ao menos um tema da turma atual para adicionar outra.
+                Preencha ano, turma, período e ao menos um tema da turma atual para adicionar outra.
               </p>
             )}
 
