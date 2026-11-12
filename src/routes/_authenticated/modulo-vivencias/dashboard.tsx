@@ -451,7 +451,7 @@ function VivenciasDashboard() {
               Quantidade de turmas que pediram cada tema.
             </p>
           </CardHeader>
-          <RankingBarChart data={byTema} unidade="Turmas" fill="oklch(0.6 0.13 160)" />
+          <RankingBarChart data={byTema} unidade="Turmas" />
         </Card>
 
         {byPalestra.length > 0 && byPeriodo.length > 0 && (
@@ -461,7 +461,7 @@ function VivenciasDashboard() {
                 <FileText className="h-4 w-4 text-emerald-600" /> Palestras solicitadas
               </CardTitle>
             </CardHeader>
-            <RankingBarChart data={byPalestra} unidade="Palestras" fill="oklch(0.55 0.12 145)" />
+            <RankingBarChart data={byPalestra} unidade="Palestras" corInicial={4} />
           </Card>
         )}
       </div>
@@ -500,7 +500,30 @@ function SingleLineTick({ x, y, payload }: { x?: number; y?: number; payload?: {
   );
 }
 
-function RankingBarChart({ data, unidade, fill }: { data: RankingItem[]; unidade: string; fill: string }) {
+const RANKING_COLORS = [
+  "oklch(0.55 0.14 160)",
+  "oklch(0.62 0.13 200)",
+  "oklch(0.78 0.15 75)",
+  "oklch(0.58 0.16 30)",
+  "oklch(0.5 0.1 280)",
+  "oklch(0.62 0.15 130)",
+  "oklch(0.48 0.12 320)",
+  "oklch(0.42 0.14 250)",
+  "oklch(0.65 0.15 100)",
+  "oklch(0.55 0.22 25)",
+  "oklch(0.5 0.08 200)",
+  "oklch(0.45 0.08 80)",
+];
+
+function RankingBarChart({
+  data,
+  unidade,
+  corInicial = 0,
+}: {
+  data: RankingItem[];
+  unidade: string;
+  corInicial?: number;
+}) {
   if (data.length === 0) {
     return (
       <CardContent className="h-72">
@@ -530,7 +553,10 @@ function RankingBarChart({ data, unidade, fill }: { data: RankingItem[]; unidade
             cursor={{ fill: "oklch(0.96 0.02 160)" }}
             formatter={(_value, _name, item) => [(item.payload as RankingItem).rotulo, unidade]}
           />
-          <Bar dataKey="value" fill={fill} radius={[0, 6, 6, 0]} maxBarSize={22}>
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={22}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={RANKING_COLORS[(corInicial + i) % RANKING_COLORS.length]} />
+            ))}
             <LabelList dataKey="rotulo" position="right" className="fill-[#0F172A] text-[11px] font-semibold" />
           </Bar>
         </BarChart>
